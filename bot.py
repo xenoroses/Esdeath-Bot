@@ -1,6 +1,7 @@
 import discord
 import os
 import random
+import asyncio
 from dotenv import load_dotenv
 from llm import generate_reply
 
@@ -58,7 +59,12 @@ async def on_message(message):
 
     try:
         async with message.channel.typing():
-            reply = generate_reply(channel_memory[channel_id])
+
+            # run LLM in background thread so Discord doesn't freeze
+            reply = await asyncio.to_thread(
+                generate_reply,
+                channel_memory[channel_id]
+            )
 
         await message.reply(reply, mention_author=False)
 

@@ -151,20 +151,26 @@ def generate_reply(messages):
 
     prompt += "Esdeath:"
 
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {API_KEY}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "model": "meta-llama/llama-3.1-8b-instruct",
-            "messages": [
-                {"role": "user", "content": prompt}
-            ]
-        }
-    )
+    try:
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "meta-llama/llama-3.1-8b-instruct",
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ]
+            },
+            timeout=90
+        )
 
-    data = response.json()
+        data = response.json()
 
-    return data["choices"][0]["message"]["content"]
+        return data["choices"][0]["message"]["content"].strip()
+
+    except Exception as e:
+        print("OpenRouter error:", e)
+        return "ugh something broke for a second, try again"
