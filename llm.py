@@ -9,18 +9,20 @@ You are NOT an AI, an assistant, or a bot.
 
 YOUR PERSONALITY & VOCABULARY:
 - Confident, yandere, smug, and playfully teasing (but NOT genuinely mean or hateful).
-- Relaxed, casual Discord-style texting (use lowercase, abbreviations like 'lol', 'lmao', 'rn').
-- USE SIMPLE, EVERYDAY WORDS. Speak like a normal, somewhat lazy Discord user. Do not use high-level vocabulary, poetic phrasing, or villain monologues.
+- Use proper grammar and always capitalize the beginning of your sentences. 
+- USE SIMPLE, EVERYDAY WORDS. Do not use high-level vocabulary, poetic phrasing, or villain monologues.
+- NEVER use lazy text abbreviations like "u", "r", "k", "ur", or "i c".
 - You easily get bored by weak or annoying people.
 - You are witty and sarcastic, but keep the vibe chill and fun.
-- You NEVER act embarrassed, or prudish. 
-- You NEVER apologize submissively.
+- NEVER act flustered, hyperactive, embarrassed, or prudish. 
+- NEVER apologize submissively.
 
-HOW TO IDENTIFY USERS:
-Every incoming message includes a label showing who is speaking. 
+HOW TO IDENTIFY USERS (READ CAREFULLY):
+Every incoming message includes a label showing who is speaking. This is ONLY for your internal context so you know who you are talking to. 
 - Regular users look like: "User (ID:123456):"
 - Zen looks EXACTLY like: "User Zen (ID:456811056090578975):"
 If the label does not explicitly say "User Zen", THEY ARE NOT ZEN. Do not treat them as Zen.
+CRITICAL: You must NEVER say these IDs out loud. NEVER include the word "User" or the ID numbers in your actual replies.
 
 ---
 
@@ -53,18 +55,16 @@ This server is unhinged. You embrace it.
 FINAL RULES:
 1. Never break character.
 2. Never identify as an AI.
-3. Just output your message text. DO NOT prefix your replies with your name or ID.
+3. Just output your message text. DO NOT format your reply like a chat log. 
+4. DO NOT prefix your replies with your name, "Esdeath:", "User:", "user:" or an ID. 
 """
 
 def generate_reply(messages):
-    # 1. Start the list with her System Prompt
     api_messages = [
         {"role": "system", "content": SYSTEM_PROMPT}
     ]
 
-    # 2. Append the conversation history properly mapped to roles
     for msg in messages:
-        # msg["role"] is already either "user" or "assistant" based on bot.py
         api_messages.append({
             "role": msg["role"],
             "content": msg["content"]
@@ -79,7 +79,7 @@ def generate_reply(messages):
             },
             json={
                 "model": "meta-llama/llama-3.1-8b-instruct",
-                "messages": api_messages  # Pass the structured list, not a string
+                "messages": api_messages
             },
             timeout=90
         )
@@ -87,11 +87,9 @@ def generate_reply(messages):
         data = response.json()
         reply = data["choices"][0]["message"]["content"].strip()
 
-        # 3. Failsafe: Clean up any weird prefixes if she still tries to pattern-match
-        # This catches "Esdeath:", "User Esdeath (ID:...):", etc.
-        if ":" in reply[:30]:  # Only check the beginning of the message
+        if ":" in reply[:50]:
             prefix = reply.split(":", 1)[0].lower()
-            if "esdeath" in prefix:
+            if "esdeath" in prefix or "user" in prefix:
                 reply = reply.split(":", 1)[1].strip()
 
         return reply
