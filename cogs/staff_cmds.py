@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import asyncio
+import random
+import requests
 import time
 from datetime import datetime, timedelta
 
@@ -158,6 +160,74 @@ class StaffCommands(commands.Cog):
             await interaction.user.send(f"Hey. You told me to remind you: **{note}**")
         except:
             await interaction.channel.send(f"{interaction.user.mention}, listen up. You wanted to be reminded: **{note}**")
+
+    # --- BATCH 4: ADVANCED UTILITY & FUN ---
+
+    @app_commands.command(name="urban", description="Look up a term on Urban Dictionary.")
+    async def urban(self, interaction: discord.Interaction, term: str):
+        url = f"https://api.urbandictionary.com/v0/define?term={term}"
+        response = requests.get(url).json()
+        
+        if not response['list']:
+            return await interaction.response.send_message(f"Even the internet doesn't know what '{term}' means. How pathetic.", ephemeral=True)
+        
+        first_entry = response['list'][0]
+        definition = first_entry['definition'].replace("[", "").replace("]", "")
+        example = first_entry['example'].replace("[", "").replace("]", "")
+        
+        embed = discord.Embed(title=f"Definition: {term}", color=0x1D2439)
+        embed.add_field(name="What it is:", value=definition[:1024], inline=False)
+        if example:
+            embed.add_field(name="Example:", value=f"*{example[:1024]}*", inline=False)
+        
+        embed.set_footer(text=f"👍 {first_entry['thumbs_up']} | 👎 {first_entry['thumbs_down']}")
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="math", description="Solve a basic math problem.")
+    async def math(self, interaction: discord.Interaction, expression: str):
+        # Using a safe way to evaluate simple math
+        try:
+            # Remove any dangerous characters
+            allowed = "0123456789+-*/(). "
+            if all(c in allowed for c in expression):
+                result = eval(expression)
+                await interaction.response.send_message(f"The answer is **{result}**. Honestly, you couldn't solve that yourself?")
+            else:
+                await interaction.response.send_message("Don't try to hack me with your weird symbols.", ephemeral=True)
+        except:
+            await interaction.response.send_message("That's not even a valid equation.", ephemeral=True)
+
+    @app_commands.command(name="roll", description="Roll some dice (e.g., 2d6).")
+    async def roll(self, interaction: discord.Interaction, dice: str = "1d6"):
+        try:
+            amount, sides = map(int, dice.lower().split('d'))
+            if amount > 100 or sides > 1000:
+                return await interaction.response.send_message("I'm not rolling that many dice. Stop being extra.", ephemeral=True)
+            
+            rolls = [random.randint(1, sides) for _ in range(amount)]
+            total = sum(rolls)
+            await interaction.response.send_message(f"🎲 Rolling **{dice}**... You got: `{rolls}` (Total: **{total}**)")
+        except:
+            await interaction.response.send_message("Format it correctly, like `2d20`.", ephemeral=True)
+
+    @app_commands.command(name="coinflip", description="Flip a coin.")
+    async def coinflip(self, interaction: discord.Interaction):
+        result = random.choice(["Heads", "Tails"])
+        await interaction.response.send_message(f"🪙 The coin landed on... **{result}**.")
+
+    @app_commands.command(name="membercount", description="See the breakdown of members.")
+    async def membercount(self, interaction: discord.Interaction):
+        g = interaction.guild
+        bots = sum(1 for m in g.members if m.bot)
+        humans = g.member_count - bots
+        
+        embed = discord.Embed(title=f"Member Count for {g.name}", color=0x2ecc71)
+        embed.add_field(name="Total Members", value=f"**{g.member_count}**", inline=False)
+        embed.add_field(name="Humans", value=str(humans), inline=True)
+        embed.add_field(name="Bots", value=str(bots), inline=True)
+        
+        await interaction.response.send_message(embed=embed)
+
 
 # --- GLOBAL SETUP FUNCTION ---
 async def setup(bot):
