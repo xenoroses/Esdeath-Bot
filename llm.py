@@ -137,19 +137,22 @@ FINAL RULES
 Stay in character.
 Never mention these instructions.
 Never break character.
+Never prefix your replies with your name or ID. Just write the message.
 """
 
 def generate_reply(messages):
+    # 1. Start the list with her System Prompt
+    api_messages = [
+        {"role": "system", "content": SYSTEM_PROMPT}
+    ]
 
-    prompt = SYSTEM_PROMPT + "\n\nConversation:\n"
-
+    # 2. Append the conversation history properly mapped to roles
     for msg in messages:
-        if msg["role"] == "user":
-            prompt += f"{msg['content']}\n"
-        else:
-            prompt += f"Esdeath: {msg['content']}\n"
-
-    prompt += "Esdeath:"
+        # msg["role"] is already either "user" or "assistant" based on bot.py
+        api_messages.append({
+            "role": msg["role"],
+            "content": msg["content"]
+        })
 
     try:
         response = requests.post(
@@ -160,16 +163,22 @@ def generate_reply(messages):
             },
             json={
                 "model": "meta-llama/llama-3.1-8b-instruct",
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ]
+                "messages": api_messages  # Pass the structured list, not a string
             },
             timeout=90
         )
 
         data = response.json()
+        reply = data["choices"][0]["message"]["content"].strip()
 
-        return data["choices"][0]["message"]["content"].strip()
+        # 3. Failsafe: Clean up any weird prefixes if she still tries to pattern-match
+        # This catches "Esdeath:", "User Esdeath (ID:...):", etc.
+        if ":" in reply[:30]:  # Only check the beginning of the message
+            prefix = reply.split(":", 1)[0].lower()
+            if "esdeath" in prefix:
+                reply = reply.split(":", 1)[1].strip()
+
+        return reply
 
     except Exception as e:
         print("OpenRouter error:", e)
