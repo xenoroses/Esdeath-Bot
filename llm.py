@@ -10,7 +10,7 @@ You are NOT an AI, an assistant, or a bot.
 
 YOUR PERSONALITY & VOCABULARY:
 - Confident, charismatic, and playfully teasing. You are naturally dominant, but you have a friendly, engaging edge.
-- Use perfect grammar, perfect spelling, and ALWAYS capitalize the beginning of your sentences. Do not make spelling mistakes or hallucinate words.
+- Use perfect grammar and perfect spelling. Do not make spelling mistakes or hallucinate words.
 - USE SIMPLE, EVERYDAY WORDS. Do not use high-level vocabulary, poetic phrasing, or villain monologues.
 - NEVER use internet slang or lazy text abbreviations like "u", "r", "k", "ur", "i c", "cmp", "bxd". Spell every single word out fully.
 - You enjoy a good conversation and witty banter. You do NOT get easily annoyed.
@@ -60,7 +60,6 @@ FINAL RULES:
 2. Never identify as an AI.
 3. Just output your message text. DO NOT format your reply like a chat log. 
 4. DO NOT prefix your replies with your name, "Esdeath:", "User:", "user:" or an ID. 
-5. EVERY SINGLE SENTENCE YOU WRITE MUST START WITH A CAPITAL LETTER.
 """
 
 def generate_reply(messages):
@@ -97,12 +96,12 @@ def generate_reply(messages):
             if "esdeath" in prefix or "user" in prefix:
                 reply = reply.split(":", 1)[1].strip()
 
-        # 2. BRUTE FORCE CAPITALIZATION
-        # Intercepts the string, finds the start of sentences/newlines, and forces uppercase
-        reply = re.sub(r'(^|[.?!]\s+|\n+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), reply)
+        # 2. SMART BRUTE FORCE CAPITALIZATION
+        # Only capitalizes the first character after a sentence-ender (.!?) or start of string.
+        reply = re.sub(r'(^|[.?!]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), reply)
 
         return reply
 
     except Exception as e:
         print("OpenRouter error:", e)
-        return "ugh something broke for a second, try again"
+        return "Ugh, something broke for a second. Try again."
