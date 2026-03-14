@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import asyncio
 import time
 from datetime import datetime, timedelta
 
@@ -116,6 +117,48 @@ class StaffCommands(commands.Cog):
         else:
             await interaction.response.send_message(f"Slowmode set to {seconds} seconds. Think before you speak.")
 
-# --- THIS FUNCTION MUST BE AT THE VERY BOTTOM OUTSIDE THE CLASS ---
+    # --- BATCH 3: INTERACTIVE TOOLS ---
+
+    @app_commands.command(name="poll", description="Create a professional poll.")
+    async def poll(self, interaction: discord.Interaction, question: str, options: str):
+        option_list = [opt.strip() for opt in options.split(",")]
+        if len(option_list) > 10:
+            return await interaction.response.send_message("I'm not counting more than 10 options. Keep it simple.", ephemeral=True)
+        
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+        description = ""
+        for i, option in enumerate(option_list):
+            description += f"{emojis[i]} {option}\n\n"
+            
+        embed = discord.Embed(title=f"📊 {question}", description=description, color=0x3498db)
+        embed.set_footer(text=f"Poll started by {interaction.user.display_name}")
+        
+        await interaction.response.send_message(embed=embed)
+        poll_msg = await interaction.original_response()
+        for i in range(len(option_list)):
+            await poll_msg.add_reaction(emojis[i])
+
+    @app_commands.command(name="embed", description="Make Esdeath post a custom colored box.")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def embed(self, interaction: discord.Interaction, title: str, description: str, color: str = "blue"):
+        color_map = {"blue": 0x3498db, "red": 0xe74c3c, "green": 0x2ecc71, "gold": 0xf1c40f}
+        hex_color = color_map.get(color.lower(), 0x3498db)
+        
+        custom_embed = discord.Embed(title=title, description=description, color=hex_color)
+        custom_embed.set_footer(text=f"Official Notice from {interaction.guild.name}")
+        
+        await interaction.channel.send(embed=custom_embed)
+        await interaction.response.send_message("Embed deployed.", ephemeral=True)
+
+    @app_commands.command(name="remind", description="Set a personal reminder.")
+    async def remind(self, interaction: discord.Interaction, minutes: int, note: str):
+        await interaction.response.send_message(f"Fine. I'll remind you about '{note}' in {minutes} minutes.", ephemeral=True)
+        await asyncio.sleep(minutes * 60)
+        try:
+            await interaction.user.send(f"Hey. You told me to remind you: **{note}**")
+        except:
+            await interaction.channel.send(f"{interaction.user.mention}, listen up. You wanted to be reminded: **{note}**")
+
+# --- GLOBAL SETUP FUNCTION ---
 async def setup(bot):
     await bot.add_cog(StaffCommands(bot))
