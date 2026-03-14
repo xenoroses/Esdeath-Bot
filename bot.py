@@ -5,6 +5,23 @@ import asyncio
 from dotenv import load_dotenv
 from llm import generate_reply
 
+from flask import Flask
+from threading import Thread
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Esdeath is alive"
+
+def run():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
 load_dotenv()
 
 TOKEN = os.getenv("dc_token")
@@ -44,7 +61,6 @@ async def on_message(message):
     if channel_id not in channel_memory:
         channel_memory[channel_id] = []
 
-    # Stronger identity format
     if message.author.id == 456811056090578975:
         user_message = f"User Zen (ID:{message.author.id}): {message.content}"
     else:
@@ -60,7 +76,6 @@ async def on_message(message):
     try:
         async with message.channel.typing():
 
-            # run LLM in background thread so Discord doesn't freeze
             reply = await asyncio.to_thread(
                 generate_reply,
                 channel_memory[channel_id]
@@ -78,4 +93,5 @@ async def on_message(message):
         await message.reply("something broke lol", mention_author=False)
 
 
+keep_alive()
 client.run(TOKEN)
