@@ -9,7 +9,8 @@ class StaffCommands(commands.Cog):
         self.bot = bot
         self.start_time = datetime.utcnow()
 
-    # --- SERVER INFO (From previous turn) ---
+    # --- BATCH 1: IDENTITY & INFO ---
+
     @app_commands.command(name="serverinfo", description="Detailed statistics for this server.")
     async def serverinfo(self, interaction: discord.Interaction):
         g = interaction.guild
@@ -23,7 +24,6 @@ class StaffCommands(commands.Cog):
         embed.set_footer(text=f"ID: {g.id} | Created: {g.created_at.strftime('%d/%m/%Y')}")
         await interaction.response.send_message(embed=embed)
 
-    # --- USER INFO (From previous turn) ---
     @app_commands.command(name="userinfo", description="Detailed info about a member.")
     async def userinfo(self, interaction: discord.Interaction, member: discord.Member = None):
         user = member or interaction.user
@@ -35,8 +35,6 @@ class StaffCommands(commands.Cog):
         embed.add_field(name="Joined Server", value=user.joined_at.strftime("%B %d, %Y") if user.joined_at else "N/A", inline=True)
         embed.set_footer(text=f"ID: {user.id}")
         await interaction.response.send_message(embed=embed)
-
-    # --- BATCH 1: NEW HIGH-LEVEL COMMANDS ---
 
     @app_commands.command(name="avatar", description="View a member's avatar.")
     async def avatar(self, interaction: discord.Interaction, member: discord.Member = None):
@@ -61,13 +59,11 @@ class StaffCommands(commands.Cog):
     @app_commands.command(name="echo", description="Make Esdeath say something.")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def echo(self, interaction: discord.Interaction, message: str):
-        # We send the message and then respond with a hidden "Done" message
         await interaction.channel.send(message)
         await interaction.response.send_message("Message delivered.", ephemeral=True)
 
     @app_commands.command(name="fancy", description="Convert text into 𝒻𝒶𝓃𝒸𝓎 𝓈𝒸𝓇𝒾𝓅𝓉.")
     async def fancy(self, interaction: discord.Interaction, text: str):
-        # Dictionary for fancy cursive conversion
         mapping = str.maketrans(
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
             "𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏𝒜𝐵𝒞𝒟𝐸𝐹𝒢𝐻𝐼𝒥𝒦𝐿𝑀𝒩𝒪𝒫𝒬𝑅𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵"
@@ -75,5 +71,51 @@ class StaffCommands(commands.Cog):
         fancy_text = text.translate(mapping)
         await interaction.response.send_message(fancy_text)
 
+    # --- BATCH 2: MODERATION & DISCIPLINE ---
+
+    @app_commands.command(name="kick", description="Remove a weakling from the server.")
+    @app_commands.checks.has_permissions(kick_members=True)
+    async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided."):
+        if member.top_role >= interaction.user.top_role:
+            return await interaction.response.send_message("You don't have the authority to remove someone stronger than you.", ephemeral=True)
+        await member.kick(reason=reason)
+        await interaction.response.send_message(f"**{member.display_name}** has been removed. I have no use for the weak.")
+
+    @app_commands.command(name="ban", description="Permanently exile a user.")
+    @app_commands.checks.has_permissions(ban_members=True)
+    async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided."):
+        if member.top_role >= interaction.user.top_role:
+            return await interaction.response.send_message("I cannot exile someone of that rank.", ephemeral=True)
+        await member.ban(reason=reason)
+        await interaction.response.send_message(f"**{member.display_name}** has been exiled. Don't bother coming back.")
+
+    @app_commands.command(name="timeout", description="Silence a user for a specific duration.")
+    @app_commands.checks.has_permissions(moderate_members=True)
+    async def timeout(self, interaction: discord.Interaction, member: discord.Member, minutes: int, reason: str = "No reason provided."):
+        if member.top_role >= interaction.user.top_role:
+            return await interaction.response.send_message("I won't silence my superiors.", ephemeral=True)
+        duration = timedelta(minutes=minutes)
+        await member.timeout(duration, reason=reason)
+        await interaction.response.send_message(f"**{member.display_name}** has been silenced for {minutes} minutes. Reflect on your failure.")
+
+    @app_commands.command(name="purge", description="Delete a specific amount of messages.")
+    @app_commands.checks.has_permissions(manage_messages=True)
+    async def purge(self, interaction: discord.Interaction, amount: int):
+        if amount > 100:
+            return await interaction.response.send_message("I'm not cleaning up more than 100 messages at once. Do it yourself.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        deleted = await interaction.channel.purge(limit=amount)
+        await interaction.followup.send(f"I've vaporized {len(deleted)} messages. The chat is clean now.")
+
+    @app_commands.command(name="slowmode", description="Set the channel's slowmode delay.")
+    @app_commands.checks.has_permissions(manage_channels=True)
+    async def slowmode(self, interaction: discord.Interaction, seconds: int):
+        await interaction.channel.edit(slowmode_delay=seconds)
+        if seconds == 0:
+            await interaction.response.send_message("Slowmode has been disabled. Talk as much as you want.")
+        else:
+            await interaction.response.send_message(f"Slowmode set to {seconds} seconds. Think before you speak.")
+
+# --- THIS FUNCTION MUST BE AT THE VERY BOTTOM OUTSIDE THE CLASS ---
 async def setup(bot):
     await bot.add_cog(StaffCommands(bot))
