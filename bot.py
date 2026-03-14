@@ -38,7 +38,11 @@ redis = Redis(
 intents = discord.Intents.default()
 intents.message_content = True
 
-client = discord.Client(intents=intents)
+client = discord.Client(
+    intents=intents,
+    status=discord.Status.idle,
+    activity=discord.Activity(type=discord.ActivityType.watching, name="Zen")
+)
 
 MAX_HISTORY = 12
 
@@ -50,12 +54,6 @@ channel_warnings = {}
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user}")
-    
-    # Set status to Idle (moon icon) and activity to "Watching Zen"
-    await client.change_presence(
-        status=discord.Status.idle,
-        activity=discord.Activity(type=discord.ActivityType.watching, name="Zen")
-    )
 
 @client.event
 async def on_message(message):
