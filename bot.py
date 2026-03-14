@@ -3,6 +3,7 @@ import os
 import random
 import asyncio
 import json
+import time
 from dotenv import load_dotenv
 from llm import generate_reply
 from upstash_redis.asyncio import Redis
@@ -41,9 +42,16 @@ client = discord.Client(intents=intents)
 
 MAX_HISTORY = 12
 
+# Rate Limiting Trackers
+COOLDOWN_TIME = 8 # Seconds users have to wait between bot pings
+channel_cooldowns = {}
+channel_warnings = {}
+
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user}")
+    # Set her custom Discord status!
+    await client.change_presence(activity=discord.Game(name="with Zen's feelings"))
 
 @client.event
 async def on_message(message):
@@ -60,8 +68,29 @@ async def on_message(message):
         return
 
     channel_id = str(message.channel.id)
+    current_time = time.time()
 
-    # 1. PULL MEMORY FROM THE CLOUD
+    # --- RATE LIMITER & SASSY WARNINGS ---
+    last_msg_time = channel_cooldowns.get(channel_id, 0)
+    if current_time - last_msg_time < COOLDOWN_TIME:
+        # If they are spamming, check if we already warned them recently
+        last_warn_time = channel_warnings.get(channel_id, 0)
+        if current_time - last_warn_time > COOLDOWN_TIME:
+            warnings = [
+                "god, you're needy. give me a second.",
+                "stop spamming me, i'm reading.",
+                "take a breath, try-hard. i'll reply when i want to.",
+                "do you ever shut up? wait a sec."
+            ]
+            await message.reply(random.choice(warnings), mention_author=False)
+            channel_warnings[channel_id] = current_time
+        return # Drop the message so it doesn't go to the LLM
+
+    # Update the cooldown timer since we are about to process a valid message
+    channel_cooldowns[channel_id] = current_time
+
+
+    # --- PULL MEMORY FROM THE CLOUD ---
     try:
         history_data = await redis.get(f"memory:{channel_id}")
         if history_data:
@@ -75,11 +104,18 @@ async def on_message(message):
         print("Redis get error:", e)
         channel_memory = []
 
-    # 2. FORMAT THE MESSAGE
+
+    # --- TOKEN SAVER: TRUNCATE LONG MESSAGES ---
+    safe_content = message.content
+    if len(safe_content) > 300:
+        safe_content = safe_content[:300] + "... [message too long, ignoring the rest]"
+
+
+    # --- FORMAT THE MESSAGE ---
     if message.author.id == 456811056090578975:
-        user_message = f"User Zen (ID:{message.author.id}): {message.content}"
+        user_message = f"User Zen (ID:{message.author.id}): {safe_content}"
     else:
-        user_message = f"User (ID:{message.author.id}): {message.content}"
+        user_message = f"User (ID:{message.author.id}): {safe_content}"
 
     channel_memory.append({
         "role": "user",
@@ -103,7 +139,7 @@ async def on_message(message):
             "content": reply
         })
         
-        # 3. SAVE MEMORY BACK TO THE CLOUD
+        # --- SAVE MEMORY BACK TO THE CLOUD ---
         try:
             await redis.set(f"memory:{channel_id}", json.dumps(channel_memory))
         except Exception as e:
