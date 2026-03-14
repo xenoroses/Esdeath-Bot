@@ -50,8 +50,12 @@ channel_warnings = {}
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user}")
-    # Set her custom Discord status!
-    await client.change_presence(activity=discord.Game(name="with Zen's feelings"))
+    
+    # Set status to Idle (moon icon) and activity to "Watching Zen"
+    await client.change_presence(
+        status=discord.Status.idle,
+        activity=discord.Activity(type=discord.ActivityType.watching, name="Zen")
+    )
 
 @client.event
 async def on_message(message):
