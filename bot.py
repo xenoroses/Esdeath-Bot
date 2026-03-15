@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from upstash_redis.asyncio import Redis
 from flask import Flask
 from threading import Thread
+import asyncio
 
 # Web Server for UptimeRobot
 app = Flask(__name__)
@@ -14,7 +15,6 @@ def home():
     return "Esdeath is alive"
 
 def run():
-    # Render uses the PORT environment variable
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
@@ -37,22 +37,26 @@ class EsdeathBot(commands.Bot):
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="Zen")
         )
-        # Prevent hanging on startup by setting to None first
         self.redis = None
 
     async def setup_hook(self):
         print("--- Starting Setup Hook ---")
         
-        # 1. Initialize Redis
+        # 1. Initialize Redis (Non-blocking with timeout)
+        print("Attempting Redis connection...")
         try:
-            print("Connecting to Redis...")
-            self.redis = Redis(
-                url=os.getenv("UPSTASH_REDIS_REST_URL"),
-                token=os.getenv("UPSTASH_REDIS_REST_TOKEN")
-            )
-            print("Redis Connection initialized.")
+            url = os.getenv("UPSTASH_REDIS_REST_URL")
+            token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
+            
+            if url and token:
+                self.redis = Redis(url=url, token=token)
+                # Quick ping to see if Cloudflare blocks us
+                await asyncio.wait_for(self.redis.ping(), timeout=5.0)
+                print("Redis Connected successfully.")
+            else:
+                print("REDIS ERROR: Missing Environment Variables.")
         except Exception as e:
-            print(f"Redis Connection Failed: {e}")
+            print(f"REDIS WARNING: Connection failed or timed out. AI memory disabled. Error: {e}")
 
         # 2. Load Cogs
         extensions = ["cogs.staff_cmds", "cogs.ai_chat"]
@@ -64,27 +68,22 @@ class EsdeathBot(commands.Bot):
                 print(f"CRITICAL: Failed to load extension {extension} -> {e}")
 
         # 3. Sync slash commands
-        print("Syncing Slash Commands (this can take a moment)...")
+        print("Syncing Slash Commands...")
         try:
             await self.tree.sync()
-            print("Systems Online. Slash Commands synced successfully.")
+            print("Slash Commands synced.")
         except Exception as e:
             print(f"Sync Error: {e}")
 
     async def on_ready(self):
-        print(f"CONNECTED: Logged in as {self.user} (ID: {self.user.id})")
-        print(f"Active in {len(self.guilds)} servers.")
+        print(f"CONNECTED: Logged in as {self.user}")
         print("--- Esdeath is fully operational ---")
 
-# Initialize and Run
 bot = EsdeathBot()
-
-# Start the keep_alive ping server
 keep_alive()
 
-# Start the bot
 if TOKEN:
-    print("Bot is starting...")
+    print("Initiating Discord handshake...")
     bot.run(TOKEN)
 else:
-    print("ERROR: No Discord token found in Environment Variables!")
+    print("ERROR: No Discord token found!")
