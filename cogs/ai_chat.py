@@ -21,32 +21,28 @@ class AIChat(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
-        # --- DYNAMIC CHANNEL LOCK CHECK (DIAGNOSTIC MODE) ---
+        # --- DYNAMIC CHANNEL LOCK CHECK (FORCED LOGS) ---
         if getattr(self.bot, 'redis', None):
             try:
                 locked_channel = await self.bot.redis.get(f"chat_channel:{message.guild.id}")
-                
                 if locked_channel:
-                    # 1. Force everything to a string, whether it's bytes, int, or dict
-                    raw_val = locked_channel.decode('utf-8') if isinstance(locked_channel, bytes) else str(locked_channel)
+                    locked_str = str(locked_channel)
+                    # Strip out absolutely everything except numbers
+                    locked_id = ''.join(filter(str.isdigit, locked_str))
                     
-                    # 2. Extract ONLY numbers (stripping hidden JSON quotes or brackets)
-                    locked_id_str = ''.join(filter(str.isdigit, raw_val))
+                    curr_id = str(message.channel.id)
+                    parent_id = str(getattr(message.channel, 'parent_id', ''))
                     
-                    if locked_id_str:
-                        current_id_str = str(message.channel.id)
-                        # Check if message is in a thread
-                        parent_id_str = str(getattr(message.channel, 'parent_id', ''))
-                        
-                        # DEBUG LOGGING: This prints to your Hugging Face Logs
-                        print(f"[LOCK CHECK] Server: {message.guild.name} | Locked ID: {locked_id_str} | Message ID: {current_id_str} | Parent ID: {parent_id_str}")
-                        
-                        # 3. If we are not in the locked channel (and not in a thread belonging to it), ignore!
-                        if current_id_str != locked_id_str and parent_id_str != locked_id_str:
-                            print(f"[LOCK CHECK] BLOCKING MESSAGE: IDs did not match.")
-                            return
+                    # flush=True forces the log to appear instantly in Hugging Face
+                    print(f"\n[LOCK TEST] Target Locked ID: {locked_id} | Actual Message ID: {curr_id}", flush=True)
+                    
+                    if locked_id and curr_id != locked_id and parent_id != locked_id:
+                        print(f"[LOCK TEST] BLOCKED. Channels do not match.", flush=True)
+                        return
+                    else:
+                        print(f"[LOCK TEST] MATCH. Letting message through.", flush=True)
             except Exception as e:
-                print(f"Channel Lock Check Error: {e}")
+                print(f"Channel Lock Check Error: {e}", flush=True)
 
         # --- THE FIX: Ignore Commands ---
         ctx = await self.bot.get_context(message)
