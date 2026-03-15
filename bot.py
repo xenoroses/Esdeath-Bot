@@ -1,3 +1,18 @@
+import socket
+
+# --- 1. THE NUCLEAR DNS PATCH ---
+# This intercepts all Python requests for 'discord.com' and 
+# immediately provides the IP address, bypassing system DNS entirely.
+original_getaddrinfo = socket.getaddrinfo
+
+def patched_getaddrinfo(*args, **kwargs):
+    if args[0] == "discord.com":
+        # Hardcoded Discord IP (Cloudflare Anycast)
+        return original_getaddrinfo("162.159.138.232", *args[1:], **kwargs)
+    return original_getaddrinfo(*args, **kwargs)
+
+socket.getaddrinfo = patched_getaddrinfo
+
 import discord
 from discord.ext import commands
 import os
@@ -8,45 +23,25 @@ from flask import Flask
 from threading import Thread
 import asyncio
 import sys
-import socket
 import time
 
-# --- 1. AGGRESSIVE NETWORK WARM-UP & DNS BYPASS ---
-def get_discord_connection_info(hostname="discord.com", retries=10):
-    print(f"Pre-flight check: Resolving {hostname}...")
-    
-    # Probing stable IPs to wake up the container's network interface
-    check_hosts = ["8.8.8.8", "google.com"]
-    for host in check_hosts:
-        for i in range(2):
-            try:
-                socket.gethostbyname(host)
-                print(f"Network Check: {host} is reachable.")
-                break
-            except socket.gaierror:
-                print(f"Waiting for network... ({host} attempt {i+1})")
-                time.sleep(2)
-
-    # Attempt dynamic resolution for discord.com
-    for i in range(retries):
+# --- 2. NETWORK WARM-UP ---
+def warmup_network():
+    print("Pre-flight check: Waking up container network...")
+    # Probing a stable IP just to ensure the interface is active
+    for i in range(3):
         try:
-            ip = socket.gethostbyname(hostname)
-            print(f"SUCCESS: {hostname} resolved to {ip}")
-            return ip
+            socket.gethostbyname("8.8.8.8")
+            print("Network Check: 8.8.8.8 is reachable.")
+            return True
         except socket.gaierror:
-            print(f"DNS attempt {i+1} failed for {hostname}. Retrying...")
+            print(f"Waiting for network... (attempt {i+1})")
             time.sleep(3)
-    
-    # FINAL FALLBACK: Hardcoded Discord API IP (Cloudflare/Anycast)
-    # This bypasses the Hugging Face DNS failure entirely
-    fallback_ip = "162.159.138.232"
-    print(f"CRITICAL: DNS Resolution failed. Using Hardcoded Fallback IP: {fallback_ip}")
-    return fallback_ip
+    return False
 
-# Execute warmup and get target IP before initialization
-TARGET_IP = get_discord_connection_info()
+warmup_network()
 
-# --- 2. WEB SERVER SETUP (For Hugging Face Keep-Alive) ---
+# --- 3. WEB SERVER SETUP (For Hugging Face Keep-Alive) ---
 app = Flask(__name__)
 
 @app.route("/")
@@ -54,6 +49,7 @@ def home():
     return "Esdeath is alive and guarding Hugging Face."
 
 def run_flask():
+    # HF Spaces standard port
     port = int(os.environ.get("PORT", 7860))
     app.run(host="0.0.0.0", port=port)
 
@@ -63,7 +59,7 @@ def keep_alive():
     t.daemon = True 
     t.start()
 
-# --- 3. BOT INITIALIZATION ---
+# --- 4. BOT INITIALIZATION ---
 load_dotenv()
 TOKEN = os.getenv("dc_token")
 
@@ -136,12 +132,12 @@ class EsdeathBot(commands.Bot):
         else:
             print(f"Unhandled Command Error: {error}")
 
-# --- 4. STARTUP LOGIC ---
+# --- 5. STARTUP LOGIC ---
 if __name__ == "__main__":
     keep_alive()
     
     if TOKEN:
-        print(f"Initiating Discord Login (Targeting IP: {TARGET_IP})...")
+        print("Initiating Discord Login (DNS Bypassed)...")
         bot = EsdeathBot()
         try:
             bot.run(TOKEN)
