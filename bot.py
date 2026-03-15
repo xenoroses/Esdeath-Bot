@@ -127,8 +127,43 @@ class EsdeathBot(commands.Bot):
     async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(error, commands.CommandNotFound):
             return
+            
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("You forgot an argument.", ephemeral=True)
+            missing_param = error.param.name
+            command_name = ctx.command.qualified_name
+            prefix = ctx.clean_prefix
+            
+            # 1. Base string (e.g., "es warn ")
+            base_str = f"{prefix}{command_name} "
+            current_len = len(base_str)
+            
+            signature_parts = []
+            target_start_idx = 0
+            target_length = 0
+            
+            # 2. Reconstruct the signature and find the missing param's position
+            for name, param in ctx.command.clean_params.items():
+                # Format required vs optional
+                part = f"<{name}>" if param.required else f"[{name}]"
+                    
+                # If this is the one we missed, lock in its position for the arrows
+                if name == missing_param:
+                    target_start_idx = current_len
+                    target_length = len(part)
+                    
+                signature_parts.append(part)
+                current_len += len(part) + 1 # +1 for the space between arguments
+                
+            full_command_str = base_str + " ".join(signature_parts)
+            
+            # 3. Draw the spaces and the carets
+            carets = (" " * target_start_idx) + ("^" * target_length)
+            
+            # 4. Send the Carl-bot formatted codeblock
+            error_msg = f"```\n{full_command_str}\n{carets}\n{missing_param} is a required argument that is missing.\n```"
+            
+            await ctx.send(error_msg)
+            
         else:
             print(f"Unhandled Command Error: {error}")
 
