@@ -6,22 +6,26 @@ from upstash_redis.asyncio import Redis
 from flask import Flask
 from threading import Thread
 import asyncio
+import sys
 
-# Web Server for UptimeRobot
+# 1. Web Server Setup (To satisfy Render's port binding)
 app = Flask(__name__)
 
 @app.route("/")
 def home():
     return "Esdeath is alive"
 
-def run():
+def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
 def keep_alive():
-    t = Thread(target=run)
+    print("Starting Web Server Thread...")
+    t = Thread(target=run_flask)
+    t.daemon = True  # CRITICAL FIX: This prevents Flask from hanging the main bot process
     t.start()
 
+# 2. Bot Initialization
 load_dotenv()
 TOKEN = os.getenv("dc_token")
 
@@ -40,9 +44,9 @@ class EsdeathBot(commands.Bot):
         self.redis = None
 
     async def setup_hook(self):
-        print("--- Starting Setup Hook ---")
+        print("--- SETUP HOOK STARTING ---")
         
-        # 1. Initialize Redis (Non-blocking with timeout)
+        # 1. Connect to Redis (Non-blocking with timeout)
         print("Attempting Redis connection...")
         try:
             url = os.getenv("UPSTASH_REDIS_REST_URL")
@@ -60,30 +64,33 @@ class EsdeathBot(commands.Bot):
 
         # 2. Load Cogs
         extensions = ["cogs.staff_cmds", "cogs.ai_chat"]
-        for extension in extensions:
+        for ext in extensions:
             try:
-                await self.load_extension(extension)
-                print(f"Successfully loaded extension: {extension}")
+                await self.load_extension(ext)
+                print(f"Successfully loaded {ext}")
             except Exception as e:
-                print(f"CRITICAL: Failed to load extension {extension} -> {e}")
+                print(f"CRITICAL: Failed to load {ext} -> {e}")
 
-        # 3. Sync slash commands
+        # 3. Sync Slash Commands
         print("Syncing Slash Commands...")
         try:
             await self.tree.sync()
-            print("Slash Commands synced.")
+            print("--- SLASH COMMANDS SYNCED ---")
         except Exception as e:
             print(f"Sync Error: {e}")
 
     async def on_ready(self):
-        print(f"CONNECTED: Logged in as {self.user}")
-        print("--- Esdeath is fully operational ---")
+        print(f"SUCCESS: {self.user} is online and fully operational.")
 
-bot = EsdeathBot()
-keep_alive()
-
-if TOKEN:
-    print("Initiating Discord handshake...")
-    bot.run(TOKEN)
-else:
-    print("ERROR: No Discord token found!")
+# 3. Startup Logic
+if __name__ == "__main__":
+    # Start the web server first so Render sees the open port immediately
+    keep_alive()
+    
+    if TOKEN:
+        bot = EsdeathBot()
+        print("Initiating Discord Login...")
+        bot.run(TOKEN)
+    else:
+        print("FATAL ERROR: dc_token missing from environment variables!")
+        sys.exit(1)
