@@ -616,11 +616,13 @@ class StaffCommands(commands.Cog):
     @commands.hybrid_command(name="setchat", description="Lock Esdeath's AI responses to a specific channel.")
     @commands.has_permissions(administrator=True)
     async def setchat(self, ctx: commands.Context, channel: discord.TextChannel = None):
-        if not self.bot.redis:
+        if not getattr(self.bot, 'redis', None):
             return await self._send_error(ctx, "Memory offline. Cannot save channel lock.")
         
         target_channel = channel or ctx.channel
-        await self.bot.redis.set(f"chat_channel:{ctx.guild.id}", target_channel.id)
+        
+        # THE FIX: Wrap target_channel.id in str() so the database doesn't round the massive number
+        await self.bot.redis.set(f"chat_channel:{ctx.guild.id}", str(target_channel.id))
         
         await self._send_success(ctx, f"Neural link locked to {target_channel.mention}. AI chat is restricted to this channel.")
 
