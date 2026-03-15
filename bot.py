@@ -37,19 +37,25 @@ class EsdeathBot(commands.Bot):
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="Zen")
         )
-        
-        # Initialize Redis
-        self.redis = Redis(
-            url=os.getenv("UPSTASH_REDIS_REST_URL"),
-            token=os.getenv("UPSTASH_REDIS_REST_TOKEN")
-        )
+        # Prevent hanging on startup by setting to None first
+        self.redis = None
 
     async def setup_hook(self):
         print("--- Starting Setup Hook ---")
         
-        # Load Cogs with error reporting
+        # 1. Initialize Redis
+        try:
+            print("Connecting to Redis...")
+            self.redis = Redis(
+                url=os.getenv("UPSTASH_REDIS_REST_URL"),
+                token=os.getenv("UPSTASH_REDIS_REST_TOKEN")
+            )
+            print("Redis Connection initialized.")
+        except Exception as e:
+            print(f"Redis Connection Failed: {e}")
+
+        # 2. Load Cogs
         extensions = ["cogs.staff_cmds", "cogs.ai_chat"]
-        
         for extension in extensions:
             try:
                 await self.load_extension(extension)
@@ -57,7 +63,7 @@ class EsdeathBot(commands.Bot):
             except Exception as e:
                 print(f"CRITICAL: Failed to load extension {extension} -> {e}")
 
-        # Sync slash commands
+        # 3. Sync slash commands
         print("Syncing Slash Commands (this can take a moment)...")
         try:
             await self.tree.sync()
@@ -78,6 +84,7 @@ keep_alive()
 
 # Start the bot
 if TOKEN:
+    print("Bot is starting...")
     bot.run(TOKEN)
 else:
     print("ERROR: No Discord token found in Environment Variables!")
