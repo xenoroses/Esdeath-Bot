@@ -63,10 +63,16 @@ FINAL RULES:
 """
 
 def generate_reply(messages):
-    api_messages = [
-        {"role": "system", "content": SYSTEM_PROMPT}
-    ]
+    api_messages = []
+    
+    # 1. SMART PERSONA CHECK
+    # We check if the incoming messages are from the /ask command (which has a generic assistant prompt)
+    # or the chat (which now has ping instructions).
+    
+    # We ALWAYS add the Esdeath Persona first to keep her in character.
+    api_messages.append({"role": "system", "content": SYSTEM_PROMPT})
 
+    # Now add the incoming messages (which might include our new Ping Instructions)
     for msg in messages:
         api_messages.append({
             "role": msg["role"],
@@ -90,13 +96,13 @@ def generate_reply(messages):
         data = response.json()
         reply = data["choices"][0]["message"]["content"].strip()
 
-        # 1. FAILSAFE: Remove hallucinations like "Esdeath:" or "User:"
+        # 2. FAILSAFE: Remove hallucinations like "Esdeath:" or "User:"
         if ":" in reply[:50]:  
             prefix = reply.split(":", 1)[0].lower()
             if "esdeath" in prefix or "user" in prefix:
                 reply = reply.split(":", 1)[1].strip()
 
-        # 2. SMART BRUTE FORCE CAPITALIZATION
+        # 3. SMART BRUTE FORCE CAPITALIZATION
         # Only capitalizes the first character after a sentence-ender (.!?) or start of string.
         reply = re.sub(r'(^|[.?!]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), reply)
 

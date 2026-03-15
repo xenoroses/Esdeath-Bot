@@ -21,6 +21,11 @@ class AIChat(commands.Cog):
         if message.author.bot:
             return
 
+        # --- THE FIX: Ignore Commands ---
+        ctx = await self.bot.get_context(message)
+        if ctx.valid:
+            return 
+
         content = message.content.lower()
         mentioned = self.bot.user in message.mentions
         name_called = content.startswith("esdeath")
@@ -39,11 +44,10 @@ class AIChat(commands.Cog):
             last_warn_time = self.channel_warnings.get(channel_id, 0)
             if current_time - last_warn_time > self.COOLDOWN_TIME:
                 
-                # Professional Yellow System Embed
                 limit_embed = discord.Embed(
                     title="⚠️ Rate Limit Reached",
                     description="There are too many responses right now. Please wait a few seconds and try again.",
-                    color=0xffcc00 # Yellow warning color
+                    color=0xffcc00 
                 )
                 limit_embed.set_footer(text="System: Cooldown Active")
                 
@@ -53,6 +57,13 @@ class AIChat(commands.Cog):
 
         self.channel_cooldowns[channel_id] = current_time
 
+        # --- NEW: CONTEXTUAL MEMBER SCAN ---
+        # Builds a list of people who have recently spoken so the AI can ping them by ID
+        member_list = "Current visible members for pings:\n"
+        async for msg in message.channel.history(limit=15):
+            if not msg.author.bot:
+                member_list += f"- Name: {msg.author.display_name}, ID: {msg.author.id}\n"
+
         # --- MEMORY RETRIEVAL ---
         try:
             history_data = await self.bot.redis.get(f"memory:{channel_id}")
@@ -61,40 +72,54 @@ class AIChat(commands.Cog):
             print(f"Redis get error: {e}")
             channel_memory = []
 
-        # Token saver: Truncate very long messages
-        safe_content = message.content[:300]
+        # --- PING INSTRUCTION INJECTION ---
+        # This instruction is temporary and only used for the current generation
+        ping_prompt = (
+            f"{member_list}\n"
+            "INSTRUCTION: If the user asks you to talk to, ping, or mention someone from the list above, "
+            "you MUST use the format <@USER_ID> (e.g. <@123456789>) in your sentence. "
+            "This will trigger a real blue clickable Discord ping."
+        )
         
-        # User Identification
-        if message.author.id == 456811056090578975:
-            user_message = f"User Zen (ID:{message.author.id}): {safe_content}"
-        else:
-            user_message = f"User (ID:{message.author.id}): {safe_content}"
+        # Merge prompt, history, and current message for the API call
+        processing_memory = [{"role": "system", "content": ping_prompt}] + channel_memory
 
-        channel_memory.append({"role": "user", "content": user_message})
-        channel_memory = channel_memory[-self.MAX_HISTORY:]
+        # User Identification
+        safe_content = message.content[:300]
+        if message.author.id == 456811056090578975:
+            user_label = f"User Zen (ID:{message.author.id})"
+        else:
+            user_label = f"User (ID:{message.author.id})"
+
+        processing_memory.append({"role": "user", "content": f"{user_label}: {safe_content}"})
 
         try:
             async with message.channel.typing():
-                # Call the LLM
-                reply = await asyncio.to_thread(generate_reply, channel_memory)
+                # Call the LLM with the full contextual background
+                reply = await asyncio.to_thread(generate_reply, processing_memory)
 
-            # SMART CAPITALIZATION: Fixes lowercase starts without yelling
+            # SMART CAPITALIZATION
             reply = re.sub(r'(^|[.?!]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), reply)
 
-            await message.reply(reply, mention_author=False)
+            # reply pings the message author back
+            await message.reply(reply, mention_author=True)
 
-            # Save the new context back to Redis
+            # --- SAVE CLEAN PERMANENT MEMORY ---
+            # We save the interaction but discard the 'ping_prompt' instructions to save tokens
+            channel_memory.append({"role": "user", "content": f"{user_label}: {safe_content}"})
             channel_memory.append({"role": "assistant", "content": reply})
+            
+            # Truncate history to keep it fast
+            channel_memory = channel_memory[-self.MAX_HISTORY:]
             await self.bot.redis.set(f"memory:{channel_id}", json.dumps(channel_memory))
 
         except Exception as e:
             print(f"Chat Error: {e}")
             
-            # --- ERROR HANDLING EMBED ---
             error_embed = discord.Embed(
                 title="❌ System Error",
                 description="The neural link dropped for a second. Please try your request again.",
-                color=0xe74c3c # Red error color
+                color=0xe74c3c 
             )
             error_embed.set_footer(text="System: Connection Timeout")
             await message.reply(embed=error_embed, mention_author=False)

@@ -1,10 +1,10 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import asyncio
 import random
 import requests
 import time
+import json
 from datetime import datetime, timedelta
 
 class StaffCommands(commands.Cog):
@@ -12,11 +12,111 @@ class StaffCommands(commands.Cog):
         self.bot = bot
         self.start_time = datetime.utcnow()
 
+    # --- INTERNAL HELPERS ---
+    async def _send_error(self, ctx, text):
+        """Sends a sleek, dark-mode error notification (Always Ephemeral)."""
+        embed = discord.Embed(description=f"❌ {text}", color=0x2b2d31)
+        await ctx.send(embed=embed, ephemeral=True)
+
+    # --- THE CENTRALIZED MODLOG HELPER ---
+    async def _log_case(self, ctx, action_type: str, user: discord.abc.User, reason: str):
+        """Generates a Case ID and saves the infraction to Redis."""
+        if not self.bot.redis:
+            return None
+        try:
+            # 1. Generate the next Case ID for this server
+            case_id = await self.bot.redis.incr(f"cases:{ctx.guild.id}")
+            
+            # 2. Build the case file
+            case_data = {
+                "id": case_id,
+                "type": action_type,
+                "user_id": user.id,
+                "user_name": str(user),
+                "mod_id": ctx.author.id,
+                "mod_name": ctx.author.display_name,
+                "reason": reason,
+                "date": datetime.utcnow().strftime("%b %d %Y %H:%M:%S")
+            }
+            
+            # 3. Save the individual case
+            await self.bot.redis.set(f"case:{ctx.guild.id}:{case_id}", json.dumps(case_data))
+            
+            # 4. Add this Case ID to the user's personal rap sheet
+            user_key = f"userlogs:{ctx.guild.id}:{user.id}"
+            cached = await self.bot.redis.get(user_key)
+            user_logs = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else []
+            user_logs.append(case_id)
+            await self.bot.redis.set(user_key, json.dumps(user_logs))
+            
+            return case_id
+        except Exception as e:
+            print(f"Modlog Save Error: {e}")
+            return None
+
+    # --- PREFIX MANAGEMENT ---
+
+    @commands.hybrid_command(name="prefixes", description="See all active prefixes for this server.")
+    async def prefixes(self, ctx: commands.Context):
+        default_prefixes = ["!", "esdeath ", "es "]
+        if not self.bot.redis:
+            return await ctx.send(f"Memory offline. Currently using defaults: `{', '.join(default_prefixes)}`", ephemeral=True)
+            
+        try:
+            cached = await self.bot.redis.get(f"prefixes:{ctx.guild.id}")
+            current_prefixes = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else default_prefixes
+            
+            embed = discord.Embed(title="Server Prefixes", description="\n".join([f"• `{p}`" for p in current_prefixes]), color=0x3498db)
+            await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"❌ Error fetching prefixes: {e}", ephemeral=True)
+
+    @commands.hybrid_command(name="addprefix", description="Add a custom prefix for this server.")
+    @commands.has_permissions(administrator=True)
+    async def addprefix(self, ctx: commands.Context, prefix: str):
+        if not self.bot.redis:
+            return await self._send_error(ctx, "My memory banks are offline. Try again later.")
+            
+        try:
+            cached = await self.bot.redis.get(f"prefixes:{ctx.guild.id}")
+            current_prefixes = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else ["!", "esdeath ", "es "]
+            
+            if prefix in current_prefixes:
+                return await self._send_error(ctx, f"`{prefix}` is already a prefix here.")
+                
+            current_prefixes.append(prefix)
+            await self.bot.redis.set(f"prefixes:{ctx.guild.id}", json.dumps(current_prefixes))
+            await ctx.send(f"✅ Added `{prefix}` to this server's prefixes.")
+        except Exception as e:
+            await self._send_error(ctx, f"Failed to save prefix: {e}")
+
+    @commands.hybrid_command(name="removeprefix", description="Remove a prefix from this server.")
+    @commands.has_permissions(administrator=True)
+    async def removeprefix(self, ctx: commands.Context, prefix: str):
+        if not self.bot.redis:
+            return await self._send_error(ctx, "My memory banks are offline. Try again later.")
+            
+        try:
+            cached = await self.bot.redis.get(f"prefixes:{ctx.guild.id}")
+            current_prefixes = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else ["!", "esdeath ", "es "]
+            
+            if prefix not in current_prefixes:
+                return await self._send_error(ctx, f"`{prefix}` isn't on the prefix list.")
+            
+            if len(current_prefixes) <= 1:
+                return await self._send_error(ctx, "You can't remove the last prefix! How would you command me?")
+                
+            current_prefixes.remove(prefix)
+            await self.bot.redis.set(f"prefixes:{ctx.guild.id}", json.dumps(current_prefixes))
+            await ctx.send(f"🗑️ Removed `{prefix}` from this server's prefixes.")
+        except Exception as e:
+            await self._send_error(ctx, f"Failed to remove prefix: {e}")
+
     # --- BATCH 1: IDENTITY & INFO ---
 
-    @app_commands.command(name="serverinfo", description="Detailed statistics for this server.")
-    async def serverinfo(self, interaction: discord.Interaction):
-        g = interaction.guild
+    @commands.hybrid_command(name="serverinfo", description="Detailed statistics for this server.")
+    async def serverinfo(self, ctx: commands.Context):
+        g = ctx.guild
         bots = sum(1 for m in g.members if m.bot)
         humans = g.member_count - bots
         embed = discord.Embed(title=f"Info for {g.name}", color=0x3498db)
@@ -25,107 +125,225 @@ class StaffCommands(commands.Cog):
         embed.add_field(name="Members", value=f"Total: {g.member_count}\nHumans: {humans}\nBots: {bots}", inline=True)
         embed.add_field(name="Boosts", value=f"Level {g.premium_tier} ({g.premium_subscription_count} boosts)", inline=True)
         embed.set_footer(text=f"ID: {g.id} | Created: {g.created_at.strftime('%d/%m/%Y')}")
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command(name="userinfo", description="Detailed info about a member.")
-    async def userinfo(self, interaction: discord.Interaction, member: discord.Member = None):
-        user = member or interaction.user
+    @commands.hybrid_command(name="userinfo", description="Detailed info about a member, including their bio.")
+    async def userinfo(self, ctx: commands.Context, member: discord.Member = None):
+        user = member or ctx.author
         roles = [role.mention for role in user.roles if role.name != "@everyone"]
-        embed = discord.Embed(title=f"{user.display_name}", color=0xe74c3c)
+        
+        bio = "No bio set. How boring."
+        if self.bot.redis:
+            try:
+                fetched_bio = await self.bot.redis.get(f"bio:{user.id}")
+                if fetched_bio:
+                    bio = fetched_bio.decode('utf-8') if isinstance(fetched_bio, bytes) else fetched_bio
+            except Exception:
+                pass 
+
+        embed = discord.Embed(title=f"{user.display_name}", description=f"*{bio}*", color=0xe74c3c)
         embed.set_thumbnail(url=user.display_avatar.url)
         embed.add_field(name="Roles", value=" ".join(roles) if roles else "None", inline=False)
         embed.add_field(name="Joined Discord", value=user.created_at.strftime("%B %d, %Y"), inline=True)
         embed.add_field(name="Joined Server", value=user.joined_at.strftime("%B %d, %Y") if user.joined_at else "N/A", inline=True)
         embed.set_footer(text=f"ID: {user.id}")
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command(name="avatar", description="View a member's avatar.")
-    async def avatar(self, interaction: discord.Interaction, member: discord.Member = None):
-        user = member or interaction.user
+    @commands.hybrid_command(name="avatar", description="View a member's avatar.")
+    async def avatar(self, ctx: commands.Context, member: discord.Member = None):
+        user = member or ctx.author
         embed = discord.Embed(title=f"Avatar for {user.display_name}", color=discord.Color.blue())
         embed.set_image(url=user.display_avatar.url)
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command(name="ping", description="Check the bot's response time.")
-    async def ping(self, interaction: discord.Interaction):
+    @commands.hybrid_command(name="ping", description="Check the bot's response time.")
+    async def ping(self, ctx: commands.Context):
         latency = round(self.bot.latency * 1000)
-        await interaction.response.send_message(f"It took me **{latency}ms** to notice you. Don't make me wait longer next time.")
+        await ctx.send(f"It took me **{latency}ms** to notice you. Don't make me wait longer next time.")
 
-    @app_commands.command(name="uptime", description="Check how long the bot has been online.")
-    async def uptime(self, interaction: discord.Interaction):
+    @commands.hybrid_command(name="uptime", description="Check how long the bot has been online.")
+    async def uptime(self, ctx: commands.Context):
         uptime_diff = datetime.utcnow() - self.start_time
         days = uptime_diff.days
         hours, remainder = divmod(uptime_diff.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
-        await interaction.response.send_message(f"I have been standing guard for **{days}d, {hours}h, {minutes}m, {seconds}s**.")
+        await ctx.send(f"I have been standing guard for **{days}d, {hours}h, {minutes}m, {seconds}s**.")
 
-    @app_commands.command(name="echo", description="Make Esdeath say something.")
-    @app_commands.checks.has_permissions(manage_messages=True)
-    async def echo(self, interaction: discord.Interaction, message: str):
-        await interaction.channel.send(message)
-        await interaction.response.send_message("Message delivered.", ephemeral=True)
+    @commands.hybrid_command(name="echo", description="Make Esdeath say something.")
+    @commands.has_permissions(manage_messages=True)
+    async def echo(self, ctx: commands.Context, *, message: str):
+        await ctx.channel.send(message)
+        await ctx.send("Message delivered.", ephemeral=True)
 
-    @app_commands.command(name="fancy", description="Convert text into 𝒻𝒶𝓃𝒸𝓎 𝓈𝒸𝓇𝒾𝓅𝓉.")
-    async def fancy(self, interaction: discord.Interaction, text: str):
+    @commands.hybrid_command(name="fancy", description="Convert text into 𝒻𝒶𝓃𝒸𝓎 𝓈𝒸𝓇𝒾𝓅𝓉.")
+    async def fancy(self, ctx: commands.Context, *, text: str):
         mapping = str.maketrans(
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
             "𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏𝒜𝐵𝒞𝒟𝐸𝐹𝒢𝐻𝐼𝒥𝒦𝐿𝑀𝒩𝒪𝒫𝒬𝑅𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵"
         )
-        fancy_text = text.translate(mapping)
-        await interaction.response.send_message(fancy_text)
+        await ctx.send(text.translate(mapping))
 
-    # --- BATCH 2: MODERATION & DISCIPLINE ---
+    # --- BATCH 2: MODERATION & CASE LOGGING ---
 
-    @app_commands.command(name="kick", description="Remove a weakling from the server.")
-    @app_commands.checks.has_permissions(kick_members=True)
-    async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided."):
-        if member.top_role >= interaction.user.top_role:
-            return await interaction.response.send_message("You don't have the authority to remove someone stronger than you.", ephemeral=True)
-        await member.kick(reason=reason)
-        await interaction.response.send_message(f"**{member.display_name}** has been removed. I have no use for the weak.")
+    @commands.hybrid_command(name="warn", description="Issue a formal warning to a user.")
+    @commands.has_permissions(moderate_members=True)
+    async def warn(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided"):
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            return await self._send_error(ctx, "You cannot warn your superiors.")
+        
+        case_id = await self._log_case(ctx, "Warn", member, reason)
+        case_txt = f" *(Case #{case_id})*" if case_id else ""
+        
+        await ctx.send(f"⚠️ **{member.mention}** has been formally warned.{case_txt}\nReason: `{reason}`")
+        try:
+            await member.send(f"You were warned in **{ctx.guild.name}**. Reason: `{reason}`")
+        except: pass
 
-    @app_commands.command(name="ban", description="Permanently exile a user.")
-    @app_commands.checks.has_permissions(ban_members=True)
-    async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided."):
-        if member.top_role >= interaction.user.top_role:
-            return await interaction.response.send_message("I cannot exile someone of that rank.", ephemeral=True)
-        await member.ban(reason=reason)
-        await interaction.response.send_message(f"**{member.display_name}** has been exiled. Don't bother coming back.")
+    @commands.hybrid_command(name="mute", aliases=["timeout"], description="Mute a user (Timeout).")
+    @commands.has_permissions(moderate_members=True)
+    async def mute(self, ctx: commands.Context, member: discord.Member, minutes: int, *, reason: str = "No reason provided."):
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            return await self._send_error(ctx, "I won't silence my superiors.")
+        try:
+            duration = timedelta(minutes=minutes)
+            await member.timeout(duration, reason=reason)
+            case_id = await self._log_case(ctx, "Mute", member, reason)
+            case_txt = f" *(Case #{case_id})*" if case_id else ""
+            await ctx.send(f"🔇 **{member.mention}** has been silenced for {minutes} minutes.{case_txt}")
+        except discord.Forbidden:
+            await self._send_error(ctx, "My role isn't high enough to mute them.")
 
-    @app_commands.command(name="timeout", description="Silence a user for a specific duration.")
-    @app_commands.checks.has_permissions(moderate_members=True)
-    async def timeout(self, interaction: discord.Interaction, member: discord.Member, minutes: int, reason: str = "No reason provided."):
-        if member.top_role >= interaction.user.top_role:
-            return await interaction.response.send_message("I won't silence my superiors.", ephemeral=True)
-        duration = timedelta(minutes=minutes)
-        await member.timeout(duration, reason=reason)
-        await interaction.response.send_message(f"**{member.display_name}** has been silenced for {minutes} minutes. Reflect on your failure.")
+    @commands.hybrid_command(name="unmute", description="Remove a user's mute early.")
+    @commands.has_permissions(moderate_members=True)
+    async def unmute(self, ctx: commands.Context, member: discord.Member):
+        try:
+            await member.timeout(None) 
+            await ctx.send(f"🔊 **{member.mention}** has been unmuted. Don't make me regret it.")
+        except discord.Forbidden:
+            return await ctx.send("❌ **Error:** I lack permissions to unmute them.", ephemeral=True)
 
-    @app_commands.command(name="purge", description="Delete a specific amount of messages.")
-    @app_commands.checks.has_permissions(manage_messages=True)
-    async def purge(self, interaction: discord.Interaction, amount: int):
+    @commands.hybrid_command(name="kick", description="Remove a weakling from the server.")
+    @commands.has_permissions(kick_members=True)
+    async def kick(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided."):
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            return await self._send_error(ctx, "You don't have the authority to remove someone stronger than you.")
+        try:
+            await member.kick(reason=reason)
+            case_id = await self._log_case(ctx, "Kick", member, reason)
+            case_txt = f" *(Case #{case_id})*" if case_id else ""
+            await ctx.send(f"**{member.mention}** has been removed.{case_txt} I have no use for the weak.")
+        except discord.Forbidden:
+            return await ctx.send("❌ **Error:** I lack the 'Kick Members' permission.", ephemeral=True)
+
+    @commands.hybrid_command(name="ban", description="Permanently exile a user by tag or ID.")
+    @commands.has_permissions(ban_members=True)
+    async def ban(self, ctx: commands.Context, user: discord.User, *, reason: str = "No reason provided."):
+        member = ctx.guild.get_member(user.id)
+        if member and member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            return await self._send_error(ctx, "I cannot exile someone of that rank.")
+        try:
+            await ctx.guild.ban(user, reason=reason)
+            case_id = await self._log_case(ctx, "Ban", user, reason)
+            case_txt = f" *(Case #{case_id})*" if case_id else ""
+            await ctx.send(f"**{user.mention}** has been exiled.{case_txt} Don't bother coming back.")
+        except discord.Forbidden:
+            return await ctx.send("❌ **Error:** I lack the 'Ban Members' permission, or my role is lower than theirs.", ephemeral=True)
+
+    # --- BATCH 2.5: MODLOG MANAGEMENT (CARL/DYNO STYLE) ---
+
+    @commands.hybrid_command(name="modlogs", aliases=["ml", "logs"], description="View a user's entire case history.")
+    @commands.has_permissions(moderate_members=True)
+    async def modlogs(self, ctx: commands.Context, user: discord.User):
+        if not self.bot.redis:
+            return await ctx.send("Memory offline.", ephemeral=True)
+            
+        user_key = f"userlogs:{ctx.guild.id}:{user.id}"
+        cached = await self.bot.redis.get(user_key)
+        case_ids = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else []
+        
+        if not case_ids:
+            return await ctx.send(f"**{user.display_name}** has a clean record. For now.")
+            
+        embed = discord.Embed(title=f"Modlogs for {user.display_name}", color=0x2b2d31)
+        
+        # Pull latest 10 cases to prevent embed character limits
+        recent_cases = case_ids[-10:] 
+        recent_cases.reverse() # Show newest cases first
+        
+        description = ""
+        for cid in recent_cases:
+            case_raw = await self.bot.redis.get(f"case:{ctx.guild.id}:{cid}")
+            if case_raw:
+                c = json.loads(case_raw.decode('utf-8') if isinstance(case_raw, bytes) else case_raw)
+                description += f"**Case {c['id']}** | {c['type']}\n"
+                description += f"**User:** {c['user_name']} ({c['user_id']})\n"
+                description += f"**Moderator:** {c['mod_name']}\n"
+                description += f"**Reason:** {c['reason']} - *{c['date']}*\n\n"
+                
+        embed.description = description
+        embed.set_footer(text=f"{len(case_ids)} total logs | Showing recent {len(recent_cases)}")
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="reason", aliases=["editcase"], description="Change the reason for a specific case.")
+    @commands.has_permissions(moderate_members=True)
+    async def reason(self, ctx: commands.Context, case_id: int, *, new_reason: str):
+        if not self.bot.redis:
+            return await self._send_error(ctx, "Memory offline.")
+            
+        case_key = f"case:{ctx.guild.id}:{case_id}"
+        cached = await self.bot.redis.get(case_key)
+        
+        if not cached:
+            return await self._send_error(ctx, f"Case #{case_id} does not exist.")
+            
+        case_data = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached)
+        old_reason = case_data["reason"]
+        case_data["reason"] = new_reason
+        
+        # If it was a ban, gracefully update the official Discord ban list reason
+        if case_data["type"] == "Ban":
+            try:
+                user = await self.bot.fetch_user(case_data["user_id"])
+                await ctx.guild.fetch_ban(user)
+                await ctx.guild.ban(user, reason=new_reason)
+            except: pass 
+
+        await self.bot.redis.set(case_key, json.dumps(case_data))
+        await ctx.send(f"✅ Updated **Case #{case_id}**\n**Old:** {old_reason}\n**New:** {new_reason}")
+
+    @commands.hybrid_command(name="clearwarns", description="Wipe a user's entire case history.")
+    @commands.has_permissions(administrator=True)
+    async def clearwarns(self, ctx: commands.Context, user: discord.User):
+        if not self.bot.redis:
+            return await self._send_error(ctx, "Memory offline.")
+        await self.bot.redis.delete(f"userlogs:{ctx.guild.id}:{user.id}")
+        await ctx.send(f"🗑️ Cleared all modlogs for **{user.display_name}**.")
+
+    @commands.hybrid_command(name="purge", description="Delete a specific amount of messages.")
+    @commands.has_permissions(manage_messages=True)
+    async def purge(self, ctx: commands.Context, amount: int):
         if amount > 100:
-            return await interaction.response.send_message("I'm not cleaning up more than 100 messages at once. Do it yourself.", ephemeral=True)
-        await interaction.response.defer(ephemeral=True)
-        deleted = await interaction.channel.purge(limit=amount)
-        await interaction.followup.send(f"I've vaporized {len(deleted)} messages. The chat is clean now.")
+            return await self._send_error(ctx, "I'm not cleaning up more than 100 messages at once.")
+        await ctx.defer(ephemeral=True)
+        deleted = await ctx.channel.purge(limit=amount)
+        await ctx.send(f"I've vaporized {len(deleted)} messages. The chat is clean now.", ephemeral=True)
 
-    @app_commands.command(name="slowmode", description="Set the channel's slowmode delay.")
-    @app_commands.checks.has_permissions(manage_channels=True)
-    async def slowmode(self, interaction: discord.Interaction, seconds: int):
-        await interaction.channel.edit(slowmode_delay=seconds)
+    @commands.hybrid_command(name="slowmode", description="Set the channel's slowmode delay.")
+    @commands.has_permissions(manage_channels=True)
+    async def slowmode(self, ctx: commands.Context, seconds: int):
+        await ctx.channel.edit(slowmode_delay=seconds)
         if seconds == 0:
-            await interaction.response.send_message("Slowmode has been disabled. Talk as much as you want.")
+            await ctx.send("Slowmode has been disabled. Talk as much as you want.")
         else:
-            await interaction.response.send_message(f"Slowmode set to {seconds} seconds. Think before you speak.")
+            await ctx.send(f"Slowmode set to {seconds} seconds. Think before you speak.")
 
     # --- BATCH 3: INTERACTIVE TOOLS ---
 
-    @app_commands.command(name="poll", description="Create a professional poll.")
-    async def poll(self, interaction: discord.Interaction, question: str, options: str):
+    @commands.hybrid_command(name="poll", description="Create a professional poll.")
+    async def poll(self, ctx: commands.Context, question: str, *, options: str):
         option_list = [opt.strip() for opt in options.split(",")]
         if len(option_list) > 10:
-            return await interaction.response.send_message("I'm not counting more than 10 options. Keep it simple.", ephemeral=True)
+            return await self._send_error(ctx, "I'm not counting more than 10 options. Keep it simple.")
         
         emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
         description = ""
@@ -133,91 +351,84 @@ class StaffCommands(commands.Cog):
             description += f"{emojis[i]} {option}\n\n"
             
         embed = discord.Embed(title=f"📊 {question}", description=description, color=0x3498db)
-        embed.set_footer(text=f"Poll started by {interaction.user.display_name}")
+        embed.set_footer(text=f"Poll started by {ctx.author.display_name}")
         
-        await interaction.response.send_message(embed=embed)
-        poll_msg = await interaction.original_response()
+        poll_msg = await ctx.send(embed=embed)
         for i in range(len(option_list)):
             await poll_msg.add_reaction(emojis[i])
 
-    @app_commands.command(name="embed", description="Make Esdeath post a custom colored box.")
-    @app_commands.checks.has_permissions(manage_messages=True)
-    async def embed(self, interaction: discord.Interaction, title: str, description: str, color: str = "blue"):
+    @commands.hybrid_command(name="embed", description="Make Esdeath post a custom colored box.")
+    @commands.has_permissions(manage_messages=True)
+    async def embed(self, ctx: commands.Context, title: str, description: str, color: str = "blue"):
         color_map = {"blue": 0x3498db, "red": 0xe74c3c, "green": 0x2ecc71, "gold": 0xf1c40f}
         hex_color = color_map.get(color.lower(), 0x3498db)
         
         custom_embed = discord.Embed(title=title, description=description, color=hex_color)
-        custom_embed.set_footer(text=f"Official Notice from {interaction.guild.name}")
+        custom_embed.set_footer(text=f"Official Notice from {ctx.guild.name}")
         
-        await interaction.channel.send(embed=custom_embed)
-        await interaction.response.send_message("Embed deployed.", ephemeral=True)
+        await ctx.send("Embed deployed.", ephemeral=True)
+        await ctx.channel.send(embed=custom_embed)
 
-    @app_commands.command(name="remind", description="Set a personal reminder.")
-    async def remind(self, interaction: discord.Interaction, minutes: int, note: str):
-        await interaction.response.send_message(f"Fine. I'll remind you about '{note}' in {minutes} minutes.", ephemeral=True)
+    @commands.hybrid_command(name="remind", description="Set a personal reminder.")
+    async def remind(self, ctx: commands.Context, minutes: int, *, note: str):
+        await ctx.send(f"Fine. I'll remind you about '{note}' in {minutes} minutes.", ephemeral=True)
         await asyncio.sleep(minutes * 60)
         try:
-            await interaction.user.send(f"Hey. You told me to remind you: **{note}**")
+            await ctx.author.send(f"Hey. You told me to remind you: **{note}**")
         except:
-            await interaction.channel.send(f"{interaction.user.mention}, listen up. You wanted to be reminded: **{note}**")
+            await ctx.channel.send(f"{ctx.author.mention}, listen up. You wanted to be reminded: **{note}**")
 
     # --- BATCH 4: ADVANCED UTILITY & FUN ---
 
-    @app_commands.command(name="urban", description="Look up a term on Urban Dictionary.")
-    async def urban(self, interaction: discord.Interaction, term: str):
+    @commands.hybrid_command(name="urban", description="Look up a term on Urban Dictionary.")
+    async def urban(self, ctx: commands.Context, *, term: str):
         url = f"https://api.urbandictionary.com/v0/define?term={term}"
         response = requests.get(url).json()
         
         if not response['list']:
-            return await interaction.response.send_message(f"Even the internet doesn't know what '{term}' means. How pathetic.", ephemeral=True)
+            return await self._send_error(ctx, f"Even the internet doesn't know what '{term}' means. How pathetic.")
         
         first_entry = response['list'][0]
-        definition = first_entry['definition'].replace("[", "").replace("]", "")
-        example = first_entry['example'].replace("[", "").replace("]", "")
+        definition = first_entry['definition']
         
-        embed = discord.Embed(title=f"Definition: {term}", color=0x1D2439)
-        embed.add_field(name="What it is:", value=definition[:1024], inline=False)
-        if example:
-            embed.add_field(name="Example:", value=f"*{example[:1024]}*", inline=False)
-        
+        embed = discord.Embed(description=f"{definition[:2000]}", color=0x2b2d31)
+        embed.set_author(name=f"Definition of '{term}'", icon_url=ctx.author.display_avatar.url)
         embed.set_footer(text=f"👍 {first_entry['thumbs_up']} | 👎 {first_entry['thumbs_down']}")
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command(name="math", description="Solve a basic math problem.")
-    async def math(self, interaction: discord.Interaction, expression: str):
-        # Using a safe way to evaluate simple math
+    @commands.hybrid_command(name="math", description="Solve a basic math problem.")
+    async def math(self, ctx: commands.Context, *, expression: str):
         try:
-            # Remove any dangerous characters
             allowed = "0123456789+-*/(). "
             if all(c in allowed for c in expression):
                 result = eval(expression)
-                await interaction.response.send_message(f"The answer is **{result}**. Honestly, you couldn't solve that yourself?")
+                await ctx.send(f"The answer is **{result}**. Honestly, you couldn't solve that yourself?")
             else:
-                await interaction.response.send_message("Don't try to hack me with your weird symbols.", ephemeral=True)
+                return await self._send_error(ctx, "Don't try to hack me with your weird symbols.")
         except:
-            await interaction.response.send_message("That's not even a valid equation.", ephemeral=True)
+            return await self._send_error(ctx, "That's not even a valid equation.")
 
-    @app_commands.command(name="roll", description="Roll some dice (e.g., 2d6).")
-    async def roll(self, interaction: discord.Interaction, dice: str = "1d6"):
+    @commands.hybrid_command(name="roll", description="Roll some dice (e.g., 2d6).")
+    async def roll(self, ctx: commands.Context, dice: str = "1d6"):
         try:
             amount, sides = map(int, dice.lower().split('d'))
             if amount > 100 or sides > 1000:
-                return await interaction.response.send_message("I'm not rolling that many dice. Stop being extra.", ephemeral=True)
+                return await self._send_error(ctx, "I'm not rolling that many dice. Stop being extra.")
             
             rolls = [random.randint(1, sides) for _ in range(amount)]
             total = sum(rolls)
-            await interaction.response.send_message(f"🎲 Rolling **{dice}**... You got: `{rolls}` (Total: **{total}**)")
+            await ctx.send(f"🎲 Rolling **{dice}**... You got: `{rolls}` (Total: **{total}**)")
         except:
-            await interaction.response.send_message("Format it correctly, like `2d20`.", ephemeral=True)
+            return await self._send_error(ctx, "Format it correctly, like `2d20`.")
 
-    @app_commands.command(name="coinflip", description="Flip a coin.")
-    async def coinflip(self, interaction: discord.Interaction):
+    @commands.hybrid_command(name="coinflip", description="Flip a coin.")
+    async def coinflip(self, ctx: commands.Context):
         result = random.choice(["Heads", "Tails"])
-        await interaction.response.send_message(f"🪙 The coin landed on... **{result}**.")
+        await ctx.send(f"🪙 The coin landed on... **{result}**.")
 
-    @app_commands.command(name="membercount", description="See the breakdown of members.")
-    async def membercount(self, interaction: discord.Interaction):
-        g = interaction.guild
+    @commands.hybrid_command(name="membercount", description="See the breakdown of members.")
+    async def membercount(self, ctx: commands.Context):
+        g = ctx.guild
         bots = sum(1 for m in g.members if m.bot)
         humans = g.member_count - bots
         
@@ -225,9 +436,85 @@ class StaffCommands(commands.Cog):
         embed.add_field(name="Total Members", value=f"**{g.member_count}**", inline=False)
         embed.add_field(name="Humans", value=str(humans), inline=True)
         embed.add_field(name="Bots", value=str(bots), inline=True)
-        
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
+    # --- BATCH 5: ROLE MANAGEMENT & PROFILES ---
+
+    @commands.hybrid_command(name="addrole", description="Grant a role to a user.")
+    @commands.has_permissions(manage_roles=True)
+    async def addrole(self, ctx: commands.Context, member: discord.Member, role: discord.Role):
+        if ctx.author.top_role <= role and ctx.author.id != ctx.guild.owner_id:
+            return await self._send_error(ctx, "You can't give a role that is equal to or higher than your own.")
+        try:
+            await member.add_roles(role)
+            await ctx.send(f"Granted **{role.name}** to {member.mention}. Try to be worthy of it.")
+        except discord.Forbidden:
+            return await self._send_error(ctx, "My role isn't high enough! Drag the 'Esdeath' role HIGHER in Server Settings.")
+
+    @commands.hybrid_command(name="removerole", description="Strip a role from a user.")
+    @commands.has_permissions(manage_roles=True)
+    async def removerole(self, ctx: commands.Context, member: discord.Member, role: discord.Role):
+        if ctx.author.top_role <= role and ctx.author.id != ctx.guild.owner_id:
+            return await self._send_error(ctx, "You don't have the authority to strip this role.")
+        try:
+            await member.remove_roles(role)
+            await ctx.send(f"Stripped **{role.name}** from {member.mention}. Back to the bottom you go.")
+        except discord.Forbidden:
+            return await self._send_error(ctx, "I cannot strip this role because it is higher than my own.")
+
+    @commands.hybrid_command(name="nickname", description="Force a new nickname on a user.")
+    @commands.has_permissions(manage_nicknames=True)
+    async def nickname(self, ctx: commands.Context, member: discord.Member, *, new_name: str):
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            return await self._send_error(ctx, "I don't take orders to rename my superiors.")
+        try:
+            old_name = member.display_name
+            await member.edit(nick=new_name)
+            await ctx.send(f"Renamed **{old_name}** to **{new_name}**. Learn to live with it.")
+        except discord.Forbidden:
+            return await self._send_error(ctx, "I cannot rename this user because their role is higher than mine.")
+
+    @commands.hybrid_command(name="setbio", description="Set your personal profile bio.")
+    async def setbio(self, ctx: commands.Context, *, bio: str):
+        if len(bio) > 150:
+            return await self._send_error(ctx, "Keep it under 150 characters. I don't want to read an essay.")
+        if not self.bot.redis:
+            return await self._send_error(ctx, "My memory banks are currently offline. Try again later.")
+            
+        await self.bot.redis.set(f"bio:{ctx.author.id}", bio)
+        await ctx.send("Bio updated. I'll make sure everyone sees it.", ephemeral=True)    
+
+    @commands.hybrid_command(name="ask", description="Consult the Advanced AI Assistant.")
+    async def ask(self, ctx: commands.Context, *, prompt: str):
+        await ctx.defer()
+        try:
+            from llm import generate_reply
+            import asyncio
+            
+            system_prompt = (
+                "You are a highly intelligent, helpful, and official AI assistant. "
+                "Provide clear, accurate, and engaging answers. "
+                "Always use Discord Markdown formatting (like **bolding** key terms, using bullet points, and short paragraphs) to make your response extremely easy to read."
+            )
+            
+            memory = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ]
+            
+            reply = await asyncio.to_thread(generate_reply, memory)
+            if len(reply) > 4096:
+                reply = reply[:4093] + "..."
+            
+            embed = discord.Embed(description=reply, color=0x2b2d31)
+            embed.set_author(name=f"💬 {prompt}"[:256], icon_url=ctx.author.display_avatar.url)
+            embed.set_footer(
+                text="Advanced AI System • Esdeath Network", 
+                icon_url="https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg" 
+            )
+            await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"❌ **System Error:** {e}", ephemeral=True)
 
 # --- GLOBAL SETUP FUNCTION ---
 async def setup(bot):

@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import os
+import json
 from dotenv import load_dotenv
 from upstash_redis.asyncio import Redis
 from flask import Flask
@@ -29,6 +30,30 @@ def keep_alive():
 load_dotenv()
 TOKEN = os.getenv("dc_token")
 
+# --- NEW: Dynamic Prefix Fetcher ---
+async def get_server_prefixes(bot, message):
+    # The default prefixes if a server hasn't set custom ones
+    default_prefixes = ["!", "esdeath ", "es "]
+    
+    # DMs don't have a guild, or if Redis is offline, use the defaults
+    if not message.guild or not getattr(bot, 'redis', None):
+        return commands.when_mentioned_or(*default_prefixes)(bot, message)
+        
+    try:
+        # Check Upstash Redis for a custom prefix list for this specific server
+        cached_prefixes = await bot.redis.get(f"prefixes:{message.guild.id}")
+        if cached_prefixes:
+            # Decode the JSON list stored in Redis
+            if isinstance(cached_prefixes, bytes):
+                cached_prefixes = cached_prefixes.decode('utf-8')
+            custom_prefixes = json.loads(cached_prefixes)
+            return commands.when_mentioned_or(*custom_prefixes)(bot, message)
+    except Exception as e:
+        print(f"Prefix Fetch Error: {e}")
+        pass # If Redis fails to parse, just fall back to the defaults
+        
+    return commands.when_mentioned_or(*default_prefixes)(bot, message)
+
 class EsdeathBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
@@ -36,10 +61,10 @@ class EsdeathBot(commands.Bot):
         intents.members = True
         
         super().__init__(
-            command_prefix="!", 
+            command_prefix=get_server_prefixes, # <-- Now using the dynamic fetcher
             intents=intents,
             status=discord.Status.idle,
-            activity=discord.Activity(type=discord.ActivityType.watching, name="Zen")
+            activity=discord.Activity(type=discord.ActivityType.watching, name="Stalking Zen")
         )
         self.redis = None
 
@@ -81,6 +106,28 @@ class EsdeathBot(commands.Bot):
 
     async def on_ready(self):
         print(f"SUCCESS: {self.user} is online and fully operational.")
+
+    # --- THE GLOBAL ERROR HANDLER ---
+    async def on_command_error(self, ctx: commands.Context, error):
+        # 1. Ignore "Command not found" so the AI chat can handle normal conversation
+        if isinstance(error, commands.CommandNotFound):
+            return
+            
+        # 2. If the user forgets to tag someone or misses an argument
+        if isinstance(error, commands.MissingRequiredArgument):
+            return await ctx.send("You forgot an argument. Use the command properly.", ephemeral=True)
+            
+        # 3. If the user tags a name that doesn't exist in the server
+        elif isinstance(error, commands.MemberNotFound) or isinstance(error, commands.UserNotFound):
+            return await ctx.send("I can't find that user. Make sure you are providing a valid ID or tag.", ephemeral=True)
+            
+        # 4. If a Hybrid command fails to parse the input
+        elif isinstance(error, commands.HybridCommandError):
+            return await ctx.send("I can't process that input. Double-check your formatting.", ephemeral=True)
+            
+        # 5. Log anything else to the console so we can debug it later
+        else:
+            print(f"Unhandled Command Error: {error}")
 
 # 3. Startup Logic
 if __name__ == "__main__":
