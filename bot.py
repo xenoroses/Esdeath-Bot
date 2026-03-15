@@ -14,6 +14,7 @@ def home():
     return "Esdeath is alive"
 
 def run():
+    # Render uses the PORT environment variable
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
@@ -37,24 +38,46 @@ class EsdeathBot(commands.Bot):
             activity=discord.Activity(type=discord.ActivityType.watching, name="Zen")
         )
         
+        # Initialize Redis
         self.redis = Redis(
             url=os.getenv("UPSTASH_REDIS_REST_URL"),
             token=os.getenv("UPSTASH_REDIS_REST_TOKEN")
         )
 
     async def setup_hook(self):
-        # Load the separate files from the cogs folder
-        await self.load_extension("cogs.staff_cmds")
-        await self.load_extension("cogs.ai_chat")
+        print("--- Starting Setup Hook ---")
         
+        # Load Cogs with error reporting
+        extensions = ["cogs.staff_cmds", "cogs.ai_chat"]
+        
+        for extension in extensions:
+            try:
+                await self.load_extension(extension)
+                print(f"Successfully loaded extension: {extension}")
+            except Exception as e:
+                print(f"CRITICAL: Failed to load extension {extension} -> {e}")
+
         # Sync slash commands
-        await self.tree.sync()
-        print("Systems Online. Cogs loaded and Slash Commands synced.")
+        print("Syncing Slash Commands (this can take a moment)...")
+        try:
+            await self.tree.sync()
+            print("Systems Online. Slash Commands synced successfully.")
+        except Exception as e:
+            print(f"Sync Error: {e}")
 
     async def on_ready(self):
-        print(f"Logged in as {self.user}")
+        print(f"CONNECTED: Logged in as {self.user} (ID: {self.user.id})")
+        print(f"Active in {len(self.guilds)} servers.")
+        print("--- Esdeath is fully operational ---")
 
+# Initialize and Run
 bot = EsdeathBot()
 
+# Start the keep_alive ping server
 keep_alive()
-bot.run(TOKEN)
+
+# Start the bot
+if TOKEN:
+    bot.run(TOKEN)
+else:
+    print("ERROR: No Discord token found in Environment Variables!")
