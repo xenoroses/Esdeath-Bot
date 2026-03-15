@@ -8,49 +8,64 @@ from flask import Flask
 from threading import Thread
 import asyncio
 import sys
+import socket
+import time
 
-# 1. Web Server Setup (To satisfy Render's port binding)
+# --- 1. NETWORK WARM-UP (FIX FOR HUGGING FACE DNS ERRORS) ---
+def warmup_dns(hostname="discord.com", retries=5):
+    print(f"Pre-flight check: Resolving {hostname}...")
+    for i in range(retries):
+        try:
+            ip = socket.gethostbyname(hostname)
+            print(f"Successfully resolved {hostname} to {ip}")
+            return True
+        except socket.gaierror:
+            print(f"DNS attempt {i+1} failed. Retrying in 2 seconds...")
+            time.sleep(2)
+    return False
+
+# Run the warmup before anything else
+warmup_dns()
+
+# 2. Web Server Setup (Updated for Hugging Face Port 7860)
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Esdeath is alive"
+    return "Esdeath is alive and guarding Hugging Face."
 
 def run_flask():
-    port = int(os.environ.get("PORT", 10000))
+    # Hugging Face Spaces default to 7860
+    port = int(os.environ.get("PORT", 7860))
     app.run(host="0.0.0.0", port=port)
 
 def keep_alive():
     print("Starting Web Server Thread...")
     t = Thread(target=run_flask)
-    t.daemon = True  # CRITICAL FIX: This prevents Flask from hanging the main bot process
+    t.daemon = True 
     t.start()
 
-# 2. Bot Initialization
+# 3. Bot Initialization
 load_dotenv()
 TOKEN = os.getenv("dc_token")
 
-# --- NEW: Dynamic Prefix Fetcher ---
+# --- Dynamic Prefix Fetcher ---
 async def get_server_prefixes(bot, message):
-    # The default prefixes if a server hasn't set custom ones
     default_prefixes = ["!", "esdeath ", "es "]
     
-    # DMs don't have a guild, or if Redis is offline, use the defaults
     if not message.guild or not getattr(bot, 'redis', None):
         return commands.when_mentioned_or(*default_prefixes)(bot, message)
         
     try:
-        # Check Upstash Redis for a custom prefix list for this specific server
         cached_prefixes = await bot.redis.get(f"prefixes:{message.guild.id}")
         if cached_prefixes:
-            # Decode the JSON list stored in Redis
             if isinstance(cached_prefixes, bytes):
                 cached_prefixes = cached_prefixes.decode('utf-8')
             custom_prefixes = json.loads(cached_prefixes)
             return commands.when_mentioned_or(*custom_prefixes)(bot, message)
     except Exception as e:
         print(f"Prefix Fetch Error: {e}")
-        pass # If Redis fails to parse, just fall back to the defaults
+        pass
         
     return commands.when_mentioned_or(*default_prefixes)(bot, message)
 
@@ -61,33 +76,32 @@ class EsdeathBot(commands.Bot):
         intents.members = True
         
         super().__init__(
-            command_prefix=get_server_prefixes, # <-- Now using the dynamic fetcher
+            command_prefix=get_server_prefixes,
             intents=intents,
             status=discord.Status.idle,
-            activity=discord.Activity(type=discord.ActivityType.watching, name="Stalking Zen")
+            activity=discord.Activity(type=discord.ActivityType.watching, name="Stalking Zen"),
+            help_command=None
         )
         self.redis = None
 
     async def setup_hook(self):
         print("--- SETUP HOOK STARTING ---")
         
-        # 1. Connect to Redis (Non-blocking with timeout)
-        print("Attempting Redis connection...")
+        # Connect to Redis
         try:
             url = os.getenv("UPSTASH_REDIS_REST_URL")
             token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
             
             if url and token:
                 self.redis = Redis(url=url, token=token)
-                # Quick ping to see if Cloudflare blocks us
                 await asyncio.wait_for(self.redis.ping(), timeout=5.0)
                 print("Redis Connected successfully.")
             else:
                 print("REDIS ERROR: Missing Environment Variables.")
         except Exception as e:
-            print(f"REDIS WARNING: Connection failed or timed out. AI memory disabled. Error: {e}")
+            print(f"REDIS WARNING: Connection failed. Error: {e}")
 
-        # 2. Load Cogs
+        # Load Cogs
         extensions = ["cogs.staff_cmds", "cogs.ai_chat"]
         for ext in extensions:
             try:
@@ -96,8 +110,7 @@ class EsdeathBot(commands.Bot):
             except Exception as e:
                 print(f"CRITICAL: Failed to load {ext} -> {e}")
 
-        # 3. Sync Slash Commands
-        print("Syncing Slash Commands...")
+        # Sync Slash Commands
         try:
             await self.tree.sync()
             print("--- SLASH COMMANDS SYNCED ---")
@@ -105,33 +118,27 @@ class EsdeathBot(commands.Bot):
             print(f"Sync Error: {e}")
 
     async def on_ready(self):
-        print(f"SUCCESS: {self.user} is online and fully operational.")
+        print(f"SUCCESS: {self.user} is online and operational on Hugging Face.")
 
     # --- THE GLOBAL ERROR HANDLER ---
     async def on_command_error(self, ctx: commands.Context, error):
-        # 1. Ignore "Command not found" so the AI chat can handle normal conversation
         if isinstance(error, commands.CommandNotFound):
             return
             
-        # 2. If the user forgets to tag someone or misses an argument
         if isinstance(error, commands.MissingRequiredArgument):
             return await ctx.send("You forgot an argument. Use the command properly.", ephemeral=True)
             
-        # 3. If the user tags a name that doesn't exist in the server
         elif isinstance(error, commands.MemberNotFound) or isinstance(error, commands.UserNotFound):
             return await ctx.send("I can't find that user. Make sure you are providing a valid ID or tag.", ephemeral=True)
             
-        # 4. If a Hybrid command fails to parse the input
         elif isinstance(error, commands.HybridCommandError):
             return await ctx.send("I can't process that input. Double-check your formatting.", ephemeral=True)
             
-        # 5. Log anything else to the console so we can debug it later
         else:
             print(f"Unhandled Command Error: {error}")
 
-# 3. Startup Logic
+# 4. Startup Logic
 if __name__ == "__main__":
-    # Start the web server first so Render sees the open port immediately
     keep_alive()
     
     if TOKEN:
@@ -139,5 +146,5 @@ if __name__ == "__main__":
         print("Initiating Discord Login...")
         bot.run(TOKEN)
     else:
-        print("FATAL ERROR: dc_token missing from environment variables!")
+        print("FATAL ERROR: dc_token missing!")
         sys.exit(1)
