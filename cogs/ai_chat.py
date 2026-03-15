@@ -24,19 +24,23 @@ class AIChat(commands.Cog):
         # --- DYNAMIC CHANNEL LOCK CHECK (BULLETPROOF) ---
         if getattr(self.bot, 'redis', None):
             try:
-                # Check if this server has a locked channel in the database
                 locked_channel = await self.bot.redis.get(f"chat_channel:{message.guild.id}")
-                if locked_channel is not None:
-                    # Safely extract the ID as a string, removing any hidden JSON quotes from the database
-                    locked_id_str = str(locked_channel.decode('utf-8') if isinstance(locked_channel, bytes) else locked_channel).strip('"\'')
+                if locked_channel:
+                    # 1. Convert whatever Redis gave us into a basic string
+                    raw_str = locked_channel.decode('utf-8') if isinstance(locked_channel, bytes) else str(locked_channel)
                     
-                    # Support for both standard channels AND threads inside the locked channel
-                    current_id = str(message.channel.id)
-                    parent_id = str(message.channel.parent_id) if isinstance(message.channel, discord.Thread) else ""
+                    # 2. Rip out absolutely everything except the raw numbers
+                    clean_id_str = ''.join(filter(str.isdigit, raw_str))
                     
-                    # If we are NOT in the locked channel and NOT in a thread inside it, ignore completely
-                    if current_id != locked_id_str and parent_id != locked_id_str:
-                        return
+                    if clean_id_str:
+                        locked_id = int(clean_id_str)
+                        current_id = message.channel.id
+                        # Safely check if we are in a thread inside the locked channel
+                        parent_id = getattr(message.channel, 'parent_id', None)
+                        
+                        # 3. If neither the channel nor its parent thread match the lock, ignore
+                        if current_id != locked_id and parent_id != locked_id:
+                            return
             except Exception as e:
                 print(f"Channel Lock Check Error: {e}")
 
