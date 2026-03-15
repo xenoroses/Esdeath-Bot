@@ -44,7 +44,7 @@ warmup_network()
 # --- 3. WEB SERVER SETUP (For Hugging Face Keep-Alive) ---
 app = Flask(__name__)
 
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def home():
     return "Esdeath is alive and guarding Hugging Face."
 
