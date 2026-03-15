@@ -2,9 +2,8 @@
 title: Esdeath Bot
 emoji: ❄️
 colorFrom: blue
-colorTo: cyan
+colorTo: gray
 sdk: docker
-pinned: false
 ---
 
 # Esdeath Bot
