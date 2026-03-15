@@ -516,6 +516,30 @@ class StaffCommands(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ **System Error:** {e}", ephemeral=True)
 
+    @commands.hybrid_command(name="setchat", description="Lock Esdeath's AI responses to a specific channel.")
+    @commands.has_permissions(administrator=True)
+    async def setchat(self, ctx: commands.Context, channel: discord.TextChannel = None):
+        if not self.bot.redis:
+            return await self._send_error(ctx, "Memory offline. Cannot save channel lock.")
+        
+        # If no channel is mentioned, use the one the command was typed in
+        target_channel = channel or ctx.channel
+        
+        # Save the channel ID to Redis for this specific server
+        await self.bot.redis.set(f"chat_channel:{ctx.guild.id}", target_channel.id)
+        await ctx.send(f"🔒 Esdeath's neural link is now locked to {target_channel.mention}. She will ignore AI chat in other channels.")
+
+    @commands.hybrid_command(name="clearchat", description="Allow Esdeath to chat in all channels again.")
+    @commands.has_permissions(administrator=True)
+    async def clearchat(self, ctx: commands.Context):
+        if not self.bot.redis:
+            return await self._send_error(ctx, "Memory offline.")
+        
+        # Delete the lock from Redis
+        await self.bot.redis.delete(f"chat_channel:{ctx.guild.id}")
+        await ctx.send("🔓 Channel lock removed. Esdeath can now be summoned in any channel.")
+            
+
 # --- GLOBAL SETUP FUNCTION ---
 async def setup(bot):
     await bot.add_cog(StaffCommands(bot))

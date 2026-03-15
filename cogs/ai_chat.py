@@ -17,9 +17,24 @@ class AIChat(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        # Ignore messages from other bots
-        if message.author.bot:
+        # Ignore messages from other bots or DMs
+        if message.author.bot or not message.guild:
             return
+
+        # --- DYNAMIC CHANNEL LOCK CHECK ---
+        if getattr(self.bot, 'redis', None):
+            try:
+                # Check if this server has a locked channel in the database
+                locked_channel = await self.bot.redis.get(f"chat_channel:{message.guild.id}")
+                if locked_channel:
+                    # Redis returns bytes, so we decode it to an integer
+                    locked_id = int(locked_channel.decode('utf-8') if isinstance(locked_channel, bytes) else locked_channel)
+                    
+                    # If we are NOT in the locked channel, ignore the message completely
+                    if message.channel.id != locked_id:
+                        return
+            except Exception as e:
+                print(f"Channel Lock Check Error: {e}")
 
         # --- THE FIX: Ignore Commands ---
         ctx = await self.bot.get_context(message)
@@ -67,7 +82,12 @@ class AIChat(commands.Cog):
         # --- MEMORY RETRIEVAL ---
         try:
             history_data = await self.bot.redis.get(f"memory:{channel_id}")
-            channel_memory = json.loads(history_data) if history_data else []
+            # Safely decode bytes if necessary before loading json
+            if history_data:
+                decoded_history = history_data.decode('utf-8') if isinstance(history_data, bytes) else history_data
+                channel_memory = json.loads(decoded_history)
+            else:
+                channel_memory = []
         except Exception as e:
             print(f"Redis get error: {e}")
             channel_memory = []
