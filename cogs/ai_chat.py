@@ -21,25 +21,29 @@ class AIChat(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
-        # --- DYNAMIC CHANNEL LOCK CHECK (BULLETPROOF) ---
+        # --- DYNAMIC CHANNEL LOCK CHECK (DIAGNOSTIC MODE) ---
         if getattr(self.bot, 'redis', None):
             try:
                 locked_channel = await self.bot.redis.get(f"chat_channel:{message.guild.id}")
+                
                 if locked_channel:
-                    # 1. Convert whatever Redis gave us into a basic string
-                    raw_str = locked_channel.decode('utf-8') if isinstance(locked_channel, bytes) else str(locked_channel)
+                    # 1. Force everything to a string, whether it's bytes, int, or dict
+                    raw_val = locked_channel.decode('utf-8') if isinstance(locked_channel, bytes) else str(locked_channel)
                     
-                    # 2. Rip out absolutely everything except the raw numbers
-                    clean_id_str = ''.join(filter(str.isdigit, raw_str))
+                    # 2. Extract ONLY numbers (stripping hidden JSON quotes or brackets)
+                    locked_id_str = ''.join(filter(str.isdigit, raw_val))
                     
-                    if clean_id_str:
-                        locked_id = int(clean_id_str)
-                        current_id = message.channel.id
-                        # Safely check if we are in a thread inside the locked channel
-                        parent_id = getattr(message.channel, 'parent_id', None)
+                    if locked_id_str:
+                        current_id_str = str(message.channel.id)
+                        # Check if message is in a thread
+                        parent_id_str = str(getattr(message.channel, 'parent_id', ''))
                         
-                        # 3. If neither the channel nor its parent thread match the lock, ignore
-                        if current_id != locked_id and parent_id != locked_id:
+                        # DEBUG LOGGING: This prints to your Hugging Face Logs
+                        print(f"[LOCK CHECK] Server: {message.guild.name} | Locked ID: {locked_id_str} | Message ID: {current_id_str} | Parent ID: {parent_id_str}")
+                        
+                        # 3. If we are not in the locked channel (and not in a thread belonging to it), ignore!
+                        if current_id_str != locked_id_str and parent_id_str != locked_id_str:
+                            print(f"[LOCK CHECK] BLOCKING MESSAGE: IDs did not match.")
                             return
             except Exception as e:
                 print(f"Channel Lock Check Error: {e}")
