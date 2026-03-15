@@ -621,8 +621,8 @@ class StaffCommands(commands.Cog):
         
         target_channel = channel or ctx.channel
         
-        # THE FIX: Wrap target_channel.id in str() so the database doesn't round the massive number
-        await self.bot.redis.set(f"chat_channel:{ctx.guild.id}", str(target_channel.id))
+        # THE ULTIMATE FIX: Add "ID_" so the database is FORCED to treat it as text and cannot round it
+        await self.bot.redis.set(f"chat_channel:{ctx.guild.id}", f"ID_{target_channel.id}")
         
         await self._send_success(ctx, f"Neural link locked to {target_channel.mention}. AI chat is restricted to this channel.")
 
