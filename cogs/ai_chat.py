@@ -21,17 +21,21 @@ class AIChat(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
-        # --- DYNAMIC CHANNEL LOCK CHECK ---
+        # --- DYNAMIC CHANNEL LOCK CHECK (BULLETPROOF) ---
         if getattr(self.bot, 'redis', None):
             try:
                 # Check if this server has a locked channel in the database
                 locked_channel = await self.bot.redis.get(f"chat_channel:{message.guild.id}")
-                if locked_channel:
-                    # Redis returns bytes, so we decode it to an integer
-                    locked_id = int(locked_channel.decode('utf-8') if isinstance(locked_channel, bytes) else locked_channel)
+                if locked_channel is not None:
+                    # Safely extract the ID as a string, removing any hidden JSON quotes from the database
+                    locked_id_str = str(locked_channel.decode('utf-8') if isinstance(locked_channel, bytes) else locked_channel).strip('"\'')
                     
-                    # If we are NOT in the locked channel, ignore the message completely
-                    if message.channel.id != locked_id:
+                    # Support for both standard channels AND threads inside the locked channel
+                    current_id = str(message.channel.id)
+                    parent_id = str(message.channel.parent_id) if isinstance(message.channel, discord.Thread) else ""
+                    
+                    # If we are NOT in the locked channel and NOT in a thread inside it, ignore completely
+                    if current_id != locked_id_str and parent_id != locked_id_str:
                         return
             except Exception as e:
                 print(f"Channel Lock Check Error: {e}")
@@ -82,7 +86,6 @@ class AIChat(commands.Cog):
         # --- MEMORY RETRIEVAL ---
         try:
             history_data = await self.bot.redis.get(f"memory:{channel_id}")
-            # Safely decode bytes if necessary before loading json
             if history_data:
                 decoded_history = history_data.decode('utf-8') if isinstance(history_data, bytes) else history_data
                 channel_memory = json.loads(decoded_history)
