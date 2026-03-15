@@ -11,23 +11,37 @@ import sys
 import socket
 import time
 
-# --- 1. NETWORK WARM-UP (FIX FOR HUGGING FACE DNS ERRORS) ---
-def warmup_dns(hostname="discord.com", retries=5):
+# --- 1. AGGRESSIVE NETWORK WARM-UP (FIX FOR HUGGING FACE DNS ERRORS) ---
+def warmup_dns(hostname="discord.com", retries=10):
     print(f"Pre-flight check: Resolving {hostname}...")
+    # Probing Google's IP directly often forces the container's network to initialize
+    check_hosts = ["8.8.8.8", "google.com", "discord.com"]
+    
+    for host in check_hosts:
+        for i in range(3):
+            try:
+                socket.gethostbyname(host)
+                print(f"Network Check: {host} is reachable.")
+                break
+            except socket.gaierror:
+                print(f"Waiting for network... ({host} attempt {i+1})")
+                time.sleep(3)
+
+    # Final attempt for discord.com resolution
     for i in range(retries):
         try:
             ip = socket.gethostbyname(hostname)
-            print(f"Successfully resolved {hostname} to {ip}")
+            print(f"SUCCESS: {hostname} resolved to {ip}")
             return True
         except socket.gaierror:
-            print(f"DNS attempt {i+1} failed. Retrying in 2 seconds...")
-            time.sleep(2)
+            print(f"DNS attempt {i+1} failed. Retrying in 3 seconds...")
+            time.sleep(3)
     return False
 
-# Run the warmup before anything else
+# Run the warmup before anything else starts
 warmup_dns()
 
-# 2. Web Server Setup (Updated for Hugging Face Port 7860)
+# 2. Web Server Setup
 app = Flask(__name__)
 
 @app.route("/")
@@ -49,7 +63,6 @@ def keep_alive():
 load_dotenv()
 TOKEN = os.getenv("dc_token")
 
-# --- Dynamic Prefix Fetcher ---
 async def get_server_prefixes(bot, message):
     default_prefixes = ["!", "esdeath ", "es "]
     
@@ -87,7 +100,6 @@ class EsdeathBot(commands.Bot):
     async def setup_hook(self):
         print("--- SETUP HOOK STARTING ---")
         
-        # Connect to Redis
         try:
             url = os.getenv("UPSTASH_REDIS_REST_URL")
             token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
@@ -101,7 +113,6 @@ class EsdeathBot(commands.Bot):
         except Exception as e:
             print(f"REDIS WARNING: Connection failed. Error: {e}")
 
-        # Load Cogs
         extensions = ["cogs.staff_cmds", "cogs.ai_chat"]
         for ext in extensions:
             try:
@@ -110,7 +121,6 @@ class EsdeathBot(commands.Bot):
             except Exception as e:
                 print(f"CRITICAL: Failed to load {ext} -> {e}")
 
-        # Sync Slash Commands
         try:
             await self.tree.sync()
             print("--- SLASH COMMANDS SYNCED ---")
@@ -120,20 +130,15 @@ class EsdeathBot(commands.Bot):
     async def on_ready(self):
         print(f"SUCCESS: {self.user} is online and operational on Hugging Face.")
 
-    # --- THE GLOBAL ERROR HANDLER ---
     async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(error, commands.CommandNotFound):
             return
-            
         if isinstance(error, commands.MissingRequiredArgument):
-            return await ctx.send("You forgot an argument. Use the command properly.", ephemeral=True)
-            
-        elif isinstance(error, commands.MemberNotFound) or isinstance(error, commands.UserNotFound):
-            return await ctx.send("I can't find that user. Make sure you are providing a valid ID or tag.", ephemeral=True)
-            
+            return await ctx.send("You forgot an argument.", ephemeral=True)
+        elif isinstance(error, (commands.MemberNotFound, commands.UserNotFound)):
+            return await ctx.send("I can't find that user.", ephemeral=True)
         elif isinstance(error, commands.HybridCommandError):
-            return await ctx.send("I can't process that input. Double-check your formatting.", ephemeral=True)
-            
+            return await ctx.send("Format error.", ephemeral=True)
         else:
             print(f"Unhandled Command Error: {error}")
 
