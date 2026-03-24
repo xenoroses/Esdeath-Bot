@@ -1,14 +1,23 @@
 import socket
 
-# --- 1. THE PERMANENT DNS FIX (FORCE IPv4) ---
-# Hugging Face Spaces often try to route Discord API calls through IPv6,
-# which randomly fails the SSL handshake. This forces Python to use native IPv4 
-# and dynamically resolve the real IPs, so it never expires.
+# --- 1. THE TARGETED DNS FIX (DYNAMIC IPv4 RESOLVER) ---
+# This strictly intercepts Discord traffic and dynamically resolves the live IPv4 address.
+# It cleanly handles both string and byte-based hostnames to prevent Redis crashes.
 original_getaddrinfo = socket.getaddrinfo
 
 def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    # Force the network family to IPv4 (socket.AF_INET)
-    return original_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    # Safely convert host to standard text if Python passes it as raw bytes
+    safe_host = host.decode('utf-8') if isinstance(host, bytes) else host
+    
+    if safe_host and ("discord.com" in safe_host or "discord.gg" in safe_host):
+        try:
+            real_ipv4 = socket.gethostbyname(safe_host)
+            return original_getaddrinfo(real_ipv4, port, family, type, proto, flags)
+        except socket.gaierror:
+            pass 
+            
+    # Let Hugging Face, Flask, and Upstash Redis route normally
+    return original_getaddrinfo(host, port, family, type, proto, flags)
 
 socket.getaddrinfo = patched_getaddrinfo
 
