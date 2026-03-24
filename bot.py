@@ -1,26 +1,3 @@
-import socket
-
-# --- 1. THE TARGETED DNS FIX (DYNAMIC IPv4 RESOLVER) ---
-# This strictly intercepts Discord traffic and dynamically resolves the live IPv4 address.
-# It cleanly handles both string and byte-based hostnames to prevent Redis crashes.
-original_getaddrinfo = socket.getaddrinfo
-
-def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    # Safely convert host to standard text if Python passes it as raw bytes
-    safe_host = host.decode('utf-8') if isinstance(host, bytes) else host
-    
-    if safe_host and ("discord.com" in safe_host or "discord.gg" in safe_host):
-        try:
-            real_ipv4 = socket.gethostbyname(safe_host)
-            return original_getaddrinfo(real_ipv4, port, family, type, proto, flags)
-        except socket.gaierror:
-            pass 
-            
-    # Let Hugging Face, Flask, and Upstash Redis route normally
-    return original_getaddrinfo(host, port, family, type, proto, flags)
-
-socket.getaddrinfo = patched_getaddrinfo
-
 import discord
 from discord.ext import commands
 import os
@@ -31,25 +8,8 @@ from flask import Flask
 from threading import Thread
 import asyncio
 import sys
-import time
 
-# --- 2. NETWORK WARM-UP ---
-def warmup_network():
-    print("Pre-flight check: Waking up container network...")
-    # Probing a stable IP just to ensure the interface is active
-    for i in range(3):
-        try:
-            socket.gethostbyname("8.8.8.8")
-            print("Network Check: 8.8.8.8 is reachable.")
-            return True
-        except socket.gaierror:
-            print(f"Waiting for network... (attempt {i+1})")
-            time.sleep(3)
-    return False
-
-warmup_network()
-
-# --- 3. WEB SERVER SETUP (For Hugging Face Keep-Alive) ---
+# --- 1. WEB SERVER SETUP (For Hugging Face Keep-Alive) ---
 app = Flask(__name__)
 
 @app.route("/", methods=["GET", "POST"])
@@ -57,8 +17,11 @@ def home():
     return "Esdeath is alive and guarding Hugging Face."
 
 def run_flask():
-    # HF Spaces standard port
     port = int(os.environ.get("PORT", 7860))
+    # Run silently to prevent console spam
+    import logging
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
     app.run(host="0.0.0.0", port=port)
 
 def keep_alive():
@@ -67,7 +30,7 @@ def keep_alive():
     t.daemon = True 
     t.start()
 
-# --- 4. BOT INITIALIZATION ---
+# --- 2. BOT INITIALIZATION ---
 load_dotenv()
 TOKEN = os.getenv("dc_token")
 
@@ -78,6 +41,7 @@ async def get_server_prefixes(bot, message):
     try:
         cached_prefixes = await bot.redis.get(f"prefixes:{message.guild.id}")
         if cached_prefixes:
+            # Safely decode if Redis returns bytes
             if isinstance(cached_prefixes, bytes):
                 cached_prefixes = cached_prefixes.decode('utf-8')
             custom_prefixes = json.loads(cached_prefixes)
@@ -141,7 +105,7 @@ class EsdeathBot(commands.Bot):
             command_name = ctx.command.qualified_name
             prefix = ctx.clean_prefix
             
-            # 1. Base string (e.g., "es warn ")
+            # Base string (e.g., "es warn ")
             base_str = f"{prefix}{command_name} "
             current_len = len(base_str)
             
@@ -149,38 +113,35 @@ class EsdeathBot(commands.Bot):
             target_start_idx = 0
             target_length = 0
             
-            # 2. Reconstruct the signature and find the missing param's position
+            # Reconstruct the signature and find the missing param's position
             for name, param in ctx.command.clean_params.items():
-                # Format required vs optional
                 part = f"<{name}>" if param.required else f"[{name}]"
                     
-                # If this is the one we missed, lock in its position for the arrows
                 if name == missing_param:
                     target_start_idx = current_len
                     target_length = len(part)
                     
                 signature_parts.append(part)
-                current_len += len(part) + 1 # +1 for the space between arguments
+                current_len += len(part) + 1 
                 
             full_command_str = base_str + " ".join(signature_parts)
             
-            # 3. Draw the spaces and the carets
+            # Draw the spaces and the carets
             carets = (" " * target_start_idx) + ("^" * target_length)
             
-            # 4. Send the Carl-bot formatted codeblock
+            # Send the Carl-bot formatted codeblock
             error_msg = f"```\n{full_command_str}\n{carets}\n{missing_param} is a required argument that is missing.\n```"
-            
             await ctx.send(error_msg)
             
         else:
             print(f"Unhandled Command Error: {error}")
 
-# --- 5. STARTUP LOGIC ---
+# --- 3. STARTUP LOGIC ---
 if __name__ == "__main__":
     keep_alive()
     
     if TOKEN:
-        print("Initiating Discord Login (DNS Bypassed)...")
+        print("Initiating Discord Login...")
         bot = EsdeathBot()
         try:
             bot.run(TOKEN)
