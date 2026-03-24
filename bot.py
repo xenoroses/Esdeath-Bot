@@ -8,6 +8,7 @@ from flask import Flask
 from threading import Thread
 import asyncio
 import sys
+import logging
 
 # --- 1. WEB SERVER SETUP (For Hugging Face Keep-Alive) ---
 app = Flask(__name__)
@@ -18,8 +19,7 @@ def home():
 
 def run_flask():
     port = int(os.environ.get("PORT", 7860))
-    # Run silently to prevent console spam
-    import logging
+    # Run silently to prevent console spam in HF Logs
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)
     app.run(host="0.0.0.0", port=port)
