@@ -1,15 +1,14 @@
 import socket
 
-# --- 1. THE NUCLEAR DNS PATCH ---
-# This intercepts all Python requests for 'discord.com' and 
-# immediately provides the IP address, bypassing system DNS entirely.
+# --- 1. THE PERMANENT DNS FIX (FORCE IPv4) ---
+# Hugging Face Spaces often try to route Discord API calls through IPv6,
+# which randomly fails the SSL handshake. This forces Python to use native IPv4 
+# and dynamically resolve the real IPs, so it never expires.
 original_getaddrinfo = socket.getaddrinfo
 
-def patched_getaddrinfo(*args, **kwargs):
-    if args[0] == "discord.com":
-        # Hardcoded Discord IP (Cloudflare Anycast)
-        return original_getaddrinfo("162.159.138.232", *args[1:], **kwargs)
-    return original_getaddrinfo(*args, **kwargs)
+def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    # Force the network family to IPv4 (socket.AF_INET)
+    return original_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
 
 socket.getaddrinfo = patched_getaddrinfo
 
