@@ -3,4 +3,3 @@ python-dotenv
 upstash-redis
 flask
 requests
-aiodns
