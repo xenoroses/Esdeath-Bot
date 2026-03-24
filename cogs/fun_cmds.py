@@ -6,8 +6,13 @@ class FunCmds(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command(name="match", description="Calculate the love score between two users!")
+    @commands.hybrid_command(
+        name="match", 
+        description="Calculate the love score between two users!",
+        aliases=["ship", "love"] # Allows 'es ship' or 'es love' to work too
+    )
     async def match(self, ctx: commands.Context, user1: discord.Member, user2: discord.Member = None):
+        """Calculates compatibility between users."""
         
         # If they only ping one user, match the sender with the pinged user
         if user2 is None:
@@ -47,7 +52,6 @@ class FunCmds(commands.Cog):
         # Build the Visual Love Meter (10 blocks total)
         filled_blocks = int(score / 10)
         empty_blocks = 10 - filled_blocks
-        # Uses Discord's built-in block characters for a clean progress bar
         love_meter = ("█" * filled_blocks) + ("░" * empty_blocks)
 
         # Build the aesthetic Embed
@@ -60,10 +64,10 @@ class FunCmds(commands.Cog):
             color=embed_color
         )
         
-        # Adds a clean header with your bot's avatar
+        # Header with bot's avatar
         embed.set_author(name="Esdeath Matchmaking System", icon_url=self.bot.user.display_avatar.url)
         
-        # Adds the target's profile picture to the top right corner
+        # Target's profile picture thumbnail
         embed.set_thumbnail(url=user2.display_avatar.url)
         
         await ctx.send(embed=embed)
