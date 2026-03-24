@@ -110,7 +110,7 @@ class EsdeathBot(commands.Bot):
         except Exception as e:
             print(f"REDIS WARNING: Connection failed. Error: {e}")
 
-        extensions = ["cogs.staff_cmds", "cogs.ai_chat", "cogs.impersonator"]
+        extensions = ["cogs.staff_cmds", "cogs.ai_chat", "cogs.impersonator", "cogs.fun_cmds"]
         for ext in extensions:
             try:
                 await self.load_extension(ext)
