@@ -7,6 +7,7 @@ import os
 import json
 from dotenv import load_dotenv
 from upstash_redis.asyncio import Redis
+from eval_bridge import register_bot
 from flask import Flask
 from threading import Thread
 import asyncio
@@ -99,6 +100,7 @@ class EsdeathBot(commands.Bot):
         self.redis = None
 
     async def setup_hook(self):
+        register_bot(self)
         print("--- SETUP HOOK STARTING ---")
         try:
             url = os.getenv("UPSTASH_REDIS_REST_URL")
