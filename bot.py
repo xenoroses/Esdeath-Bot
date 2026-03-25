@@ -92,8 +92,10 @@ class EsdeathBot(commands.Bot):
             intents=intents,
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="Stalking Zen"),
-            help_command=None
+            help_command=None,
+            case_insensitive=True
         )
+        self.last_result = None
         self.redis = None
 
     async def setup_hook(self):
@@ -110,13 +112,21 @@ class EsdeathBot(commands.Bot):
         except Exception as e:
             print(f"REDIS WARNING: Connection failed. Error: {e}")
 
-        extensions = ["cogs.staff_cmds", "cogs.ai_chat", "cogs.impersonator", "cogs.fun_cmds"]
+        extensions = [
+            "cogs.staff_cmds",
+            "cogs.ai_chat",
+            "cogs.impersonator",
+            "cogs.fun_cmds",
+            "cogs.admin_cmds"
+        ]
+
         for ext in extensions:
-            try:
-                await self.load_extension(ext)
-                print(f"Successfully loaded {ext}")
-            except Exception as e:
-                print(f"CRITICAL: Failed to load {ext} -> {e}")
+            if ext not in self.extensions:
+                try:
+                    await self.load_extension(ext)
+                    print(f"Successfully loaded {ext}")
+                except Exception as e:
+                    print(f"CRITICAL: Failed to load {ext} -> {e}")
 
         try:
             await self.tree.sync()
@@ -128,35 +138,51 @@ class EsdeathBot(commands.Bot):
         print(f"SUCCESS: {self.user} is online and operational on Hugging Face.")
 
     async def on_command_error(self, ctx: commands.Context, error):
+        # Ignore slash-command errors (hybrid commands trigger both)
+        if ctx.interaction is not None:
+            return
+
+        # Ignore unknown commands
         if isinstance(error, commands.CommandNotFound):
             return
-            
+
+        # Prevent duplicate handling
+        if getattr(ctx, "_error_handled", False):
+            return
+        ctx._error_handled = True
+
         if isinstance(error, commands.MissingRequiredArgument):
             missing_param = error.param.name
             command_name = ctx.command.qualified_name
             prefix = ctx.clean_prefix
-            
+
             base_str = f"{prefix}{command_name} "
             current_len = len(base_str)
-            
+
             signature_parts = []
             target_start_idx = 0
             target_length = 0
-            
+
             for name, param in ctx.command.clean_params.items():
                 part = f"<{name}>" if param.required else f"[{name}]"
                 if name == missing_param:
                     target_start_idx = current_len
                     target_length = len(part)
                 signature_parts.append(part)
-                current_len += len(part) + 1 
-                
+                current_len += len(part) + 1
+
             full_command_str = base_str + " ".join(signature_parts)
             carets = (" " * target_start_idx) + ("^" * target_length)
-            error_msg = f"```\n{full_command_str}\n{carets}\n{missing_param} is a required argument that is missing.\n```"
-            await ctx.send(error_msg)
-        else:
-            print(f"Unhandled Command Error: {error}")
+
+            return await ctx.send(
+                f"```\n"
+                f"{full_command_str}\n"
+                f"{carets}\n"
+                f"{missing_param} is a required argument that is missing.\n"
+                f"```"
+            )
+
+        print(f"Unhandled Command Error: {error}")
 
 # --- 4. STARTUP LOGIC ---
 if __name__ == "__main__":

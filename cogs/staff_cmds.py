@@ -98,7 +98,7 @@ class HelpPaginator(discord.ui.View):
 class StaffCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(datetime.timezone.utc)
 
     # --- INTERNAL HELPERS ---
     async def _send_error(self, ctx, text):
@@ -127,7 +127,7 @@ class StaffCommands(commands.Cog):
                 "mod_id": ctx.author.id,
                 "mod_name": ctx.author.display_name,
                 "reason": reason,
-                "date": datetime.utcnow().strftime("%b %d %Y %H:%M:%S")
+                "date": datetime.now(datetime.timezone.utc).strftime("%b %d %Y %H:%M:%S")
             }
             
             await self.bot.redis.set(f"case:{ctx.guild.id}:{case_id}", json.dumps(case_data))
@@ -147,9 +147,11 @@ class StaffCommands(commands.Cog):
     @commands.hybrid_command(name="help", description="Displays the interactive command guide.")
     async def help_command(self, ctx: commands.Context):
         cmds = []
-        for command in self.bot.commands:
-            if not command.hidden:
+        cmd_names = set()
+        for command in sorted(self.bot.commands, key=lambda c: c.name):
+            if not command.hidden and command.name not in cmd_names:
                 cmds.append((command.name, command.description or "No description provided."))
+                cmd_names.add(command.name)
         
         cmds.sort(key=lambda x: x[0])
         
@@ -498,7 +500,7 @@ class StaffCommands(commands.Cog):
         try:
             allowed = "0123456789+-*/(). "
             if all(c in allowed for c in expression):
-                result = eval(expression)
+                result = eval(expression, {"__builtins__": None}, {})
                 await self._send_success(ctx, f"The answer is **{result}**. Honestly, you couldn't solve that yourself?")
             else:
                 return await self._send_error(ctx, "Don't try to hack me with your weird symbols.")
@@ -634,8 +636,6 @@ class StaffCommands(commands.Cog):
         
         await self.bot.redis.delete(f"chat_channel:{ctx.guild.id}")
         await self._send_success(ctx, "Channel lock removed. Esdeath can now be summoned globally.")
-            
-
 # --- GLOBAL SETUP FUNCTION ---
 async def setup(bot):
     await bot.add_cog(StaffCommands(bot))

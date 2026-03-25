@@ -34,13 +34,8 @@ class AIChat(commands.Cog):
                     parent_id = str(getattr(message.channel, 'parent_id', ''))
                     
                     # flush=True forces the log to appear instantly in Hugging Face
-                    print(f"\n[LOCK TEST] Target Locked ID: {locked_id} | Actual Message ID: {curr_id}", flush=True)
-                    
                     if locked_id and curr_id != locked_id and parent_id != locked_id:
-                        print(f"[LOCK TEST] BLOCKED. Channels do not match.", flush=True)
                         return
-                    else:
-                        print(f"[LOCK TEST] MATCH. Letting message through.", flush=True)
             except Exception as e:
                 print(f"Channel Lock Check Error: {e}", flush=True)
 

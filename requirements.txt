@@ -3,3 +3,5 @@ python-dotenv
 upstash-redis
 flask
 requests
+fastmcp
+httpx
