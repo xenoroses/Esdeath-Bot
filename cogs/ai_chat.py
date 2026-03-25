@@ -41,7 +41,7 @@ class AIChat(commands.Cog):
 
         # --- THE FIX: Ignore Commands ---
         ctx = await self.bot.get_context(message)
-        if ctx.valid:
+        if ctx.command:
             return 
 
         content = message.content.lower()
