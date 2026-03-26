@@ -119,7 +119,8 @@ class EsdeathBot(commands.Bot):
             "cogs.ai_chat",
             "cogs.impersonator",
             "cogs.fun_cmds",
-            "cogs.admin_cmds"
+            "cogs.admin_cmds",
+            "cogs.sticky_cmds"
         ]
 
         for ext in extensions:
