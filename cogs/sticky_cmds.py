@@ -49,7 +49,6 @@ class StickyCommands(commands.Cog):
 
         cached = await self.bot.redis.get(key)
 
-        # Delete last sticky message if it exists
         if cached:
 
             if isinstance(cached, bytes):
@@ -66,7 +65,7 @@ class StickyCommands(commands.Cog):
                 except:
                     pass
 
-        # Remove Redis entry
+        # DELETE BEFORE ANY NEW MESSAGE EVENT CAN FIRE
         await self.bot.redis.delete(key)
 
         await ctx.send("Sticky message removed from this channel.")
@@ -77,7 +76,7 @@ class StickyCommands(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
 
-        # Prevent bot loops
+        # Ignore bots
         if message.author.bot:
             return
 
@@ -85,12 +84,13 @@ class StickyCommands(commands.Cog):
         if not message.guild:
             return
 
-        # Redis offline safety
+        # Redis safety
         if not self.bot.redis:
             return
 
         key = f"sticky:{message.channel.id}"
 
+        # Re-fetch every time (prevents stale repost bug)
         cached = await self.bot.redis.get(key)
 
         if not cached:
@@ -99,12 +99,20 @@ class StickyCommands(commands.Cog):
         if isinstance(cached, bytes):
             cached = cached.decode("utf-8")
 
-        data = json.loads(cached)
+        try:
+            data = json.loads(cached)
+        except:
+            return
 
         sticky_text = data.get("message")
         last_id = data.get("last_id")
 
-        # Delete previous sticky message if exists
+        # DOUBLE CHECK still exists before repost
+        verify = await self.bot.redis.get(key)
+        if not verify:
+            return
+
+        # Delete previous sticky
         if last_id:
             try:
                 old_msg = await message.channel.fetch_message(last_id)
@@ -112,16 +120,13 @@ class StickyCommands(commands.Cog):
             except:
                 pass
 
-        # Send new sticky message
+        # Send fresh sticky
         new_msg = await message.channel.send(sticky_text)
 
-        # Save new sticky message ID
         data["last_id"] = new_msg.id
 
         await self.bot.redis.set(key, json.dumps(data))
 
-
-# ---------------- LOAD COG ----------------
 
 async def setup(bot):
     await bot.add_cog(StickyCommands(bot))
