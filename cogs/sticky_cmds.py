@@ -52,7 +52,7 @@ class StickyCommands(commands.Cog):
         if cached:
 
             if isinstance(cached, bytes):
-                cached = cached.decode("utf-8")
+                cached = cached.decode()
 
             data = json.loads(cached)
 
@@ -60,12 +60,11 @@ class StickyCommands(commands.Cog):
 
             if last_id:
                 try:
-                    old_msg = await ctx.channel.fetch_message(last_id)
-                    await old_msg.delete()
+                    msg = await ctx.channel.fetch_message(last_id)
+                    await msg.delete()
                 except:
                     pass
 
-        # DELETE BEFORE ANY NEW MESSAGE EVENT CAN FIRE
         await self.bot.redis.delete(key)
 
         await ctx.send("Sticky message removed from this channel.")
@@ -76,7 +75,7 @@ class StickyCommands(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
 
-        # Ignore bots
+        # Ignore bot messages
         if message.author.bot:
             return
 
@@ -84,33 +83,28 @@ class StickyCommands(commands.Cog):
         if not message.guild:
             return
 
-        # Redis safety
+        # Prevent execution during commands (fixes duplication)
+        ctx = await self.bot.get_context(message)
+        if ctx.valid:
+            return
+
         if not self.bot.redis:
             return
 
         key = f"sticky:{message.channel.id}"
 
-        # Re-fetch every time (prevents stale repost bug)
         cached = await self.bot.redis.get(key)
 
         if not cached:
             return
 
         if isinstance(cached, bytes):
-            cached = cached.decode("utf-8")
+            cached = cached.decode()
 
-        try:
-            data = json.loads(cached)
-        except:
-            return
+        data = json.loads(cached)
 
         sticky_text = data.get("message")
         last_id = data.get("last_id")
-
-        # DOUBLE CHECK still exists before repost
-        verify = await self.bot.redis.get(key)
-        if not verify:
-            return
 
         # Delete previous sticky
         if last_id:
@@ -120,7 +114,7 @@ class StickyCommands(commands.Cog):
             except:
                 pass
 
-        # Send fresh sticky
+        # Send new sticky
         new_msg = await message.channel.send(sticky_text)
 
         data["last_id"] = new_msg.id
@@ -128,5 +122,9 @@ class StickyCommands(commands.Cog):
         await self.bot.redis.set(key, json.dumps(data))
 
 
+# SAFE COG LOADER (prevents duplicate registration)
+
 async def setup(bot):
-    await bot.add_cog(StickyCommands(bot))
+
+    if "StickyCommands" not in bot.cogs:
+        await bot.add_cog(StickyCommands(bot))

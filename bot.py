@@ -100,7 +100,7 @@ class EsdeathBot(commands.Bot):
         self.redis = None
 
     async def setup_hook(self):
-        register_bot(self)
+        #register_bot(self)
         print("--- SETUP HOOK STARTING ---")
         try:
             url = os.getenv("UPSTASH_REDIS_REST_URL")
@@ -120,7 +120,8 @@ class EsdeathBot(commands.Bot):
             "cogs.impersonator",
             "cogs.fun_cmds",
             "cogs.admin_cmds",
-            "cogs.sticky_cmds"
+            "cogs.sticky_cmds",
+            "cogs.forcenick_cmds"
         ]
 
         for ext in extensions:
