@@ -98,4 +98,5 @@ class FunCmds(commands.Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(FunCmds(bot))
+    if "FunCmds" not in bot.cogs:
+        await bot.add_cog(FunCmds(bot))

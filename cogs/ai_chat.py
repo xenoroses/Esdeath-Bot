@@ -6,14 +6,17 @@ import json
 import time
 import re
 from llm import generate_reply
+from collections import defaultdict
+from redis_utils import rget_json
 
 class AIChat(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.MAX_HISTORY = 12
+        self.MAX_HISTORY = 24
         self.COOLDOWN_TIME = 8 
         self.channel_cooldowns = {}
         self.channel_warnings = {}
+        self.recent_members = defaultdict(list)
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -21,11 +24,20 @@ class AIChat(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
+        # Update recent members cache
+        channel_id = message.channel.id
+        if message.author not in self.recent_members[channel_id]:
+            self.recent_members[channel_id].append(message.author)
+            if len(self.recent_members[channel_id]) > 15:
+                self.recent_members[channel_id].pop(0)
+
         # --- DYNAMIC CHANNEL LOCK CHECK (FORCED LOGS) ---
         if getattr(self.bot, 'redis', None):
             try:
                 locked_channel = await self.bot.redis.get(f"chat_channel:{message.guild.id}")
                 if locked_channel:
+                    if isinstance(locked_channel, bytes):
+                        locked_channel = locked_channel.decode()
                     locked_str = str(locked_channel)
                     # Strip out absolutely everything except numbers
                     locked_id = ''.join(filter(str.isdigit, locked_str))
@@ -56,6 +68,10 @@ class AIChat(commands.Cog):
         channel_id = str(message.channel.id)
         current_time = time.time()
 
+        # Cleanup expired cooldowns and warnings
+        self.channel_cooldowns = {k: v for k, v in self.channel_cooldowns.items() if current_time - v < self.COOLDOWN_TIME * 2}
+        self.channel_warnings = {k: v for k, v in self.channel_warnings.items() if current_time - v < self.COOLDOWN_TIME * 2}
+
         # --- RATE LIMITER WITH EMBED ---
         last_msg_time = self.channel_cooldowns.get(channel_id, 0)
         if current_time - last_msg_time < self.COOLDOWN_TIME:
@@ -78,18 +94,12 @@ class AIChat(commands.Cog):
         # --- NEW: CONTEXTUAL MEMBER SCAN ---
         # Builds a list of people who have recently spoken so the AI can ping them by ID
         member_list = "Current visible members for pings:\n"
-        async for msg in message.channel.history(limit=15):
-            if not msg.author.bot:
-                member_list += f"- Name: {msg.author.display_name}, ID: {msg.author.id}\n"
+        for member in self.recent_members.get(message.channel.id, []):
+            member_list += f"- Name: {member.display_name}, ID: {member.id}\n"
 
         # --- MEMORY RETRIEVAL ---
         try:
-            history_data = await self.bot.redis.get(f"memory:{channel_id}")
-            if history_data:
-                decoded_history = history_data.decode('utf-8') if isinstance(history_data, bytes) else history_data
-                channel_memory = json.loads(decoded_history)
-            else:
-                channel_memory = []
+            channel_memory = await rget_json(self.bot, f"memory:{channel_id}") or []
         except Exception as e:
             print(f"Redis get error: {e}")
             channel_memory = []
@@ -147,4 +157,5 @@ class AIChat(commands.Cog):
             await message.reply(embed=error_embed, mention_author=False)
 
 async def setup(bot):
-    await bot.add_cog(AIChat(bot))
+    if "AIChat" not in bot.cogs:
+        await bot.add_cog(AIChat(bot))

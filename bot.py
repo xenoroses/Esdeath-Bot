@@ -7,12 +7,17 @@ import os
 import json
 from dotenv import load_dotenv
 from upstash_redis.asyncio import Redis
-from eval_bridge import register_bot
+from eval_bridge import register_bot, app as eval_app
 from flask import Flask
 from threading import Thread
 import asyncio
 import sys
 import logging
+import time
+import uvicorn
+import atexit
+
+logging.basicConfig(level=logging.INFO)
 
 # --- 1. THE DOH MASTER BYPASS (DNS OVER HTTPS) ---
 # Hugging Face's DNS servers block Discord. This bypasses them completely
@@ -28,6 +33,9 @@ try:
 except Exception as e:
     print(f"DoH Bypass Failed: {e}")
     DISCORD_COM_IPS, DISCORD_GG_IPS = [], []
+
+if not DISCORD_COM_IPS or not DISCORD_GG_IPS:
+    print("WARNING: Discord API IP fetch failed - bot may not connect properly")
 
 original_getaddrinfo = socket.getaddrinfo
 
@@ -57,15 +65,26 @@ def run_flask():
     log.setLevel(logging.ERROR)
     app.run(host="0.0.0.0", port=port)
 
+def start_eval_server():
+    uvicorn.run(eval_app, host="127.0.0.1", port=9000, log_level="warning")
+
 def keep_alive():
     print("Starting Web Server Thread...")
-    t = Thread(target=run_flask)
-    t.daemon = True 
-    t.start()
+
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    eval_thread = Thread(target=start_eval_server)
+    eval_thread.daemon = True
+    eval_thread.start()
 
 # --- 3. BOT INITIALIZATION ---
 load_dotenv()
 TOKEN = os.getenv("dc_token")
+
+def decode_redis_data(data):
+    return data.decode('utf-8') if isinstance(data, bytes) else data
 
 async def get_server_prefixes(bot, message):
     default_prefixes = ["!", "esdeath ", "es "]
@@ -74,8 +93,7 @@ async def get_server_prefixes(bot, message):
     try:
         cached_prefixes = await bot.redis.get(f"prefixes:{message.guild.id}")
         if cached_prefixes:
-            if isinstance(cached_prefixes, bytes):
-                cached_prefixes = cached_prefixes.decode('utf-8')
+            cached_prefixes = decode_redis_data(cached_prefixes)
             custom_prefixes = json.loads(cached_prefixes)
             return commands.when_mentioned_or(*custom_prefixes)(bot, message)
     except Exception as e:
@@ -100,19 +118,28 @@ class EsdeathBot(commands.Bot):
         self.redis = None
 
     async def setup_hook(self):
-        #register_bot(self)
-        print("--- SETUP HOOK STARTING ---")
+        register_bot(self)
+        logging.info("--- SETUP HOOK STARTING ---")
         try:
             url = os.getenv("UPSTASH_REDIS_REST_URL")
             token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
             if url and token:
                 self.redis = Redis(url=url, token=token)
-                await asyncio.wait_for(self.redis.ping(), timeout=5.0)
-                print("Redis Connected successfully.")
+                for attempt in range(3):
+                    try:
+                        await asyncio.wait_for(self.redis.ping(), timeout=5.0)
+                        logging.info("Redis Connected successfully.")
+                        break
+                    except Exception as e:
+                        if attempt == 2:
+                            logging.warning(f"REDIS WARNING: Connection failed after retries. Error: {e}")
+                        else:
+                            logging.info(f"Redis connection attempt {attempt+1} failed, retrying...")
+                            await asyncio.sleep(1)
             else:
-                print("REDIS ERROR: Missing Environment Variables.")
+                logging.error("REDIS ERROR: Missing Environment Variables.")
         except Exception as e:
-            print(f"REDIS WARNING: Connection failed. Error: {e}")
+            logging.warning(f"REDIS WARNING: Connection failed. Error: {e}")
 
         extensions = [
             "cogs.staff_cmds",
@@ -128,18 +155,38 @@ class EsdeathBot(commands.Bot):
             if ext not in self.extensions:
                 try:
                     await self.load_extension(ext)
-                    print(f"Successfully loaded {ext}")
+                    logging.info(f"Successfully loaded {ext}")
                 except Exception as e:
-                    print(f"CRITICAL: Failed to load {ext} -> {e}")
+                    logging.error(f"CRITICAL: Failed to load {ext} -> {e}")
 
         try:
             await self.tree.sync()
-            print("--- SLASH COMMANDS SYNCED ---")
+            logging.info("--- SLASH COMMANDS SYNCED ---")
         except Exception as e:
-            print(f"Sync Error: {e}")
+            logging.error(f"Sync Error: {e}")
 
     async def on_ready(self):
-        print(f"SUCCESS: {self.user} is online and operational on Hugging Face.")
+        self.start_time = time.time()
+        print(f"BOT INSTANCE PID: {os.getpid()}")
+        logging.info(f"SUCCESS: {self.user} is online and operational on Hugging Face.")
+        # Start presence rotation
+        if not hasattr(self, "presence_task"):
+            self.presence_task = self.loop.create_task(self.rotate_presence())
+
+    async def on_message(self, message):
+        await self.process_commands(message)
+
+    async def rotate_presence(self):
+        statuses = [
+            discord.Activity(type=discord.ActivityType.watching, name="Stalking Zen"),
+            discord.Activity(type=discord.ActivityType.listening, name="Your Commands"),
+            discord.Activity(type=discord.ActivityType.playing, name="With Fire"),
+            discord.Activity(type=discord.ActivityType.watching, name="The Server")
+        ]
+        while True:
+            for status in statuses:
+                await self.change_presence(activity=status)
+                await asyncio.sleep(300)  # 5 minutes
 
     async def on_command_error(self, ctx: commands.Context, error):
         # Ignore slash-command errors (hybrid commands trigger both)
@@ -190,6 +237,23 @@ class EsdeathBot(commands.Bot):
 
 # --- 4. STARTUP LOGIC ---
 if __name__ == "__main__":
+    # Singleton lock to prevent multiple bot instances
+    LOCK_FILE = "bot.lock"
+    
+    if os.path.exists(LOCK_FILE):
+        print("Another bot instance already running. Exiting.")
+        sys.exit(0)
+    
+    # Create lock file
+    open(LOCK_FILE, "w").close()
+    
+    # Cleanup function for lock file
+    def cleanup_lock():
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+    
+    atexit.register(cleanup_lock)
+    
     keep_alive()
     if TOKEN:
         print("Initiating Discord Login...")

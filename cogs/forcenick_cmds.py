@@ -60,9 +60,6 @@ class ForceNick(commands.Cog):
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
 
-        if before.nick == after.nick:
-            return
-
         if not self.bot.redis:
             return
 
@@ -80,14 +77,15 @@ class ForceNick(commands.Cog):
 
         locked_nick = data.get("nick")
 
-        if after.nick != locked_nick:
+        if after.nick == locked_nick:
+            return
 
-            try:
-                await after.edit(
-                    nick=locked_nick,
-                    reason="Nickname lock enforcement"
-                )
-            except discord.Forbidden:
+        try:
+            await after.edit(
+                nick=locked_nick,
+                reason="Nickname lock enforcement"
+            )
+        except discord.Forbidden:
                 pass
 
 

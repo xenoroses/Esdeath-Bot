@@ -176,17 +176,20 @@ async def execute_eval(code: str) -> str:
 
     import httpx
 
+    headers = {"X-EVAL-TOKEN": os.getenv("EVAL_SECRET")}
+
     async with httpx.AsyncClient(timeout=30) as client:
 
         response = await client.post(
             "http://127.0.0.1:9000/eval",
-            json={"code": code}
+            json={"code": code},
+            headers=headers
         )
 
         data = response.json()
 
         if "error" in data:
-            return f"Eval error: {data['error']}"
+            return data.get("error", "Unknown error")
 
         return f"Eval result: {data.get('result', 'None')}"
 

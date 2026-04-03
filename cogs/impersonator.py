@@ -137,4 +137,5 @@ class Impersonator(commands.Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(Impersonator(bot))
+    if "Impersonator" not in bot.cogs:
+        await bot.add_cog(Impersonator(bot))

@@ -1,12 +1,15 @@
 import discord
 from discord.ext import commands
 import json
+import asyncio
+from collections import defaultdict
 
 
 class StickyCommands(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.channel_locks = defaultdict(asyncio.Lock)
 
 
     # ---------------- SET STICKY ----------------
@@ -75,7 +78,7 @@ class StickyCommands(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
 
-        # Ignore bot messages
+        # Ignore bot messages (self-sticky / bot loop guard)
         if message.author.bot:
             return
 
@@ -83,7 +86,7 @@ class StickyCommands(commands.Cog):
         if not message.guild:
             return
 
-        # Prevent execution during commands (fixes duplication)
+        # Ignore command messages (avoid command overlaps)
         ctx = await self.bot.get_context(message)
         if ctx.valid:
             return
@@ -106,19 +109,19 @@ class StickyCommands(commands.Cog):
         sticky_text = data.get("message")
         last_id = data.get("last_id")
 
-        # Delete previous sticky
-        if last_id:
-            try:
-                old_msg = await message.channel.fetch_message(last_id)
-                await old_msg.delete()
-            except:
-                pass
+        async with self.channel_locks[message.channel.id]:
+            # Delete previous sticky if exists
+            if last_id:
+                try:
+                    old_msg = await message.channel.fetch_message(last_id)
+                    await old_msg.delete()
+                except:
+                    pass
 
-        # Send new sticky
-        new_msg = await message.channel.send(sticky_text)
+            # Send new sticky to track as latest
+            new_msg = await message.channel.send(sticky_text)
 
         data["last_id"] = new_msg.id
-
         await self.bot.redis.set(key, json.dumps(data))
 
 

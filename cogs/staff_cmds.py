@@ -6,7 +6,9 @@ import requests
 import time
 import json
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import numexpr
+from redis_utils import rget_json, rset_json, rget
 
 # --- INTERACTIVE HELP PAGINATOR ---
 class HelpPaginator(discord.ui.View):
@@ -18,22 +20,22 @@ class HelpPaginator(discord.ui.View):
         self.per_page = 5 
         self.total_pages = max(1, math.ceil(len(self.cmds) / self.per_page))
 
-        self.first_btn = discord.ui.Button(label="FIRST", style=discord.ButtonStyle.success, custom_id="first")
+        self.first_btn = discord.ui.Button(label="FIRST", style=discord.ButtonStyle.success, custom_id=f"help_first_{id(self)}")
         self.first_btn.callback = self.first_page
         self.add_item(self.first_btn)
 
-        self.prev_btn = discord.ui.Button(label="PREVIOUS", style=discord.ButtonStyle.secondary, custom_id="prev")
+        self.prev_btn = discord.ui.Button(label="PREVIOUS", style=discord.ButtonStyle.secondary, custom_id=f"help_prev_{id(self)}")
         self.prev_btn.callback = self.previous_page
         self.add_item(self.prev_btn)
 
-        self.counter_btn = discord.ui.Button(label=f"1/{self.total_pages}", style=discord.ButtonStyle.secondary, disabled=True, custom_id="counter")
+        self.counter_btn = discord.ui.Button(label=f"1/{self.total_pages}", style=discord.ButtonStyle.secondary, disabled=True, custom_id=f"help_counter_{id(self)}")
         self.add_item(self.counter_btn)
 
-        self.next_btn = discord.ui.Button(label="NEXT", style=discord.ButtonStyle.success, custom_id="next")
+        self.next_btn = discord.ui.Button(label="NEXT", style=discord.ButtonStyle.success, custom_id=f"help_next_{id(self)}")
         self.next_btn.callback = self.next_page
         self.add_item(self.next_btn)
 
-        self.last_btn = discord.ui.Button(label="LAST", style=discord.ButtonStyle.success, custom_id="last")
+        self.last_btn = discord.ui.Button(label="LAST", style=discord.ButtonStyle.success, custom_id=f"help_last_{id(self)}")
         self.last_btn.callback = self.last_page
         self.add_item(self.last_btn)
         
@@ -98,7 +100,7 @@ class HelpPaginator(discord.ui.View):
 class StaffCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.start_time = datetime.now(datetime.timezone.utc)
+        self.start_time = datetime.now(timezone.utc)
 
     # --- INTERNAL HELPERS ---
     async def _send_error(self, ctx, text):
@@ -127,17 +129,16 @@ class StaffCommands(commands.Cog):
                 "mod_id": ctx.author.id,
                 "mod_name": ctx.author.display_name,
                 "reason": reason,
-                "date": datetime.now(datetime.timezone.utc).strftime("%b %d %Y %H:%M:%S")
+                "date": datetime.now(timezone.utc).strftime("%b %d %Y %H:%M:%S")
             }
             
             await self.bot.redis.set(f"case:{ctx.guild.id}:{case_id}", json.dumps(case_data))
-            
+
             user_key = f"userlogs:{ctx.guild.id}:{user.id}"
-            cached = await self.bot.redis.get(user_key)
-            user_logs = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else []
+            user_logs = await rget_json(self.bot, user_key) or []
             user_logs.append(case_id)
-            await self.bot.redis.set(user_key, json.dumps(user_logs))
-            
+            await rset_json(self.bot, user_key, user_logs)
+
             return case_id
         except Exception as e:
             print(f"Modlog Save Error: {e}")
@@ -169,9 +170,8 @@ class StaffCommands(commands.Cog):
             return await ctx.send(f"Memory offline. Currently using defaults: `{', '.join(default_prefixes)}`", ephemeral=True)
             
         try:
-            cached = await self.bot.redis.get(f"prefixes:{ctx.guild.id}")
-            current_prefixes = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else default_prefixes
-            
+            current_prefixes = await rget_json(self.bot, f"prefixes:{ctx.guild.id}") or default_prefixes
+
             embed = discord.Embed(title="Server Prefixes", description="\n".join([f"• `{p}`" for p in current_prefixes]), color=0x3498db)
             await ctx.send(embed=embed)
         except Exception as e:
@@ -184,14 +184,13 @@ class StaffCommands(commands.Cog):
             return await self._send_error(ctx, "My memory banks are offline. Try again later.")
             
         try:
-            cached = await self.bot.redis.get(f"prefixes:{ctx.guild.id}")
-            current_prefixes = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else ["!", "esdeath ", "es "]
-            
+            current_prefixes = await rget_json(self.bot, f"prefixes:{ctx.guild.id}") or ["!", "esdeath ", "es "]
+
             if prefix in current_prefixes:
                 return await self._send_error(ctx, f"`{prefix}` is already a prefix here.")
-                
+
             current_prefixes.append(prefix)
-            await self.bot.redis.set(f"prefixes:{ctx.guild.id}", json.dumps(current_prefixes))
+            await rset_json(self.bot, f"prefixes:{ctx.guild.id}", current_prefixes)
             await self._send_success(ctx, f"Added `{prefix}` to this server's prefixes.")
         except Exception as e:
             await self._send_error(ctx, f"Failed to save prefix: {e}")
@@ -203,17 +202,16 @@ class StaffCommands(commands.Cog):
             return await self._send_error(ctx, "My memory banks are offline. Try again later.")
             
         try:
-            cached = await self.bot.redis.get(f"prefixes:{ctx.guild.id}")
-            current_prefixes = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else ["!", "esdeath ", "es "]
-            
+            current_prefixes = await rget_json(self.bot, f"prefixes:{ctx.guild.id}") or ["!", "esdeath ", "es "]
+
             if prefix not in current_prefixes:
                 return await self._send_error(ctx, f"`{prefix}` isn't on the prefix list.")
-            
+
             if len(current_prefixes) <= 1:
                 return await self._send_error(ctx, "You can't remove the last prefix! How would you command me?")
-                
+
             current_prefixes.remove(prefix)
-            await self.bot.redis.set(f"prefixes:{ctx.guild.id}", json.dumps(current_prefixes))
+            await rset_json(self.bot, f"prefixes:{ctx.guild.id}", current_prefixes)
             await self._send_success(ctx, f"Removed `{prefix}` from this server's prefixes.")
         except Exception as e:
             await self._send_error(ctx, f"Failed to remove prefix: {e}")
@@ -240,11 +238,9 @@ class StaffCommands(commands.Cog):
         bio = "No bio set. How boring."
         if self.bot.redis:
             try:
-                fetched_bio = await self.bot.redis.get(f"bio:{user.id}")
-                if fetched_bio:
-                    bio = fetched_bio.decode('utf-8') if isinstance(fetched_bio, bytes) else fetched_bio
+                bio = await rget(self.bot, f"bio:{user.id}") or ""
             except Exception:
-                pass 
+                bio = "" 
 
         embed = discord.Embed(title=f"{user.display_name}", description=f"*{bio}*", color=0xe74c3c)
         embed.set_thumbnail(url=user.display_avatar.url)
@@ -361,26 +357,24 @@ class StaffCommands(commands.Cog):
             return await self._send_error(ctx, "Memory offline.")
             
         user_key = f"userlogs:{ctx.guild.id}:{user.id}"
-        cached = await self.bot.redis.get(user_key)
-        case_ids = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached) if cached else []
-        
+        case_ids = await rget_json(self.bot, user_key) or []
+
         if not case_ids:
             return await self._send_success(ctx, f"**{user.display_name}** has a clean record. For now.")
-            
+
         embed = discord.Embed(title=f"Modlogs for {user.display_name}", color=0x2b2d31)
-        
-        recent_cases = case_ids[-10:] 
-        recent_cases.reverse() 
-        
+
+        recent_cases = case_ids[-10:]
+        recent_cases.reverse()
+
         description = ""
         for cid in recent_cases:
-            case_raw = await self.bot.redis.get(f"case:{ctx.guild.id}:{cid}")
-            if case_raw:
-                c = json.loads(case_raw.decode('utf-8') if isinstance(case_raw, bytes) else case_raw)
-                description += f"**Case {c['id']}** | {c['type']}\n"
-                description += f"**User:** {c['user_name']} ({c['user_id']})\n"
-                description += f"**Moderator:** {c['mod_name']}\n"
-                description += f"**Reason:** {c['reason']} - *{c['date']}*\n\n"
+            case_data = await rget_json(self.bot, f"case:{ctx.guild.id}:{cid}")
+            if case_data:
+                description += f"**Case {case_data['id']}** | {case_data['type']}\n"
+                description += f"**User:** {case_data['user_name']} ({case_data['user_id']})\n"
+                description += f"**Moderator:** {case_data['mod_name']}\n"
+                description += f"**Reason:** {case_data['reason']} - *{case_data['date']}*\n\n"
                 
         embed.description = description
         embed.set_footer(text=f"{len(case_ids)} total logs | Showing recent {len(recent_cases)}")
@@ -398,18 +392,18 @@ class StaffCommands(commands.Cog):
         if not cached:
             return await self._send_error(ctx, f"Case #{case_id} does not exist.")
             
-        case_data = json.loads(cached.decode('utf-8') if isinstance(cached, bytes) else cached)
+        case_data = await rget_json(self.bot, case_key)
         old_reason = case_data["reason"]
         case_data["reason"] = new_reason
-        
+
         if case_data["type"] == "Ban":
             try:
                 user = await self.bot.fetch_user(case_data["user_id"])
                 await ctx.guild.fetch_ban(user)
                 await ctx.guild.ban(user, reason=new_reason)
-            except: pass 
+            except: pass
 
-        await self.bot.redis.set(case_key, json.dumps(case_data))
+        await rset_json(self.bot, case_key, case_data)
         await self._send_success(ctx, f"Updated **Case #{case_id}**\n**Old:** {old_reason}\n**New:** {new_reason}")
 
     @commands.hybrid_command(name="clearwarns", description="Wipe a user's entire case history.")
@@ -439,6 +433,7 @@ class StaffCommands(commands.Cog):
             await self._send_success(ctx, f"Slowmode set to {seconds} seconds. Think before you speak.")
 
     # --- BATCH 3: INTERACTIVE TOOLS ---
+    @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.hybrid_command(name="poll", description="Create a professional poll.")
     async def poll(self, ctx: commands.Context, question: str, *, options: str):
         option_list = [opt.strip() for opt in options.split(",")]
@@ -500,7 +495,7 @@ class StaffCommands(commands.Cog):
         try:
             allowed = "0123456789+-*/(). "
             if all(c in allowed for c in expression):
-                result = eval(expression, {"__builtins__": None}, {})
+                result = numexpr.evaluate(expression).item()
                 await self._send_success(ctx, f"The answer is **{result}**. Honestly, you couldn't solve that yourself?")
             else:
                 return await self._send_error(ctx, "Don't try to hack me with your weird symbols.")
@@ -638,4 +633,5 @@ class StaffCommands(commands.Cog):
         await self._send_success(ctx, "Channel lock removed. Esdeath can now be summoned globally.")
 # --- GLOBAL SETUP FUNCTION ---
 async def setup(bot):
-    await bot.add_cog(StaffCommands(bot))
+    if "StaffCommands" not in bot.cogs:
+        await bot.add_cog(StaffCommands(bot))

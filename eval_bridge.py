@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 import asyncio
+import os
 
 app = FastAPI()
 
@@ -19,6 +20,9 @@ async def run_eval(request: Request):
 
     if not code:
         return {"error": "No code provided"}
+
+    if request.headers.get("X-EVAL-TOKEN") != os.getenv("EVAL_SECRET"):
+        return {"error": "Unauthorized"}
 
     if bot_instance is None:
         return {"error": "Bot not ready"}

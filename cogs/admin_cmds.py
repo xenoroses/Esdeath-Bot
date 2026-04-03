@@ -133,93 +133,46 @@ class OwnerCmds(commands.Cog):
         except Exception as e:
             await self._send_error(ctx, f"Failed to remove admin: {e}")
 
-    # --- EVAL COMMAND ---
-
-    @commands.hybrid_command(
-        name="eval",
-        description="Evaluate raw Python code.",
-        hidden=True
-    )
+    @commands.hybrid_command(name="health", description="Check bot health status.")
     @commands.check(is_bot_admin)
-    async def eval_cmd(self, ctx: commands.Context, *, body: str = None):
+    async def health(self, ctx: commands.Context):
+        import time
+        import psutil
+        import platform
 
-        if body is None:
-            return await ctx.send("Provide code to evaluate.")
-
-        env = {
-            "bot": self.bot,
-            "ctx": ctx,
-            "channel": ctx.channel,
-            "author": ctx.author,
-            "guild": ctx.guild,
-            "message": ctx.message,
-            "discord": discord,
-            "_": self.bot.last_result
-        }
-
-        env.update({
-            "asyncio": asyncio,
-            "datetime": __import__("datetime"),
-        })
-
-        # Remove triple-backtick formatting if present
-        if body.startswith("```") and body.endswith("```"):
-            body = "\n".join(body.split("\n")[1:-1])
-        else:
-            body = body.strip("` \n")
-
-        # Wrap code inside async function
-        to_compile = (
-            "async def func():\n"
-            + textwrap.indent(body, "  ")
-        )
-
-        stdout = io.StringIO()
-
-        try:
-            exec(to_compile, env)
-
-        except Exception as e:
-            return await ctx.send(
-                f"```py\n{e.__class__.__name__}: {e}\n```"
-            )
-
-        func = env["func"]
-
-        try:
-            with redirect_stdout(stdout):
-                ret = await asyncio.wait_for(func(), timeout=10)
-
-        except Exception as e:
-
-            value = stdout.getvalue()
-
-            # Full traceback only in terminal
-            print(traceback.format_exc())
-
-            clean_error = f"{e.__class__.__name__}: {e}"
-
-            await ctx.send(
-                f"```py\n{value}{clean_error}\n```"
-            )
-
-        else:
-
-            value = stdout.getvalue()
-
+        # Redis status
+        redis_status = "❌ Disconnected"
+        if getattr(self.bot, 'redis', None):
             try:
-                await ctx.message.add_reaction("✅")
-            except Exception:
-                pass
+                await asyncio.wait_for(self.bot.redis.ping(), timeout=2.0)
+                redis_status = "✅ Connected"
+            except:
+                redis_status = "❌ Disconnected"
 
-            if ret is None:
-                if value:
-                    self.bot.last_result = value
-                    await ctx.send(f"```py\n{value}\n```")
-            else:
-                self.bot.last_result = ret
-                await ctx.send(f"```py\n{value}{ret}\n```")
+        # API latency
+        latency = round(self.bot.latency * 1000, 2) if self.bot.latency else "N/A"
+
+        # Uptime
+        uptime = time.time() - self.bot.start_time if hasattr(self.bot, 'start_time') else 0
+        uptime_str = f"{int(uptime // 3600)}h {int((uptime % 3600) // 60)}m {int(uptime % 60)}s"
+
+        # Extension count
+        ext_count = len(self.bot.extensions)
+
+        embed = discord.Embed(
+            title="🤖 Bot Health Status",
+            color=0x2ECC71
+        )
+        embed.add_field(name="Redis", value=redis_status, inline=True)
+        embed.add_field(name="API Latency", value=f"{latency}ms", inline=True)
+        embed.add_field(name="Uptime", value=uptime_str, inline=True)
+        embed.add_field(name="Extensions", value=str(ext_count), inline=True)
+        embed.add_field(name="Python", value=platform.python_version(), inline=True)
+        embed.add_field(name="Discord.py", value=discord.__version__, inline=True)
+
+        await ctx.send(embed=embed)
 
 
 async def setup(bot):
-    await bot.add_cog(OwnerCmds(bot))
+    if "OwnerCmds" not in bot.cogs:
+        await bot.add_cog(OwnerCmds(bot))
