@@ -3,6 +3,7 @@ from discord.ext import commands
 import json
 import asyncio
 from collections import defaultdict
+from redis_utils import rget_json, rset_json
 
 
 class StickyCommands(commands.Cog):
@@ -23,6 +24,13 @@ class StickyCommands(commands.Cog):
 
         if not self.bot.redis:
             return await ctx.send("Memory offline. Sticky cannot be saved.")
+            
+        # --- IDEMPOTENCY LOCK: Prevent double execution across bot instances ---
+        exec_lock = f"exec_lock:sticky:{ctx.channel.id}:{message[:20]}"
+        if await self.bot.redis.set(exec_lock, "1", nx=True, ex=5):
+            pass # We got the lock!
+        else:
+            return # Someone else got the lock, abort execution.
 
         key = f"sticky:{ctx.channel.id}"
 
@@ -31,7 +39,11 @@ class StickyCommands(commands.Cog):
             "last_id": None
         }
 
-        await self.bot.redis.set(key, json.dumps(data))
+        # Update both cache and Redis
+        if hasattr(self.bot, 'cache') and self.bot.cache:
+            await self.bot.cache.set(key, json.dumps(data))
+        else:
+            await self.bot.redis.set(key, json.dumps(data))
 
         await ctx.send("Sticky message set for this channel.")
 
@@ -47,6 +59,13 @@ class StickyCommands(commands.Cog):
 
         if not self.bot.redis:
             return await ctx.send("Memory offline.")
+            
+        # --- IDEMPOTENCY LOCK: Prevent double execution across bot instances ---
+        exec_lock = f"exec_lock:unsticky:{ctx.channel.id}"
+        if await self.bot.redis.set(exec_lock, "1", nx=True, ex=5):
+            pass # We got the lock!
+        else:
+            return # Someone else got the lock, abort execution.
 
         key = f"sticky:{ctx.channel.id}"
 
@@ -68,7 +87,11 @@ class StickyCommands(commands.Cog):
                 except:
                     pass
 
-        await self.bot.redis.delete(key)
+        # Delete from both cache and Redis
+        if hasattr(self.bot, 'cache') and self.bot.cache:
+            await self.bot.cache.delete(key)
+        else:
+            await self.bot.redis.delete(key)
 
         await ctx.send("Sticky message removed from this channel.")
 
@@ -96,15 +119,10 @@ class StickyCommands(commands.Cog):
 
         key = f"sticky:{message.channel.id}"
 
-        cached = await self.bot.redis.get(key)
+        data = await rget_json(self.bot, key)
 
-        if not cached:
+        if not data:
             return
-
-        if isinstance(cached, bytes):
-            cached = cached.decode()
-
-        data = json.loads(cached)
 
         sticky_text = data.get("message")
         last_id = data.get("last_id")
@@ -122,7 +140,7 @@ class StickyCommands(commands.Cog):
             new_msg = await message.channel.send(sticky_text)
 
         data["last_id"] = new_msg.id
-        await self.bot.redis.set(key, json.dumps(data))
+        await rset_json(self.bot, key, data)
 
 
 # SAFE COG LOADER (prevents duplicate registration)

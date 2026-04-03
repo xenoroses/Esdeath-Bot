@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import json
+from redis_utils import rget_json
 
 
 class ForceNick(commands.Cog):
@@ -65,15 +66,10 @@ class ForceNick(commands.Cog):
 
         key = f"forcenick:{after.guild.id}:{after.id}"
 
-        cached = await self.bot.redis.get(key)
+        data = await rget_json(self.bot, key)
 
-        if not cached:
+        if not data:
             return
-
-        if isinstance(cached, bytes):
-            cached = cached.decode()
-
-        data = json.loads(cached)
 
         locked_nick = data.get("nick")
 

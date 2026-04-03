@@ -15,12 +15,12 @@ async def is_bot_admin(ctx):
         return True
 
     # Check Redis for global bot admins
-    if getattr(ctx.bot, "redis", None):
+    if getattr(ctx.bot, "cache", None):
         try:
-            cached = await ctx.bot.redis.get("bot_admins")
+            cached = await ctx.bot.cache.get("bot_admins")
             if cached:
-                decoded = cached.decode("utf-8") if isinstance(cached, bytes) else cached
-                admins = json.loads(decoded)
+                # cache layer decodes bytes automatically
+                admins = json.loads(cached)
                 return ctx.author.id in admins
         except Exception as e:
             print(f"Admin check error: {e}")

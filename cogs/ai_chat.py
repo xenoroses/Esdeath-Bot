@@ -7,7 +7,7 @@ import time
 import re
 from llm import generate_reply
 from collections import defaultdict
-from redis_utils import rget_json
+from redis_utils import rget_json, rget
 
 class AIChat(commands.Cog):
     def __init__(self, bot):
@@ -34,10 +34,8 @@ class AIChat(commands.Cog):
         # --- DYNAMIC CHANNEL LOCK CHECK (FORCED LOGS) ---
         if getattr(self.bot, 'redis', None):
             try:
-                locked_channel = await self.bot.redis.get(f"chat_channel:{message.guild.id}")
+                locked_channel = await rget(self.bot, f"chat_channel:{message.guild.id}")
                 if locked_channel:
-                    if isinstance(locked_channel, bytes):
-                        locked_channel = locked_channel.decode()
                     locked_str = str(locked_channel)
                     # Strip out absolutely everything except numbers
                     locked_id = ''.join(filter(str.isdigit, locked_str))

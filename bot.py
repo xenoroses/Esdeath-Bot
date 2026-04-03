@@ -16,8 +16,10 @@ import logging
 import time
 import uvicorn
 import atexit
+from cache_layer import EsdeathCache
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # --- 1. THE DOH MASTER BYPASS (DNS OVER HTTPS) ---
 # Hugging Face's DNS servers block Discord. This bypasses them completely
@@ -88,12 +90,12 @@ def decode_redis_data(data):
 
 async def get_server_prefixes(bot, message):
     default_prefixes = ["!", "esdeath ", "es "]
-    if not message.guild or not getattr(bot, 'redis', None):
+    if not message.guild or not getattr(bot, 'cache', None):
         return commands.when_mentioned_or(*default_prefixes)(bot, message)
     try:
-        cached_prefixes = await bot.redis.get(f"prefixes:{message.guild.id}")
+        cached_prefixes = await bot.cache.get(f"prefixes:{message.guild.id}")
         if cached_prefixes:
-            cached_prefixes = decode_redis_data(cached_prefixes)
+            # cache layer already decodes the data
             custom_prefixes = json.loads(cached_prefixes)
             return commands.when_mentioned_or(*custom_prefixes)(bot, message)
     except Exception as e:
@@ -116,6 +118,7 @@ class EsdeathBot(commands.Bot):
         )
         self.last_result = None
         self.redis = None
+        self.cache = None
 
     async def setup_hook(self):
         register_bot(self)
@@ -125,6 +128,7 @@ class EsdeathBot(commands.Bot):
             token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
             if url and token:
                 self.redis = Redis(url=url, token=token)
+                self.cache = EsdeathCache(self.redis)
                 for attempt in range(3):
                     try:
                         await asyncio.wait_for(self.redis.ping(), timeout=5.0)
@@ -141,6 +145,7 @@ class EsdeathBot(commands.Bot):
         except Exception as e:
             logging.warning(f"REDIS WARNING: Connection failed. Error: {e}")
 
+
         extensions = [
             "cogs.staff_cmds",
             "cogs.ai_chat",
@@ -148,7 +153,17 @@ class EsdeathBot(commands.Bot):
             "cogs.fun_cmds",
             "cogs.admin_cmds",
             "cogs.sticky_cmds",
-            "cogs.forcenick_cmds"
+            "cogs.forcenick_cmds",
+            "cogs.automod_engine",
+            "cogs.afk_cmds",
+            "cogs.trust_cmds",
+            "cogs.smartpurge_cmds",
+            "cogs.security_cmds",
+            "cogs.ai_utility_cmds",
+            "cogs.workflow_cmds",
+            "cogs.help_cmds",
+            "cogs.enterprise_tools",
+            "cogs.observability_tools"
         ]
 
         for ext in extensions:
@@ -160,8 +175,11 @@ class EsdeathBot(commands.Bot):
                     logging.error(f"CRITICAL: Failed to load {ext} -> {e}")
 
         try:
-            await self.tree.sync()
-            logging.info("--- SLASH COMMANDS SYNCED ---")
+            synced = await self.tree.sync()
+            self._app_cmd_cache = {c.name: c.id for c in synced}
+            with open("command_cache.json", "w") as f:
+                json.dump(self._app_cmd_cache, f, indent=4)
+            logging.info(f"--- SLASH COMMANDS SYNCED ({len(synced)} commands) ---")
         except Exception as e:
             logging.error(f"Sync Error: {e}")
 

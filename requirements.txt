@@ -7,3 +7,4 @@ fastmcp
 httpx
 fastapi
 numexpr
+psutil
