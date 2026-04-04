@@ -1,3 +1,12 @@
+---
+title: Hyacine
+emoji: ⟡
+colorFrom: purple
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # ✧ 𝐻𝓎𝒶𝒸𝒾𝓃𝑒 𝒫𝓁𝒶𝓉𝒻𝑜𝓇𝓂 ⟡
 
 **Hyacine** is a high-density social and psychological engine designed for the next generation of server interaction. Built on the **Stellar Symphony** design language, it transforms standard community management into a deep, immersive social experience.
