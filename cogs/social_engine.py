@@ -54,7 +54,7 @@ class SocialEngine(commands.Cog):
                 color = 0xE74C3C
                 
             embed = discord.Embed(
-                title=f"⚖️ Judgement: {user.display_name}",
+                title=f"❈ 𝒥𝓊𝒹ℊℯ𝓂ℯ𝓃𝓉: {user.display_name}",
                 color=color
             )
             embed.set_thumbnail(url=user.display_avatar.url)
@@ -67,7 +67,7 @@ class SocialEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Psychological Profiler")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Judgement clouded: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒥𝓊𝒹ℊℯ𝓂ℯ𝓃𝓉 𝓅𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="fealty", description="Measures allegiance to the server.")
     async def fealty(self, ctx: commands.Context, user: discord.Member = None):
@@ -94,7 +94,7 @@ class SocialEngine(commands.Cog):
                 align = "Infiltrator"
                 betrayal = "Immediate"
                 
-            embed = discord.Embed(title=f"⚔️ Fealty Index: {target.display_name}", color=0x34495E)
+            embed = discord.Embed(title=f"❈ ℱℯ𝒶𝓁𝓉𝓎 ℐ𝓃𝒹ℯ𝓍: {target.display_name}", color=0x34495E)
             embed.add_field(name="Loyalty Index", value=f"**{idx}%**", inline=True)
             embed.add_field(name="Alignment", value=f"**{align}**", inline=True)
             embed.add_field(name="Risk of Betrayal", value=f"**{betrayal}**", inline=False)
@@ -102,7 +102,7 @@ class SocialEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Allegiance Tracking")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Fealty extraction failed: {e}")
+            await ctx.send(f"⌬ ⟡ **ℱℯ𝒶𝓁𝓉𝓎 𝒸𝒶𝓁𝒸𝓊𝓁𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="vendetta", description="Creates a temporary 2-hour rivalry lock.")
     async def vendetta(self, ctx: commands.Context, target: discord.Member):
@@ -126,7 +126,7 @@ class SocialEngine(commands.Cog):
             })
             
             embed = discord.Embed(
-                title="🩸 Vendetta Declared",
+                title="🩸 𝒱ℯ𝓃𝒹ℯ𝓉𝓉𝒶 𝒟ℯ𝒸𝓁𝒶𝓇ℯ𝒹",
                 description=f"{ctx.author.mention} has challenged {target.mention} to a rivalry.",
                 color=0xE74C3C
             )
@@ -136,7 +136,7 @@ class SocialEngine(commands.Cog):
             
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Declaration failed: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒟ℯ𝒸𝓁𝒶𝓇𝒶𝓉𝒾ℴℰ𝓃 ℱ𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="clash", description="Quick skill duel mechanic.")
     @commands.cooldown(1, 300, commands.BucketType.user)
@@ -144,7 +144,7 @@ class SocialEngine(commands.Cog):
         if opponent.bot or opponent.id == ctx.author.id:
             return await ctx.send("Invalid opponent.", ephemeral=True)
             
-        await ctx.send(f"⚔️ {opponent.mention}, **{ctx.author.display_name}** challenges you to a clash!\nType `defend` in the next 15 seconds to accept.")
+        await ctx.send(f"❈ {opponent.mention}, **{ctx.author.display_name}** challenges you to a clash!\nType `defend` in the next 15 seconds to accept.")
         
         def check(m):
             return m.author == opponent and m.channel == ctx.channel and m.content.lower() == "defend"
@@ -167,7 +167,7 @@ class SocialEngine(commands.Cog):
             winner = winner_msg.author
             loser = opponent if winner == ctx.author else ctx.author
             embed = discord.Embed(
-                title="☠️ Clash Concluded",
+                title="⌬ 𝒞𝓁𝒶𝓈𝒽 𝒞ℴ𝓃𝒸𝓁𝓊𝒹ℯ𝒹",
                 description=f"**{winner.mention}** struck first and won the clash!\n{loser.display_name} was defeated.",
                 color=0x2ECC71
             )
@@ -183,7 +183,7 @@ class SocialEngine(commands.Cog):
         if target.bot: return await ctx.send("Machines cannot be subverted.")
         
         val = random.random()
-        embed = discord.Embed(title="🕵️ Subversion Attempted", color=0x9B59B6)
+        embed = discord.Embed(title="𖦹 𝒮𝓊𝒷𝓋ℯ𝓇𝓈𝒾ℴ𝓃 𝒜𝓉𝓉ℯ𝓂𝓅𝓉ℯ𝒹", color=0x9B59B6)
         
         if val > 0.7:
             embed.description = f"Outcome: **Success**\nYou successfully undermined {target.mention}'s reputation. Their standing wavers."
@@ -207,7 +207,7 @@ class SocialEngine(commands.Cog):
         await self._safe_rset(key, {"active": True, "created": datetime.datetime.now(timezone.utc).isoformat()})
         
         embed = discord.Embed(
-            title="🛡️ Aegis Link Established",
+            title="✧ 𝒜ℯℊ𝒾𝓈 ℒ𝒾𝓃𝓀 ℰ𝓈𝓉𝒶𝒷𝓁𝒾𝓈𝒽ℯ𝒹",
             description=f"{ctx.author.mention} has sworn to protect {user.mention}.",
             color=0x3498DB
         )
@@ -220,7 +220,7 @@ class SocialEngine(commands.Cog):
     async def surveillance(self, ctx: commands.Context, user: discord.Member):
         await ctx.defer()
         embed = discord.Embed(
-            title="👁️ Target Locked",
+            title="⌬ 𝒯𝒶𝓇ℊℯ𝓉 ℒℴ𝒸𝓀ℯ𝒹",
             description=f"**{user.display_name}** has been added to Hyacine's high-priority Watchlist.\n\n*Monitoring escalation patterns...*\n*Behavioral tracking engaged.*",
             color=0xE74C3C
         )

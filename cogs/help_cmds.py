@@ -3,39 +3,39 @@ from discord.ext import commands
 from discord.ui import Select, View
 
 CATEGORY_METADATA = {
-    "Staff": {"name": "✦ Moderation"},
-    "Fun": {"name": "✧ Entertainment"},
-    "Security": {"name": "⟡ Security & Intel"},
-    "AiUtility": {"name": "𒀭 AI & Utility"},
-    "Automod": {"name": "❖ Automod Engine"},
-    "Workflow": {"name": "≛ Workflows"},
-    "Trust": {"name": "۞ Trust Engine"},
-    "Smartpurge": {"name": "✗ Smart Purge"},
-    "Admin": {"name": "✠ Admin Config"},
-    "Afk": {"name": "☽ AFK System"},
-    "Sticky": {"name": "⚑ Sticky Messages"},
-    "Forcenick": {"name": "✑ Force Nickname"},
-    "AiChat": {"name": "⚝ AI Persona"},
-    "Impersonator": {"name": "𖤍 Impersonator"},
-    "Intelligence": {"name": "🧠 Intelligence"},
-    "Infrastructure": {"name": "🛡️ Infrastructure"},
-    "Observability": {"name": "📊 Observability"},
-    "Prestige": {"name": "👑 Prestige Lineage"},
-    "Social": {"name": "⚔️ Social Dynamics"},
-    "Lore": {"name": "👁️ Lore & Aura"},
-    "Miscellaneous": {"name": "✤ Miscellaneous"}
+    "Staff": {"icon": "✧", "name": "𝗦𝘁𝗮𝗳𝗳 𝗗𝗲𝗰𝗿𝗲𝗲𝘀"},
+    "FunCmds": {"icon": "❂", "name": "𝗘𝗻𝘁𝗲𝗿𝘁𝗮𝗶𝗻𝗺𝗲𝗻𝘁"},
+    "OwnerCmds": {"icon": "❖", "name": "𝗦𝗼𝘃𝗲𝗿𝗲𝗶𝗴𝗻𝘁𝘆"},
+    "Sticky": {"icon": "📌", "name": "𝗣𝗶𝗻𝗻𝗲𝗱 𝗕𝗲𝗮𝗰𝗼𝗻𝘀"},
+    "ForceNick": {"icon": "⌬", "name": "𝗜𝗱𝗲𝗻𝘁𝗶𝘁𝘆 𝗟𝗼𝗰𝗸"},
+    "Automod": {"icon": "🛡️", "name": "𝗔𝘂𝘁𝗼-𝗚𝘂𝗮𝗿𝗱𝗶𝗮𝗻"},
+    "AFK": {"icon": "🌙", "name": "𝗗𝗼𝗿𝗺𝗮𝗻𝗰𝘆"},
+    "Trust": {"icon": "⟡", "name": "𝗧𝗿𝘂𝘀𝘁 𝗡𝗲𝘁𝘄𝗼𝗿𝗸"},
+    "SmartPurge": {"icon": "🧹", "name": "𝗩𝗮𝗽𝗼𝗿𝗶𝘇𝗮𝘁𝗶𝗼𝗻"},
+    "Security": {"icon": "⚔️", "name": "𝗪𝗮𝗿 𝗥𝗼𝗼𝗺"},
+    "AIUtility": {"icon": "🤖", "name": "𝗔𝗜 𝗘𝗻𝗴𝗶𝗻𝗲"},
+    "Workflow": {"icon": "⚙️", "name": "𝗔𝘂𝘁𝗼𝗺𝗮𝘁𝗶𝗼𝗻"},
+    "Help": {"icon": "❓", "name": "𝗔𝘀𝘀𝗶𝘀𝘁𝗮𝗻𝗰𝗲"},
+    "Intelligence": {"icon": "⌬", "name": "𝗜𝗻𝘁𝗲𝗹𝗹𝗶𝗴𝗲𝗻𝗰𝗲"},
+    "Infrastructure": {"icon": "⚙️", "name": "𝗜𝗻𝗳𝗿𝗮𝘀𝘁𝗿𝘂𝗰𝘁𝘂𝗿𝗲"},
+    "Observability": {"icon": "⌬", "name": "𝗧𝗲𝗹𝗲𝗺𝗲𝘁𝗿𝘆"},
+    "Prestige": {"icon": "✵", "name": "𝗣𝗿𝗲𝘀𝘁𝗶𝗴𝗲 𝗟𝗶𝗻𝗲𝗮𝗴𝗲"},
+    "Social": {"icon": "✾", "name": "𝗦𝗼𝗰𝗶𝗮𝗹 𝗧𝗶𝗱𝗲𝘀"},
+    "Lore": {"icon": "❂", "name": "𝗖𝗵𝗿𝗼𝗻𝗶𝗰𝗹𝗲𝘀"},
+    "Miscellaneous": {"icon": "✤", "name": "𝗘𝗰𝗵𝗼𝗲𝘀"}
 }
 
 class HelpDropdown(Select):
     def __init__(self, cogs_dict):
         options = []
         for raw_cat_name, commands_list in cogs_dict.items():
-            meta = CATEGORY_METADATA.get(raw_cat_name, {"name": f"✦ {raw_cat_name}"})
+            meta = CATEGORY_METADATA.get(raw_cat_name, {"icon": "✦", "name": raw_cat_name})
             options.append(
                 discord.SelectOption(
                     label=meta["name"], 
                     description=f"{len(commands_list)} commands",
-                    value=raw_cat_name
+                    value=raw_cat_name,
+                    emoji=meta["icon"]
                 )
             )
             
@@ -51,9 +51,9 @@ class HelpDropdown(Select):
         await interaction.response.defer()
         selected_category = self.values[0]
         commands_list = self.cogs_dict[selected_category]
-        meta = CATEGORY_METADATA.get(selected_category, {"name": f"✦ {selected_category}"})
+        meta = CATEGORY_METADATA.get(selected_category, {"icon": "✦", "name": selected_category})
         
-        embed = discord.Embed(title=f"{meta['name']}", color=0x9B59B6)
+        embed = discord.Embed(title=f"{meta['icon']} {meta['name']}", color=0x9B59B6)
         
         # Cache App Command IDs for Clickable /slash syntax
         bot = interaction.client
@@ -129,20 +129,27 @@ class HelpCommands(commands.Cog):
         
         # Design the Landing Embed
         embed = discord.Embed(
-            title="Commands for Hyacine", 
-            description=f"I've got **{len(categories)}** categories and **{total_commands}** commands for you to explore.\n\n**» Categories**", 
-            color=0x2B2D31
+            title="✧ ℋ𝓎𝒶𝒸𝒾𝓃𝓉𝒽ℯ 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁 ℐ𝓃𝒹ℯ𝓍",
+            description="**Stellar Synchronization Complete. 𝒰𝓌𝒰**\n*Mapping sectors across logic gates.*",
+            color=0x9B59B6
         )
         
         # Create a visually pleasing grid of categories
         cat_str = ""
-        for i in range(0, len(categories), 3):
-            row = categories[i:i+3]
-            cat_str += "".join([f"{c:<20}" for c in row]) + "\n"
+        for i in range(0, len(categories), 2):
+            row = categories[i:i+2]
+            # Use Script Font for the grid too for total aesthetic consistency
+            script_row = []
+            for c in row:
+                meta = CATEGORY_METADATA.get(c, {"name": f"✦ {c}"})
+                # Clean the icon if it exists to keep grid narrow
+                clean_name = meta["name"].replace("✦", "").replace("✧", "").replace("⟡", "").replace("⌬", "").strip()
+                script_row.append(clean_name)
+            cat_str += "".join([f"{c:<20}" for c in script_row]) + "\n"
             
         embed.add_field(name="\u200b", value=f"```\n{cat_str}\n```", inline=False)
-        embed.add_field(name="» Useful links", value="[Dashboard](https://Hyacine.dev) | [Support Server](https://discord.gg/Hyacine)", inline=False)
-        embed.set_footer(text="© Hyacine Platform", icon_url=self.bot.user.display_avatar.url if self.bot.user else None)
+        embed.add_field(name="✧ 𝒰𝓈ℯ𝒻𝓊𝓁 ℒ𝒾𝓃𝓀𝓈", value="[𝒟𝒶𝓈𝒽𝒷ℴ𝒶𝓇𝒹](https://Hyacine.dev) ⟡ [𝒮𝓊𝓅𝓅ℴ𝓇𝓉](https://discord.gg/Hyacine)", inline=False)
+        embed.set_footer(text="❃ ℳℯ𝓂ℴ𝓇𝓎 𝒢𝒶𝓇𝒹ℯ𝓃 𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 | 𝒫𝓇ℯ𝓂𝒾𝓊𝗺", icon_url=self.bot.user.display_avatar.url if self.bot.user else None)
         
         # Attach the Dropdown UI
         view = View(timeout=120)
@@ -151,6 +158,18 @@ class HelpCommands(commands.Cog):
         await ctx.send(embed=embed, view=view)
 
 async def setup(bot):
-    bot.remove_command('help')
+    # Aggressive cleanup of any existing help command
+    for cmd_name in ['help', 'Help', 'HELP']:
+        try:
+            bot.remove_command(cmd_name)
+        except:
+            pass
+            
+    # Also remove from all cogs manually to be certain
+    for cog in bot.cogs.values():
+        for cmd in list(cog.get_commands()):
+            if cmd.name.lower() == 'help':
+                cog.remove_command(cmd.name)
+
     if "HelpCommands" not in bot.cogs:
         await bot.add_cog(HelpCommands(bot))

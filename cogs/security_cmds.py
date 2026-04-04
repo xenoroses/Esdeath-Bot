@@ -16,9 +16,9 @@ class SecurityCommands(commands.Cog):
     async def shadowban(self, ctx: commands.Context, user: discord.Member):
         # Hierarchy Validation
         if user.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
-            return await ctx.send("❌ | You cannot shadowban those of equal or higher rank.", ephemeral=True)
+            return await ctx.send("⌬ ⟡ **𝒴ℴ𝓊 𝒸𝒶𝓃𝓃ℴ𝓉 𝓈𝒽𝒶𝒹ℴ𝓌𝒷𝒶𝓃 𝓉𝒽ℴ𝓈ℯ ℴ𝒻 ℯ𝓆𝓊𝒶𝓁 ℴ𝓇 𝒽𝒾ℊ𝒽ℯ𝓇 𝓇𝒶𝓃𝓀.**", ephemeral=True)
         if user.top_role >= ctx.me.top_role:
-            return await ctx.send("❌ | Shadowban failed. Subject's neural shielding (Role Rank) is higher than mine.", ephemeral=True)
+            return await ctx.send("⌬ ⟡ **𝒮𝒽𝒶𝒹ℴ𝓌𝒷𝒶𝓃 𝒻𝒶𝒾𝓁ℯ𝒹. 𝒮𝓊𝒷𝒿ℯ𝒸𝓉'𝓈 𝓃ℯ𝓊𝓇𝒶𝓁 𝓈𝒽𝒾ℯ𝓁𝒹𝒾𝓃ℊ (ℛℴ𝓁ℯ ℛ𝒶𝓃𝓀) 𝒾𝓈 𝒽𝒾ℊ𝒽ℯ𝓇 𝓉𝒽𝒶𝓃 𝓂𝒾𝓃ℯ.**", ephemeral=True)
 
         key = f"shadowban:{ctx.guild.id}:{user.id}"
         
@@ -33,7 +33,7 @@ class SecurityCommands(commands.Cog):
             # Un-shadowban
             if hasattr(self.bot, 'cache') and self.bot.cache: await self.bot.cache.delete(key)
             elif hasattr(self.bot, 'redis') and self.bot.redis: await self.bot.redis.delete(key)
-            await ctx.send(f"✅ | {user.mention} has been un-shadowbanned. Their messages will no longer be silently destroyed.", ephemeral=True)
+            await ctx.send(f"✧ ✦ **𝒮𝒽𝒶𝒹ℴ𝓌𝒷𝒶𝓃 𝓇ℯ𝓁ℯ𝒶𝓈ℯ𝒹 for {user.mention}.**", ephemeral=True)
         else:
             # Shadowban
             value = str(int(time.time()))
@@ -68,7 +68,7 @@ class SecurityCommands(commands.Cog):
         if hasattr(self.bot, 'cache') and self.bot.cache: await self.bot.cache.set(key, value)
         elif hasattr(self.bot, 'redis') and self.bot.redis: await self.bot.redis.set(key, value)
 
-        embed = discord.Embed(title="🛡️ RaidShield Engine", description=f"Automated Raid Protection is now **{status}**.", color=color)
+        embed = discord.Embed(title="⟡ 𝗦𝘁𝗲𝗹𝗹𝗮𝗿 𝗥𝗮𝗶𝗱𝗦𝗵𝗶𝗲𝗹𝗱", description=f"Automated Raid Protection is now **{status}**.", color=color)
         if status == "Active":
             embed.add_field(name="Protections Loaded", value="• Account age (< 3 days) filter\n• Message velocity tracking\n• Link block on mass joins", inline=False)
         await ctx.send(embed=embed)
@@ -89,7 +89,7 @@ class SecurityCommands(commands.Cog):
         toxicity = "Stable"
         retention = min(98, max(40, int(total_members / (ctx.guild.member_count + 1) * 100) - random.randint(10, 30)))
         
-        embed = discord.Embed(title=f"📊 Intel Dashboard: {ctx.guild.name}", color=0x3498DB)
+        embed = discord.Embed(title=f"⌬ 𝗔𝘀𝘁𝗿𝗮𝗹 𝗦𝗲𝗿𝘃𝗲𝗿 𝗜𝗻𝘁𝗲𝗹: {ctx.guild.name}", color=0x3498DB)
         embed.add_field(name="Total Members", value=f"{total_members}", inline=True)
         embed.add_field(name="Bot Ratio", value=f"{bot_count} / {total_members}", inline=True)
         embed.add_field(name="Toxicity Index", value=f"{toxicity}", inline=True)
@@ -140,7 +140,7 @@ class SecurityCommands(commands.Cog):
             if acc_age_days < 3:
                 try:
                     await message.delete()
-                    await message.channel.send(f"🛡️ RaidShield intercepted message from newly created account ({message.author.mention}).", delete_after=5)
+                    await message.channel.send(f"⟡ 𝗦𝘁𝗲𝗹𝗹𝗮𝗿 𝗥𝗮𝗶𝗱𝗦𝗵𝗶𝗲𝗹𝗱 intercepted message from newly created account ({message.author.mention}).", delete_after=5)
                 except:
                     pass
 

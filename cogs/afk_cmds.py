@@ -45,7 +45,7 @@ class AFKCommands(commands.Cog):
                     parsed_reason = parsed_reason.split(maxsplit=1)
                     parsed_reason = parsed_reason[1] if len(parsed_reason) > 1 else "AFK"
                 else:
-                    return await ctx.send("❌ | You need `Manage Messages` to set others AFK.", ephemeral=True)
+                    return await ctx.send("⌬ ⟡ **𝒴ℴ𝓊 𝓃ℯℯ𝒹 `ℳ𝒶𝓃𝒶ℊℯ ℳℯ𝓈𝓈𝒶ℊℯ𝓈` 𝓉ℴ 𝓈ℯ𝓉 ℴ𝓉𝒽ℯ𝓇𝓈 𝒜ℱ𝒦.**", ephemeral=True)
 
         if len(parsed_reason) > 200:
             parsed_reason = parsed_reason[:197] + "..."

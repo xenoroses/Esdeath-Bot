@@ -133,7 +133,7 @@ class RaidShield(commands.Cog):
             
             if alert_channel and alert_channel.permissions_for(guild.me).send_messages:
                 embed = discord.Embed(
-                    title="🚨 RAID SHIELD ACTIVATED",
+                    title="⌬ ℛ𝒜ℐ𝒟 𝒮ℋℐℰℒ𝒟 𝒜𝒞𝒯ℐ𝒱𝒜𝒯ℰ𝒟",
                     description=f"**Type:** {raid_type.replace('_', ' ').title()}\n**Reason:** {reason}",
                     color=0xE74C3C
                 )
@@ -165,7 +165,7 @@ class RaidShield(commands.Cog):
         /raidshield config slowmode:true channel_lock:false - Configure responses
         """
         if not self.bot.redis:
-            return await ctx.send("❌ Memory system offline. Cannot configure raid shield.")
+            return await ctx.send("⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒪𝒻𝒻𝓁𝒾𝓃ℯ.**")
             
         if action.lower() == "enable":
             await rset_json(self.bot, f"raidshield:{ctx.guild.id}", {
@@ -173,7 +173,7 @@ class RaidShield(commands.Cog):
                 "slowmode": True,
                 "channel_lock": False
             })
-            await ctx.send("✅ Raid Shield enabled! Auto-protection active.")
+            await ctx.send("✧ **ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 ℰ𝓃𝒶𝒷𝓁ℯ𝒹!**")
             
         elif action.lower() == "disable":
             await rset_json(self.bot, f"raidshield:{ctx.guild.id}", {
@@ -181,7 +181,7 @@ class RaidShield(commands.Cog):
                 "slowmode": False,
                 "channel_lock": False
             })
-            await ctx.send("❌ Raid Shield disabled.")
+            await ctx.send("⌬ **ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 𝒟𝒾𝓈𝒶𝒷𝓁ℯ𝒹.**")
             
         elif action.lower() == "status":
             config = await rget_json(self.bot, f"raidshield:{ctx.guild.id}")
@@ -189,25 +189,25 @@ class RaidShield(commands.Cog):
                 config = {"enabled": False, "slowmode": False, "channel_lock": False}
                 
             embed = discord.Embed(
-                title="🛡️ Raid Shield Status",
-                color=0x2ECC71 if config["enabled"] else 0x95A5A6
+                title="✧ ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 𝒮𝓉𝒶𝓉𝓊𝓈",
+                color=0x9B59B6 if config["enabled"] else 0x95A5A6
             )
             
             embed.add_field(
                 name="Status", 
-                value="✅ Enabled" if config["enabled"] else "❌ Disabled", 
+                value="✧ ℰ𝓃𝒶𝒷𝓁ℯ𝒹" if config["enabled"] else "⌬ 𝒟𝒾𝓈𝒶𝒷𝓁ℯ𝒹", 
                 inline=True
             )
             
             embed.add_field(
                 name="Auto Slowmode", 
-                value="✅ Enabled" if config["slowmode"] else "❌ Disabled", 
+                value="✧ ℰ𝓃𝒶𝒷𝓁ℯ𝒹" if config["slowmode"] else "⌬ 𝒟𝒾𝓈𝒶𝒷𝓁ℯ𝒹", 
                 inline=True
             )
             
             embed.add_field(
                 name="Channel Lock", 
-                value="✅ Enabled" if config["channel_lock"] else "❌ Disabled", 
+                value="✧ ℰ𝓃𝒶𝒷𝓁ℯ𝒹" if config["channel_lock"] else "⌬ 𝒟𝒾𝓈𝒶𝒷𝓁ℯ𝒹", 
                 inline=True
             )
             

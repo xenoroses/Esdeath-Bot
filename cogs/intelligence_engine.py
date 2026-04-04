@@ -51,7 +51,7 @@ class IntelligenceEngine(commands.Cog):
                         break
             
             if not user_messages:
-                return await ctx.send(f"❌ | Subject {user.mention} has insufficient local footprint (0 messages found). Analysis impossible.")
+                return await ctx.send(f"⌬ ⟡ **𝒮𝓊𝒷𝒿ℯ𝒸𝓉 {user.mention} 𝒽𝒶𝓈 𝒾𝓃𝓈𝓊𝒻𝒻𝒾𝒸𝒾ℯ𝓃𝓉 𝓁ℴ𝒸𝒶𝓁 𝒻ℴℴ𝓉𝓅𝓇𝒾𝓃𝓉.**")
 
             # 2. Data Processing
             total_content = " ".join([m.content for m in user_messages])
@@ -109,7 +109,7 @@ class IntelligenceEngine(commands.Cog):
 
             # 4. Presentation
             embed = discord.Embed(
-                title=f"🔮 Deep-Scanned Risk Projection: {user.display_name}",
+                title=f"✧ 𝗗𝗲𝗲𝗽-𝗦𝗰𝗮𝗻𝗻𝗲𝗱 𝗥𝗶𝘀𝗸 𝗣𝗿𝗼𝗷𝗲𝗰𝘁𝗶𝗼𝗻: {user.display_name}",
                 description=f"Analysis based on the last **{len(user_messages)}** messages in <#{ctx.channel.id}>.",
                 color=color
             )
@@ -164,7 +164,7 @@ class IntelligenceEngine(commands.Cog):
             peak_activity = max(buckets)
             
             embed = discord.Embed(
-                title=f"📈 Historical Trajectory: {user.display_name}",
+                title=f"✵ 𝗛𝗶𝘀𝘁𝗼𝗿𝗶𝗰𝗮𝗹 𝗧𝗿𝗮𝗷𝗲𝗰𝘁𝗼𝗿𝘆: {user.display_name}",
                 description=f"Neural scan of {len(timestamps)} data points over 24 hours.",
                 color=0x9B59B6
             )
@@ -221,9 +221,9 @@ class IntelligenceEngine(commands.Cog):
                 anomalies.append("🟢 **No anomalous formations detected.**")
 
             embed = discord.Embed(
-                title="📡 Hyacine Pattern Scan",
-                description="\n".join(anomalies),
-                color=0x34495E
+                title=f"⌬ 𝒫𝓇ℯ𝒹𝒾𝒸𝓉𝒾𝓋ℯ ℬℯ𝒽𝒶𝓋𝒾ℴ𝓇 𝒜𝓃𝒶𝓁𝓎𝓉𝒾𝒸𝓈: {user.display_name}",
+                description=f"𝒜𝓃𝒶𝓁𝓎𝓈𝒾𝓈 𝒸ℴ𝓂𝓅𝓁ℯ𝓉ℯ. 𝒰𝓌𝒰",
+                color=color
             )
             embed.set_footer(text="Engine: Hyacine Early Warning System")
             await ctx.send(embed=embed)
@@ -307,7 +307,7 @@ class IntelligenceEngine(commands.Cog):
                 advice.append("• General server health optimal. No urgent interventions needed.")
 
             embed = discord.Embed(
-                title="📋 Executive Moderation Advisor",
+                title="✤ 𝗦𝗲𝗿𝘃𝗲𝗿 𝗗𝗮𝗶𝗹𝘆 𝗗𝗶𝗴𝗲𝘀𝘁",
                 description="Automated briefing prepared based on neural state.",
                 color=0x2980B9
             )
@@ -358,7 +358,7 @@ class IntelligenceEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Absolutism Core")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Judgment failed: {e}")
+            await ctx.send(f"✧ **𝒜𝒸𝓉𝒾𝓋ℯ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒟ℯ𝓅𝓁ℴ𝓎ℯ𝒹:** {user.mention}", ephemeral=True)
 
     @commands.hybrid_command(name="threatmap", description="Server-wide risk visualization.")
     @commands.has_permissions(manage_guild=True)

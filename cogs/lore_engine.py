@@ -39,7 +39,7 @@ class LoreEngine(commands.Cog):
             
             radius = "Expanding" if dominance > 60 else ("Stabilized" if dominance > 30 else "Contracting")
             
-            embed = discord.Embed(title=f"✨ Aura Protocol Scan: {target.display_name}", color=0x9B59B6)
+            embed = discord.Embed(title=f"❈ 𝒜𝓊𝓇𝒶 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒮𝒸𝒶𝓃: {target.display_name}", color=0x9B59B6)
             embed.set_thumbnail(url=target.display_avatar.url)
             
             embed.add_field(name="Dominance", value=f"`{dominance}%`", inline=True)
@@ -50,7 +50,7 @@ class LoreEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Metaphysical Sensor")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Aura read failed: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒜𝓊𝓇𝒶 𝓇ℯ𝒶𝒹 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="chronicle", description="Generates a micro-story about recent channel events.")
     @commands.has_permissions(manage_messages=True)
@@ -82,14 +82,14 @@ class LoreEngine(commands.Cog):
                 involvement = "The presence of ghosts lingered as the conversation drifted into nothingness."
 
             embed = discord.Embed(
-                title=f"📜 Chronicle: #{ctx.channel.name}",
+                title=f"❂ 𝒞𝒽𝓇ℴ𝓃𝒾𝒸𝓁ℯ: #{ctx.channel.name}",
                 description=f"*{theme}*\n\n{involvement}",
                 color=0x2E4053
             )
             embed.set_footer(text="Engine: Hyacine Lore Cartographer")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Chronicle generation failed: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒞𝒽𝓇ℴ𝓃𝒾𝒸𝓁ℯ 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="wargame", description="Runs an alternate timeline scenario.")
     @commands.has_permissions(manage_messages=True)
@@ -104,7 +104,7 @@ class LoreEngine(commands.Cog):
         chosen = random.choice(scenarios)
         
         embed = discord.Embed(
-            title="⚔️ Wargame: Tactical Simulation",
+            title="❈ 𝒲𝒶𝓇ℊ𝒶𝓂ℯ: 𝒯𝒶𝒸𝓉𝒾𝒸𝒶𝓁 𝒮𝒾𝓂𝓊𝓁𝒶𝓉𝒾ℴ𝓃",
             description=f"**Scenario:** {chosen[0]}\n\n**Projection:**\n{chosen[1]}",
             color=0xE74C3C
         )
@@ -135,7 +135,7 @@ class LoreEngine(commands.Cog):
                 end_phase = "Placed strictly on the extermination watchlist pending further observation."
                 
             embed = discord.Embed(
-                title=f"📂 Dossier: {target.display_name}",
+                title=f"𖦹 𝒟ℴ𝓈𝓈𝒾ℯ𝓇: {target.display_name}",
                 description="Historical Timeline Reconstruction",
                 color=0x34495E
             )
@@ -148,7 +148,7 @@ class LoreEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Historical Architect")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Dossier extraction failed: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒟ℴ𝓈𝓈𝒾ℯ𝓇 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="psychoanalyze", description="Reads organic intentions.")
     async def psychoanalyze(self, ctx: commands.Context, user: discord.Member = None):
@@ -160,7 +160,7 @@ class LoreEngine(commands.Cog):
         strategies = ["Improvised", "Calculating", "Erratic", "Non-existent", "Methodical"]
         confidences = ["Suspiciously High", "Delusional", "Calculated", "Wavering", "Nonchalant"]
         
-        embed = discord.Embed(title=f"🧠 Psychoanalysis: {target.display_name}", color=0xE67E22)
+        embed = discord.Embed(title=f"⌬ 𝒫𝓈𝓎𝒸𝒽ℴ𝒶𝓃𝒶𝓁𝓎𝓈𝒾𝓈: {target.display_name}", color=0xE67E22)
         embed.add_field(name="Core Motivation", value=f"**{rng.choice(motivations)}**", inline=False)
         embed.add_field(name="Execution Strategy", value=f"**{rng.choice(strategies)}**", inline=False)
         embed.add_field(name="Confidence Level", value=f"**{rng.choice(confidences)}**", inline=False)
@@ -182,7 +182,7 @@ class LoreEngine(commands.Cog):
         ]
         
         embed = discord.Embed(
-            title="👁️ Oracle's Omen",
+            title="𖦹 𝒪𝓇𝒶𝒸𝓁ℯ'𝓈 𝒪𝓂ℯ𝓃",
             description=f"**Prediction:**\n{random.choice(events)}\n\n**ETA:** *{random.choice(timers)}*",
             color=0x9B59B6
         )

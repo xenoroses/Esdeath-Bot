@@ -38,17 +38,17 @@ class InfrastructureEngine(commands.Cog):
                 ]
                 desc = "\n".join(policies) + "\n\n*Policy threshold adapts automatically over time.*"
                 color = 0x2ECC71
-                title = "🛡️ AutoPolicy Activated"
+                title = "⟡ 𝗔𝘂𝘁𝗼𝗣𝗼𝗹𝗶𝗰𝘆 𝗗𝗲𝗽𝗹𝗼𝘆𝗲𝗱"
             else:
                 desc = "Dynamic mitigation layers have been disengaged."
                 color = 0xE74C3C
-                title = "🛑 AutoPolicy Deactivated"
+                title = "⌬ 𝗔𝘂𝘁𝗼𝗣𝗼𝗹𝗶𝗰𝘆 𝗗𝗲𝗮𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱"
                 
             embed = discord.Embed(title=title, description=desc, color=color)
             embed.set_footer(text="Engine: Hyacine Dynamic Core")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Policy engine failure: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒫ℴ𝓁𝒾𝒸𝓎 ℯ𝓃ℊ𝒾𝓃ℯ 𝒻𝒶𝒾𝓁𝓊𝓇ℯ:** {e}")
 
     @commands.hybrid_command(name="contain", description="Soft containment mode: Limit user capabilities aggressively.")
     @commands.has_permissions(manage_messages=True)
@@ -61,7 +61,7 @@ class InfrastructureEngine(commands.Cog):
         
         # Hierarchy Validation
         if user.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
-            return await ctx.send("❌ | You cannot contain those of equal or higher rank.", ephemeral=True)
+            return await ctx.send("⌬ ⟡ **𝒴ℴ𝓊 𝒸𝒶𝓃𝓃ℴ𝓉 𝒸ℴ𝓃𝓉𝒶𝒾𝓃 𝓉𝒽ℴ𝓈ℯ ℴ𝒻 ℯ𝓆𝓊𝒶𝓁 ℴ𝓇 𝒽𝒾ℊ𝒽ℯ𝓇 𝓇𝒶𝓃𝓀.**", ephemeral=True)
         if user.top_role >= ctx.me.top_role:
             return await ctx.send("❌ | Containment failed. Subject's neural shielding (Role Rank) is higher than mine.", ephemeral=True)
 
@@ -83,7 +83,7 @@ class InfrastructureEngine(commands.Cog):
                 })
                 
                 embed = discord.Embed(
-                    title=f"☣️ Containment Initiated: {user.display_name}",
+                    title=f"❖ 𝗖𝗼𝗻𝘁𝗮𝗶𝗻𝗺𝗲𝗻𝘁 𝗖𝗼𝗿𝗲: {user.display_name}",
                     description=f"{user.mention} is now under **Soft-Containment Protocol**.",
                     color=0xE67E22
                 )
@@ -98,7 +98,7 @@ class InfrastructureEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Soft-Lock System")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Containment failure: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒻𝒶𝒾𝓁𝓊𝓇ℯ:** {e}")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -168,7 +168,7 @@ class InfrastructureEngine(commands.Cog):
             bursts = "Detected" if mentions > 0 else "None"
             
             embed = discord.Embed(
-                title=f"🔬 Forensics Report: {user.display_name}",
+                title=f"𖦹 𝗗𝗲𝗲𝗽 𝗔𝘂𝗱𝗶𝘁 𝗔𝗿𝗰𝗵𝗶𝘃𝗲: {user.display_name}",
                 description="48-Hour Deep Protocol Audit",
                 color=0x9B59B6
             )
@@ -207,7 +207,7 @@ class InfrastructureEngine(commands.Cog):
             except: pass
             
             engagement = "High" if msgs > 200 else ("Medium" if msgs > 50 else "Low")
-            retention = "Stable" if len(users) > 10 else "Volatile"
+            raid_active = "Active" if r_cfg.get("enabled") else "Inactive"
             toxicity_risk = "Low"
             if caps > 20: toxicity_risk = "Elevated"
             
@@ -215,7 +215,7 @@ class InfrastructureEngine(commands.Cog):
             if links > msgs * 0.2: spam_risk = "High"
             
             embed = discord.Embed(
-                title=f"🏥 Channel Health Assessment: #{target.name}",
+                title=f"Vitality Scan: #{target.name}",
                 color=0x1ABC9C
             )
             
@@ -227,7 +227,7 @@ class InfrastructureEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Pulse Analytics")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Health check failed: {e}")
+            await ctx.send(f"Telemetry failed: {e}")
 
     @commands.hybrid_command(name="digest", description="Summarizes mass activity into a daily brief.")
     @commands.has_permissions(manage_messages=True)
@@ -256,7 +256,7 @@ class InfrastructureEngine(commands.Cog):
             ]
             
             embed = discord.Embed(
-                title="📰 Server Daily Digest",
+                title="✤ 𝗦𝘁𝗲𝗹𝗹𝗮𝗿 𝗥𝗼𝗹𝗹𝘂𝗽",
                 description="\n".join(desc),
                 color=0x3498DB
             )

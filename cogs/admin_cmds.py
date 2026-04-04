@@ -37,15 +37,15 @@ class OwnerCmds(commands.Cog):
 
     async def _send_error(self, ctx, text):
         embed = discord.Embed(
-            description=f"❌ | {text}",
+            description=f"⌬ ⟡ **{text}**",
             color=0x2B2D31
         )
         await ctx.send(embed=embed, ephemeral=True)
 
     async def _send_success(self, ctx, text, ephemeral=False):
         embed = discord.Embed(
-            description=f"✅ | {text}",
-            color=0x2ECC71
+            description=f"✧ ✦ **{text}**",
+            color=0x9B59B6
         )
         await ctx.send(embed=embed, ephemeral=ephemeral)
 
@@ -141,13 +141,13 @@ class OwnerCmds(commands.Cog):
         import platform
 
         # Redis status
-        redis_status = "❌ Disconnected"
+        redis_status = "⌬ **𝒟𝒾𝓈𝒸ℴ𝓃𝓃ℯ𝒸𝓉ℯ𝒹**"
         if getattr(self.bot, 'redis', None):
             try:
                 await asyncio.wait_for(self.bot.redis.ping(), timeout=2.0)
-                redis_status = "✅ Connected"
+                redis_status = "✧ **𝒞ℴ𝓃𝓃ℯ𝒸𝓉ℯ𝒹**"
             except:
-                redis_status = "❌ Disconnected"
+                redis_status = "⌬ **𝒟𝒾𝓈𝒸ℴ𝓃𝓃ℯ𝒸𝓉ℯ𝒹**"
 
         # API latency
         latency = round(self.bot.latency * 1000, 2) if self.bot.latency else "N/A"
@@ -160,8 +160,8 @@ class OwnerCmds(commands.Cog):
         ext_count = len(self.bot.extensions)
 
         embed = discord.Embed(
-            title="🤖 Bot Health Status",
-            color=0x2ECC71
+            title="𖦹 ℋ𝓎𝒶𝒸𝒾𝓃𝓉𝒽ℯ ℋℯ𝒶𝓁𝓉𝒽 𝒮𝓉𝒶𝓉𝓊𝓈",
+            color=0x9B59B6
         )
         embed.add_field(name="Redis", value=redis_status, inline=True)
         embed.add_field(name="API Latency", value=f"{latency}ms", inline=True)

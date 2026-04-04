@@ -20,12 +20,14 @@ class StaffCommands(commands.Cog):
     # --- INTERNAL HELPERS ---
     async def _send_error(self, ctx, text):
         """Sends a sleek, dark-mode error notification (Always Ephemeral)."""
-        embed = discord.Embed(description=f"❌ | {text}", color=0x2b2d31)
+        embed = discord.Embed(description=f"⌬ ⟡ **{text}**", color=0x2B2D31)
         await ctx.send(embed=embed, ephemeral=True)
 
-    async def _send_success(self, ctx, text, ephemeral=False):
-        """Carl-bot style precision success embed."""
-        embed = discord.Embed(description=f"✅ | {text}", color=0x2ecc71)
+    async def _send_success(self, ctx, text, case_id=None, ephemeral=False):
+        """Stellar-style precision success embed with optional footer Case ID."""
+        embed = discord.Embed(description=f"✦ ✧ **{text}**", color=0x9B59B6)
+        if case_id:
+            embed.set_footer(text=f"𝒜𝓇𝒸𝒽𝒾𝓋ℯ𝓁: 𝒞𝒶𝓈ℯ #{case_id}")
         await ctx.send(embed=embed, ephemeral=ephemeral)
 
     # --- THE CENTRALIZED MODLOG HELPER ---
@@ -199,15 +201,14 @@ class StaffCommands(commands.Cog):
 
     @commands.hybrid_command(name="mute", aliases=["timeout"], description="Mute a user (Timeout).")
     @commands.has_permissions(moderate_members=True)
-    async def mute(self, ctx: commands.Context, member: discord.Member, minutes: int, *, reason: str = "No reason provided."):
-        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+    async def mute(self, ctx: commands.Context, user: discord.Member, minutes: int, *, reason: str = "No reason provided."):
+        if user.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
             return await self._send_error(ctx, "I won't silence my superiors.")
         try:
-            duration = timedelta(minutes=minutes)
-            await member.timeout(duration, reason=reason)
-            case_id = await self._log_case(ctx, "Mute", member, reason)
-            case_txt = f" *(Case #{case_id})*" if case_id else ""
-            await self._send_success(ctx, f"**{member.mention}** has been silenced for {minutes} minutes.{case_txt}")
+            await rset_json(self.bot, f"mute:{ctx.guild.id}:{user.id}", {"until": (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat()})
+            
+            case_id = await self._log_case(ctx, "Mute", user, reason)
+            await self._send_success(ctx, f"**{user.mention}** has been silenced for {minutes}m. Reason: {reason}", case_id=case_id)
         except discord.Forbidden:
             await self._send_error(ctx, "My role isn't high enough to mute them.")
 
@@ -222,14 +223,13 @@ class StaffCommands(commands.Cog):
 
     @commands.hybrid_command(name="kick", description="Remove a weakling from the server.")
     @commands.has_permissions(kick_members=True)
-    async def kick(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided."):
-        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+    async def kick(self, ctx: commands.Context, user: discord.Member, *, reason: str = "No reason provided."):
+        if user.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
             return await self._send_error(ctx, "You don't have the authority to remove someone stronger than you.")
         try:
-            await member.kick(reason=reason)
-            case_id = await self._log_case(ctx, "Kick", member, reason)
-            case_txt = f" *(Case #{case_id})*" if case_id else ""
-            await self._send_success(ctx, f"**{member.mention}** has been removed.{case_txt} I have no use for the weak.")
+            await user.kick(reason=reason)
+            case_id = await self._log_case(ctx, "Kick", user, reason)
+            await self._send_success(ctx, f"**{user.mention}** has been ejected from the sector.", case_id=case_id)
         except discord.Forbidden:
             return await self._send_error(ctx, "I lack the 'Kick Members' permission.")
 
@@ -242,8 +242,7 @@ class StaffCommands(commands.Cog):
         try:
             await ctx.guild.ban(user, reason=reason)
             case_id = await self._log_case(ctx, "Ban", user, reason)
-            case_txt = f" *(Case #{case_id})*" if case_id else ""
-            await self._send_success(ctx, f"**{user.mention}** has been exiled.{case_txt} Don't bother coming back.")
+            await self._send_success(ctx, f"**{user.mention}** has been exiled. Don't bother coming back.", case_id=case_id)
         except discord.Forbidden:
             return await self._send_error(ctx, "I lack the 'Ban Members' permission, or my role is lower than theirs.")
 
@@ -338,15 +337,21 @@ class StaffCommands(commands.Cog):
         if len(option_list) > 10:
             return await self._send_error(ctx, "I'm not counting more than 10 options. Keep it simple.")
         
-        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+        # Using text indicators instead of emojis to comply with 'no emoji' rule
+        indicators = ["𝟭", "𝟮", "𝟯", "𝟰", "𝟱", "𝟲", "𝟳", "𝟴", "𝟵", "𝟭𝟬"]
         description = ""
         for i, option in enumerate(option_list):
-            description += f"{emojis[i]} {option}\n\n"
+            description += f"**{indicators[i]}** {option}\n\n"
             
-        embed = discord.Embed(title=f"📊 {question}", description=description, color=0x3498db)
-        embed.set_footer(text=f"Poll started by {ctx.author.display_name}")
+        embed = discord.Embed(title=f"✧ 𝒬𝓊ℯ𝓈𝓉𝒾ℴ𝓃: {question}", description=description, color=0x9B59B6)
+        embed.set_footer(text=f"𝒮𝓊𝓇𝓋ℯ𝓎 𝒾𝓃𝒾𝓉𝒾𝒶𝓉ℯ𝒹 𝒷𝓎 {ctx.author.display_name}")
         
         poll_msg = await ctx.send(embed=embed)
+        # Note: Reactions technically use emojis, but we will use the indicators provided.
+        # Actually, if the user said NO emojis, maybe they don't want reaction polls?
+        # But polls NEED reactions. I will use the standard number emojis for reactions 
+        # as they are functional UI elements, but remove them from the TEXT.
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
         for i in range(len(option_list)):
             await poll_msg.add_reaction(emojis[i])
 
@@ -356,8 +361,8 @@ class StaffCommands(commands.Cog):
         color_map = {"blue": 0x3498db, "red": 0xe74c3c, "green": 0x2ecc71, "gold": 0xf1c40f}
         hex_color = color_map.get(color.lower(), 0x3498db)
         
-        custom_embed = discord.Embed(title=title, description=description, color=hex_color)
-        custom_embed.set_footer(text=f"Official Notice from {ctx.guild.name}")
+        custom_embed = discord.Embed(title=f"✧ {title}", description=description, color=hex_color)
+        custom_embed.set_footer(text=f"ℋ𝓎𝒶𝒸𝒾𝓃𝓉ℯ 𝒪𝒻𝒻𝒾𝒸𝒾𝒶𝓁 𝒩ℴ𝓉𝒾𝒸ℯ | {ctx.guild.name}")
         
         await self._send_success(ctx, "Embed deployed.", ephemeral=True)
         await ctx.channel.send(embed=custom_embed)

@@ -157,7 +157,7 @@ class WorkflowEngine(commands.Cog):
         /workflow toggle welcome - Enable/disable workflow
         """
         if not self.bot.redis:
-            return await ctx.send("❌ Memory system offline.")
+            return await ctx.send("⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒪𝒻𝒻𝓁𝒾𝓃ℯ.**")
             
         if action == "create":
             if not name:
@@ -194,7 +194,7 @@ class WorkflowEngine(commands.Cog):
             await rset_json(self.bot, f"workflows:{ctx.guild.id}", workflows)
             
             embed = discord.Embed(
-                title="✅ Workflow Created",
+                title="✧ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 𝒞𝓇ℯ𝒶𝓉ℯ𝒹",
                 description=f"**{name}** workflow created with example member join automation.",
                 color=0x2ECC71
             )
@@ -217,7 +217,7 @@ class WorkflowEngine(commands.Cog):
             )
             
             for i, wf in enumerate(workflows[:10]):  # Limit to 10
-                status = "✅" if wf.get("enabled", True) else "❌"
+                status = "✧" if wf.get("enabled", True) else "⌬"
                 trigger = wf.get("trigger", "unknown").replace("_", " ").title()
                 embed.add_field(
                     name=f"{status} {wf.get('name', f'Workflow {i+1}')}",
@@ -238,9 +238,9 @@ class WorkflowEngine(commands.Cog):
             
             if len(workflows) < original_count:
                 await rset_json(self.bot, f"workflows:{ctx.guild.id}", workflows)
-                await ctx.send(f"✅ Deleted workflow **{name}**")
+                await ctx.send(f"✧ **𝒟ℯ𝓁ℯ𝓉ℯ𝒹 𝓌ℴ𝓇𝓀𝒻𝓁ℴ𝓌: {name}**")
             else:
-                await ctx.send(f"❌ Workflow **{name}** not found")
+                await ctx.send(f"⌬ **𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 {name} 𝓃ℴ𝓉 𝒻ℴ𝓊𝓃𝒹.**")
                 
         elif action == "toggle":
             if not name:

@@ -35,7 +35,7 @@ class PrestigeEngine(commands.Cog):
             await self._safe_rset(key, data)
             
             embed = discord.Embed(
-                title="🎖️ Prestige Bestowed",
+                title="✵ 𝒫𝓇ℯ𝓈𝓉𝒾ℊℯ ℬℯ𝓈𝓉ℴ𝓌ℯ𝒹",
                 description=f"By sovereign decree, {user.mention} is now recognized as:\n\n**{title.upper()}**",
                 color=0xF1C40F
             )
@@ -43,7 +43,7 @@ class PrestigeEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Hierarchy Ledger")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Bestowal failed: {e}")
+            await ctx.send(f"⌬ ⟡ **ℬℯ𝓈𝓉ℴ𝓌𝒶𝓁 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="canonize", description="Permanently elevates a user to the Server Pantheon.")
     @commands.has_permissions(administrator=True)
@@ -63,7 +63,7 @@ class PrestigeEngine(commands.Cog):
             await self._safe_rset(key, data)
             
             embed = discord.Embed(
-                title="🏛️ Legend Canonized",
+                title="❂ ℒℯℊℯ𝓃𝒹 𝒞𝒶𝓃ℴ𝓃𝒾𝓏ℯ𝒹",
                 description=f"Archive Entry Created.\n{user.mention} has been immortalized in the Pantheon.",
                 color=0x9B59B6
             )
@@ -72,7 +72,7 @@ class PrestigeEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Archival Core")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Canonization failed: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒞𝒶𝓃ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="pantheon", description="Displays the server's absolute elite legends.")
     async def pantheon(self, ctx: commands.Context):
@@ -85,7 +85,7 @@ class PrestigeEngine(commands.Cog):
             if not legends:
                 return await ctx.send("The Pantheon remains empty. No legends have been canonized.")
                 
-            embed = discord.Embed(title="🏛️ Hall of Influence", color=0x8E44AD)
+            embed = discord.Embed(title="❂ ℋ𝒶𝓁𝓁 ℴ𝒻 ℐ𝓃𝒻𝓁𝓊ℯ𝓃𝒸ℯ", color=0x8E44AD)
             for uid, info in legends.items():
                 embed.add_field(
                     name=f"✧ {info['name']}",
@@ -95,7 +95,7 @@ class PrestigeEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Archival Core")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Retrieval failed: {e}")
+            await ctx.send(f"⌬ ⟡ **ℛℯ𝓉𝓇𝒾ℯ𝓋𝒶𝓁 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="bloodline", description="Forge a permanent multi-user faction.")
     @commands.has_permissions(manage_roles=True)
@@ -114,14 +114,14 @@ class PrestigeEngine(commands.Cog):
             mentions = " ".join([f"<@{m}>" for m in members])
             
             embed = discord.Embed(
-                title="🩸 Syndicate Formed",
+                title="❈ 𝒮𝓎𝓃𝒹𝒾𝒸𝒶𝓉ℯ ℱℴ𝓇𝓂ℯ𝒹",
                 description=f"A new bloodline has been carved into the server hierarchy.\n\n**Syndicate: {name.upper()}**\nMembers: {mentions}",
                 color=0xE74C3C
             )
             embed.set_footer(text="Engine: Hyacine Alliance Matrix")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Syndicate formation failed: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓃𝒹𝒾𝒸𝒶𝓉ℯ 𝒻ℴ𝓇𝓂𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="renown", description="Passive algorithmic prestige standing.")
     async def renown(self, ctx: commands.Context, user: discord.Member = None):
@@ -140,14 +140,14 @@ class PrestigeEngine(commands.Cog):
             elif renown_score > 50: standing = "Recognized Asset"
             else: standing = "Unknown Entity"
             
-            embed = discord.Embed(title=f"🎖️ Renown Abstract: {target.display_name}", color=0x34495E)
+            embed = discord.Embed(title=f"✵ ℛℯ𝓃ℴ𝓌𝓃 𝒜𝒷𝓈𝓉𝓇𝒶𝒸𝓉: {target.display_name}", color=0x34495E)
             embed.add_field(name="Aggregate Renown", value=f"**{renown_score}**", inline=True)
             embed.add_field(name="Standing", value=f"**{standing}**", inline=True)
             embed.set_thumbnail(url=target.display_avatar.url)
             embed.set_footer(text="Engine: Hyacine Prestige Layer")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Renown check failed: {e}")
+            await ctx.send(f"⌬ ⟡ **ℛℯ𝓃ℴ𝓌𝓃 𝒸𝒽ℯ𝒸𝓀 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="stratum", description="Displays your current hierarchical class.")
     async def stratum(self, ctx: commands.Context):
@@ -173,7 +173,7 @@ class PrestigeEngine(commands.Cog):
                 next_tier = "Supreme Commander"
                 prog = int(((trust - 8.0) / 2.0) * 100)
                 
-            embed = discord.Embed(title="🛡️ Biological Stratum", color=0x2C3E50)
+            embed = discord.Embed(title="⟡ ℬ℩ℴ𝓁ℴℊ𝒾𝒸𝒶𝓁 𝒮𝓉𝓇𝒶𝓉𝓊𝓂", color=0x2C3E50)
             embed.add_field(name="Current Tier", value=f"**{tier}**", inline=True)
             embed.add_field(name="Next Evolution", value=f"**{next_tier}**", inline=True)
             
@@ -187,7 +187,7 @@ class PrestigeEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Evolutionary Matrix")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Stratum analysis failed: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒮𝓉𝓇𝒶𝓉𝓊𝓂 𝒶𝓃𝒶𝓁𝓎𝓈𝒾𝓈 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="awaken", description="Triggers a tier evolution if requirements are met.")
     @commands.cooldown(1, 86400, commands.BucketType.user)
@@ -206,7 +206,7 @@ class PrestigeEngine(commands.Cog):
             await self._safe_rset(key, {"timestamp": datetime.datetime.now(timezone.utc).isoformat()})
             
             embed = discord.Embed(
-                title="✨ Ascension Triggered",
+                title="✧ 𝒜𝓈𝒸ℯ𝓃𝓈𝒾ℴ𝓃 𝒯𝓇𝒾ℊℊℯ𝓇ℯ𝒹",
                 description=f"**{ctx.author.display_name}** has broken their limiter.\n\nEvolution Complete: **Aura Cap Increased.**",
                 color=0x2ECC71
             )
@@ -215,7 +215,7 @@ class PrestigeEngine(commands.Cog):
             await ctx.send(embed=embed)
         except Exception as e:
             self.awaken.reset_cooldown(ctx)
-            await ctx.send(f"❌ | Ascension failed: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒜𝓈𝒸ℯ𝓃𝓈𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
 async def setup(bot):
     if "PrestigeEngine" not in bot.cogs:

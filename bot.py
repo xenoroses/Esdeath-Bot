@@ -89,7 +89,7 @@ def decode_redis_data(data):
     return data.decode('utf-8') if isinstance(data, bytes) else data
 
 async def get_server_prefixes(bot, message):
-    default_prefixes = ["!", "Hyacine ", "es "]
+    default_prefixes = [","]
     if not message.guild or not getattr(bot, 'cache', None):
         return commands.when_mentioned_or(*default_prefixes)(bot, message)
     try:
@@ -112,7 +112,7 @@ class HyacineBot(commands.Bot):
             command_prefix=get_server_prefixes,
             intents=intents,
             status=discord.Status.idle,
-            activity=discord.Activity(type=discord.ActivityType.watching, name="Stalking Zen"),
+            activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸𝒽ℴℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
             case_insensitive=True
         )
@@ -271,9 +271,15 @@ if __name__ == "__main__":
             
             # Check if previous process is still alive
             if psutil.pid_exists(old_pid):
-                # Verify it's actually a python/bot process (optional but safer)
-                print(f"Another bot instance (PID {old_pid}) already running. Exiting.")
-                sys.exit(0)
+                print(f"Another bot instance (PID {old_pid}) detected. Forcefully terminating...")
+                try:
+                    p = psutil.Process(old_pid)
+                    p.terminate()
+                    p.wait(timeout=3)
+                    print("Previous instance terminated. Proceeding.")
+                except Exception as e:
+                    print(f"Could not terminate old instance: {e}. Exiting to prevent duplication.")
+                    sys.exit(0)
             else:
                 print("Detected stale lock file. Cleaning up...")
                 os.remove(LOCK_FILE)

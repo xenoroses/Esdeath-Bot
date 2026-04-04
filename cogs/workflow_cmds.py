@@ -60,7 +60,7 @@ class WorkflowEngine(commands.Cog):
         if hasattr(self.bot, 'cache') and self.bot.cache: await self.bot.cache.set(key, payload)
         elif hasattr(self.bot, 'redis') and self.bot.redis: await self.bot.redis.set(key, payload)
 
-        embed = discord.Embed(title="⚙️ Workflow Created", color=0x2ECC71)
+        embed = discord.Embed(title="≛ 𝗪𝗼𝗿𝗸𝗳𝗹𝗼𝘄 𝗖𝗿𝗲𝗮𝘁𝗲𝗱", color=0x2ECC71)
         embed.description = f"**ID:** {flow_id}\n\n**IF** `{trigger}`\n**AND** `{condition}`\n**THEN** `{action}`"
         await ctx.send(embed=embed)
 
@@ -80,7 +80,7 @@ class WorkflowEngine(commands.Cog):
         if not flows:
             return await ctx.send("No workflows configured.", ephemeral=True)
 
-        embed = discord.Embed(title="⚙️ Active Workflows", color=0x34495E)
+        embed = discord.Embed(title="≛ 𝗔𝗰𝘁𝗶𝘃𝗲 𝗪𝗼𝗿𝗸𝗳𝗹𝗼𝘄𝘀", color=0x34495E)
         for f in flows:
             embed.add_field(name=f"Workflow #{f['id']}", value=f"IF `{f['trigger']}` AND `{f['condition']}` THEN `{f['action']}`", inline=False)
         await ctx.send(embed=embed)
@@ -105,7 +105,7 @@ class WorkflowEngine(commands.Cog):
         for f in flows:
             lines.append(f"┌─ EVENT: [{f['trigger'].upper()}]\n│   ↳ IF: ({f['condition']})\n└── THEN: <{f['action'].upper()}>")
 
-        embed = discord.Embed(title="🕸️ Workflow DAG Visualization", description="```text\n" + "\n\n".join(lines) + "\n```", color=0x9B59B6)
+        embed = discord.Embed(title="❂ 𝗪𝗼𝗿𝗸𝗳𝗹𝗼𝘄 𝗗𝗔𝗚 𝗩𝗶𝘀𝘂𝗮𝗹𝗶𝘇𝗮𝘁𝗶𝗼𝗻", description="```text\n" + "\n\n".join(lines) + "\n```", color=0x9B59B6)
         embed.set_footer(text="Engine: Hyacine Automation Graph")
         await ctx.send(embed=embed)
 
@@ -114,7 +114,7 @@ class WorkflowEngine(commands.Cog):
     async def eventpipe(self, ctx: commands.Context, event: str = "MESSAGE_CREATE", action: str = "toxicity_check"):
         await ctx.defer()
         embed = discord.Embed(
-            title="⚡ Event Pipeline Created",
+            title="✧ 𝗘𝘃𝗲𝗻𝘁 𝗣𝗶𝗽𝗲𝗹𝗶𝗻𝗲 𝗖𝗿𝗲𝗮𝘁𝗲𝗱",
             description=f"**Event**: `{event}`\n**Piped to Engine**: `{action}`\n\n*Pipeline active. Traffic is now being forwarded to internal moderation processors.*",
             color=0x2ECC71
         )
@@ -126,7 +126,7 @@ class WorkflowEngine(commands.Cog):
     async def conditionalrole(self, ctx: commands.Context, role: discord.Role, trust_minimum: int = 60, days_old: int = 14):
         await ctx.defer()
         embed = discord.Embed(
-            title="🛡️ Conditional Access Layer Assigned",
+            title="⟡ 𝗖𝗼𝗻𝗱𝗶𝘁𝗶𝗼𝗻𝗮𝗹 𝗔𝗰𝗰𝗲𝘀𝘀 𝗟𝗮𝘆𝗲𝗿 𝗔𝘀𝘀𝗶𝗴𝗻𝗲𝗱",
             description=f"**Target Role**: {role.mention}\n\n**Grant Conditions (AND):**\n• `account_age` > {days_old} days\n• `trust_score` > {trust_minimum}/100\n\n*Daemon evaluating guild members lazily.*",
             color=0xF1C40F
         )
@@ -138,7 +138,7 @@ class WorkflowEngine(commands.Cog):
     async def sentinel(self, ctx: commands.Context, toggle: str = "enable"):
         await ctx.defer()
         embed = discord.Embed(
-            title="👁️ Sentinel Daemon Engaged",
+            title="𖦹 𝗦𝗲𝗻𝘁𝗶𝗻𝗲𝗹 𝗗𝗮𝗲𝗺𝗼𝗻 𝗘𝗻𝗴𝗮𝗴𝗲𝗱",
             description="Hyacine's supreme background guardian is now Active.\n\n**Systems Linked:**\n• Deep Anomaly Detection\n• Live TrustScore Delta Tracking\n• Auto-Mitigation Matrix",
             color=0xE74C3C
         )
@@ -202,7 +202,7 @@ class WorkflowEngine(commands.Cog):
                         await message.delete()
                     elif a == "delete_and_warn":
                         await message.delete()
-                        await message.channel.send(f"⚠️ {message.author.mention}, your message was caught by an automatic workflow.", delete_after=5)
+                        await message.channel.send(f"⌬ ⟡ {message.author.mention}, your message was caught by an automatic workflow.", delete_after=5)
                 except:
                     pass
                 break # Only execute the highest matched workflow per message

@@ -101,18 +101,18 @@ class AutomodEngine(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def automod(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
-            await ctx.send("Use `/automod add-rule`, `/automod list`, or `/automod remove`.", ephemeral=True)
+            await ctx.send(f"✧ ✦ **𝒞ℴ𝓃𝒻𝒾𝓇𝓂ℯ𝒹:** 𝒰𝓈ℯ `/automod add-rule`, `/automod list`, ℴ𝓇 `/automod remove`.", ephemeral=True)
 
     @automod.command(name="add-rule", description="Add a new pattern matching rule.")
     async def add_rule(self, ctx: commands.Context, action: str, *, regex_pattern: str):
         valid_actions = ["delete", "warn"]
         if action.lower() not in valid_actions:
-            return await ctx.send(f"❌ | Invalid action. Choose from: `{', '.join(valid_actions)}`", ephemeral=True)
+            return await ctx.send(f"⌬ ⟡ **ℐ𝓃𝓋𝒶𝓁𝒾𝒹 𝒶𝒸𝓉𝒾ℴ𝓃.**", ephemeral=True)
 
         try:
             re.compile(regex_pattern)
         except re.error:
-            return await ctx.send("❌ | Invalid Regex pattern.", ephemeral=True)
+            return await ctx.send("⌬ ⟡ **ℐ𝓃𝓋𝒶𝓁𝒾𝒹 𝓇ℯℊℯ𝓍.**", ephemeral=True)
 
         key = f"automod_rules:{ctx.guild.id}"
         cached = None
@@ -131,7 +131,7 @@ class AutomodEngine(commands.Cog):
         if hasattr(self.bot, 'cache'): await self.bot.cache.set(key, payload)
         elif hasattr(self.bot, 'redis'): await self.bot.redis.set(key, payload)
 
-        await ctx.send(f"✅ | Added rule **#{new_rule['id']}**. Hits on `{regex_pattern}` will result in `{action}`.")
+        await ctx.send(f"✧ ✦ **ℛ𝓊𝓁ℯ 𝒜𝒹𝒹ℯ𝒹:** Added rule **#{new_rule['id']}**.")
 
     @automod.command(name="list", description="List active automod rules.")
     async def list_rules(self, ctx: commands.Context):
@@ -179,7 +179,7 @@ class AutomodEngine(commands.Cog):
         if hasattr(self.bot, 'cache'): await self.bot.cache.set(key, payload)
         elif hasattr(self.bot, 'redis'): await self.bot.redis.set(key, payload)
 
-        await ctx.send(f"✅ | Removed rule **#{rule_id}**.")
+        await ctx.send(f"✧ ✦ **ℛ𝓊𝓁ℯ 𝒱𝒶𝓅ℴ𝓇𝒾𝓏ℯ𝒹:** Removed rule **#{rule_id}**.")
 
 async def setup(bot):
     if "AutomodEngine" not in bot.cogs:

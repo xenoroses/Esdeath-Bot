@@ -18,10 +18,10 @@ class SmartPurge(commands.Cog):
 
         # Validation
         if filter_type == "contains" and not specific_text:
-            return await ctx.send("❌ | You must provide `specific_text` when using the `contains` filter type.", ephemeral=True)
+            return await ctx.send("⌬ ⟡ **𝗬𝗼𝘂 𝗺𝘂𝘀𝘁 𝗽𝗿𝗼𝘃𝗶𝗱𝗲 `𝘀𝗽𝗲𝗰𝗶𝗳𝗶𝗰_𝘁𝗲𝘅𝘁` 𝘄𝗵𝗲𝗻 𝘂𝘀𝗶𝗻𝗴 𝘁𝗵𝗲 `𝗰𝗼𝗻𝘁𝗮𝗶𝗻𝘀` 𝗳𝗶𝗹𝘁𝗲𝗿 𝘁𝘆𝗽𝗲.**", ephemeral=True)
 
         if limit > 500:
-            return await ctx.send("❌ | Limit cannot exceed 500 messages at once to protect the API.", ephemeral=True)
+            return await ctx.send("⌬ ⟡ **𝗟𝗶𝗺𝗶𝘁 𝗰𝗮𝗻𝗻𝗼𝘁 𝗲𝘅𝗰𝗲𝗲𝗱 𝟱𝟬𝟬 𝗺𝗲𝘀𝘀𝗮𝗴𝗲𝘀 𝗮𝘁 𝗼𝗻𝗰𝗲.**", ephemeral=True)
 
         # Define the checking function dynamically based on filter type
         def purge_check(m: discord.Message):
@@ -53,13 +53,13 @@ class SmartPurge(commands.Cog):
             if filter_type == "contains":
                 filter_desc += f" (`{specific_text}`)"
 
-            await ctx.send(f"✅ | SmartPurge complete. Surgically removed **{len(deleted)}** messages {filter_desc}.", ephemeral=True)
+            await ctx.send(f"✧ ✦ **𝗘𝗿𝗮𝘀𝘂𝗿𝗲 𝗣𝗿𝗼𝘁𝗼𝗰𝗼𝗹 𝗰𝗼𝗺𝗽𝗹𝗲𝘁𝗲. 𝗦𝘂𝗿𝗴𝗶𝗰𝗮𝗹𝗹𝘆 𝗿𝗲𝗺𝗼𝘃𝗲𝗱 {len(deleted)} 𝗺𝗲𝘀𝘀𝗮𝗴𝗲𝘀 {filter_desc}.**", ephemeral=True)
             
             # Optional: Log the purge to the database/channel here if needed
         except discord.Forbidden:
-            await ctx.send("❌ | I do not have `Manage Messages` permissions in this channel.", ephemeral=True)
+            await ctx.send("⌬ ⟡ **𝗜 𝗹𝗮𝗰𝗸 `𝗠𝗮𝗻𝗮𝗴𝗲 𝗠𝗲𝘀𝘀𝗮𝗴𝗲𝘀` 𝗽𝗲𝗿𝗺𝗶𝘀𝘀𝗶𝗼𝗻𝘀.**", ephemeral=True)
         except Exception as e:
-            await ctx.send(f"❌ | An error occurred: {e}", ephemeral=True)
+            await ctx.send(f"⌬ ⟡ **𝗣𝗿𝗼𝘁𝗼𝗰𝗼𝗹 𝗲𝗿𝗿𝗼𝗿:** {e}", ephemeral=True)
 
 async def setup(bot):
     if "SmartPurge" not in bot.cogs:

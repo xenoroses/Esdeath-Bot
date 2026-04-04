@@ -45,7 +45,7 @@ class AIUtilityCommands(commands.Cog):
                 except:
                     pass
 
-        embed = discord.Embed(title=f"🛑 Automod Physics Simulator", color=0x2B2D31)
+        embed = discord.Embed(title="⌬ 𝗔𝘂𝘁𝗼𝗺𝗼𝗱 𝗣𝗵𝘆𝘀𝗶𝗰𝘀 𝗦𝗶𝗺𝘂𝗹𝗮𝘁𝗼𝗿", color=0x2B2D31)
         embed.set_thumbnail(url=user.display_avatar.url)
         embed.add_field(name="Target User", value=user.mention, inline=True)
         embed.add_field(name="Current Infractions", value=str(infractions), inline=True)
@@ -53,14 +53,14 @@ class AIUtilityCommands(commands.Cog):
         embed.add_field(name="Test Input", value=f"`{mock_message}`", inline=False)
         
         if not triggered_rules:
-            result = "✅ **Pass**. Message would be permitted."
+            result = "✧ **𝗣𝗮𝘀𝘀**. Message would be permitted."
         else:
-            result = "❌ **Fail**. Message would trigger:\n"
+            result = "⌬ **𝗙𝗮𝗶𝗹**. Message would trigger:\n"
             for action, pattern in triggered_rules:
                 result += f"• **{action.upper()}** (Hit on: `{pattern}`)\n"
                 
             if infractions >= 3:
-                result += "\n⚠️ *Warning*: User has 3+ infractions. Standard escalation protocols advise **Timeout/Ban** instead of simple warning."
+                result += "\n⌬ ⟡ *𝗪𝗮𝗿𝗻𝗶𝗻𝗴*: User has 3+ infractions. Standard escalation protocols advise **Timeout/Ban** instead of simple warning."
 
         embed.add_field(name="Execution Preview", value=result, inline=False)
         await ctx.send(embed=embed)
@@ -85,7 +85,7 @@ class AIUtilityCommands(commands.Cog):
             
         top_talkers = sorted(participants.items(), key=lambda x: x[1], reverse=True)[:3]
         
-        embed = discord.Embed(title=f"🧠 Channel Digest: #{ctx.channel.name}", description=f"Analyzed the last {limit} messages.", color=0x9B59B6)
+        embed = discord.Embed(title=f"⌬ 𝗖𝗵𝗮𝗻𝗻𝗲𝗹 𝗗𝗶𝗴𝗲𝘀𝘁: #{ctx.channel.name}", description=f"Analyzed the last {limit} messages.", color=0x9B59B6)
         
         talker_str = "\n".join([f"• **{name}**: {cnt} msgs" for name, cnt in top_talkers])
         if not talker_str: talker_str = "No active users found."
@@ -110,7 +110,7 @@ class AIUtilityCommands(commands.Cog):
         elif "help" in c_name or "support" in c_name:
             channel_rules = "• Format code properly\n• One query per thread\n• Do not ping staff arbitrarily"
             
-        embed = discord.Embed(title="📜 Context-Aware Policy", color=0x34495E)
+        embed = discord.Embed(title="❂ 𝗖𝗼𝗻𝘁𝗲𝘅𝘁-𝗔𝘄𝗮𝗿𝗲 𝗣𝗼𝗹𝗶𝗰𝘆", color=0x34495E)
         
         if channel_rules:
             embed.description = f"**Relevant Rules for <#{ctx.channel.id}>**\n{channel_rules}\n\n**Global Defaults**\n{general_rules}"
@@ -124,7 +124,7 @@ class AIUtilityCommands(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     async def memory(self, ctx: commands.Context, user: discord.Member, days: int = 7):
         if days > 90:
-            return await ctx.send("❌ | Maximum 90 days for performance.")
+            return await ctx.send("⌬ ⟡ **ℳ𝒶𝓍𝒾𝓂𝓊𝓂 𝟫𝟢 𝒹𝒶𝓎𝓈 𝒻ℴ𝓇 𝓅ℯ𝓇𝒻ℴ𝓇𝓂𝒶𝓃𝒸ℯ.**")
             
         await ctx.defer()
         try:
@@ -162,7 +162,7 @@ class AIUtilityCommands(commands.Cog):
             current_trust = trust_scores.get(str(user.id), 5.0)
             
             embed = discord.Embed(
-                title=f"🧠 User Memory: {user.display_name}",
+                title=f"⌬ 𝗨𝘀𝗲𝗿 𝗠𝗲𝗺𝗼𝗿𝘆: {user.display_name}",
                 description=f"Behavior analysis for last **{days}** days",
                 color=0xE67E22
             )
@@ -188,7 +188,7 @@ class AIUtilityCommands(commands.Cog):
             await ctx.send(embed=embed)
             
         except Exception as e:
-            await ctx.send(f"❌ | Memory analysis failed: {e}")
+            await ctx.send(f"⌬ ⟡ **ℳℯ𝓂ℴ𝓇𝓎 𝒶𝓃𝒶𝓁𝓎𝓈𝒾𝓈 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     # --- AI CASE SUGGESTIONS ---
     @commands.hybrid_command(name="autocase", description="AI-powered moderation case suggestions.")
@@ -231,12 +231,12 @@ class AIUtilityCommands(commands.Cog):
                 
             if not suggestions:
                 if user_trust > 7:
-                    suggestions.append("✅ **No Action Needed** - User has excellent standing.")
+                    suggestions.append("✧ **𝒩ℴ 𝒜𝒸𝓉𝒾ℴ𝓃 𝒩ℯℯ𝒹ℯ𝒹** - User has excellent standing.")
                 else:
                     suggestions.append("👁️ **Monitor Closely** - No severe flags tripped, but worth watching.")
             
             embed = discord.Embed(
-                title=f"🤖 AI Case Analysis: {user.display_name}",
+                title=f"𖦹 𝗔𝗜 𝗖𝗮𝘀𝗲 𝗔𝗻𝗮𝗹𝘆𝘀𝗶𝘀: {user.display_name}",
                 description="Automated moderation suggestions based on behavior.",
                 color=0xE74C3C
             )
@@ -258,7 +258,7 @@ class AIUtilityCommands(commands.Cog):
             await ctx.send(embed=embed)
             
         except Exception as e:
-            await ctx.send(f"❌ | Case analysis failed: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒞𝒶𝓈ℯ 𝒶𝓃anal𝓎𝓈𝒾𝓈 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     # --- WHY COMMAND (Plain Language History) ---
     @commands.hybrid_command(name="why", description="Explains moderation history in plain language.")
@@ -277,7 +277,7 @@ class AIUtilityCommands(commands.Cog):
             if not history:
                 embed = discord.Embed(
                     title=f"🛡️ Case File: {user.display_name}",
-                    description=f"✅ {user.mention} has an **entirely clean record**. No moderation actions have ever been taken against this user.",
+                    description=f"✧ {user.mention} has an **ℯ𝓃𝓉𝒾𝓇ℯ𝓁𝓎 𝒸𝓁ℯ𝒶𝓃 𝓇ℯ𝒸ℴ𝓇𝒹**. No moderation actions have ever been taken against this user.",
                     color=0x2ECC71
                 )
                 embed.set_thumbnail(url=user.display_avatar.url)
@@ -337,7 +337,7 @@ class AIUtilityCommands(commands.Cog):
             latest = history[-1] if history else None
             
             embed = discord.Embed(
-                title=f"🛡️ Case File: {user.display_name}",
+                title=f"❂ 𝗖𝗮𝘀𝗲 𝗙𝗶𝗹𝗲: {user.display_name}",
                 description=str(plain_text),
                 color=0xE67E22 if timeouts or warnings > 2 else 0xF1C40F
             )
@@ -352,7 +352,7 @@ class AIUtilityCommands(commands.Cog):
             await ctx.send(embed=embed)
             
         except Exception as e:
-            await ctx.send(f"❌ | History check failed: {e}")
+            await ctx.send(f"⌬ ⟡ **ℋ𝒾𝓈𝓉ℴ𝓇𝓎 𝒸𝒽ℯ𝒸𝓀 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
 async def setup(bot):
     if "AIUtilityCommands" not in bot.cogs:

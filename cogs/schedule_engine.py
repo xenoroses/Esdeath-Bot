@@ -145,7 +145,7 @@ class ScheduleEngine(commands.Cog):
         /schedule toggle daily_announce - Enable/disable schedule
         """
         if not self.bot.redis:
-            return await ctx.send("❌ Memory system offline.")
+            return await ctx.send("⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒪𝒻𝒻𝓁𝒾𝓃ℯ.**")
             
         if action == "create":
             if not name:
@@ -174,7 +174,7 @@ class ScheduleEngine(commands.Cog):
             await rset_json(self.bot, f"schedules:{ctx.guild.id}", schedules)
             
             embed = discord.Embed(
-                title="✅ Schedule Created",
+                title="✧ 𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ 𝒞𝓇ℯ𝒶𝓉ℯ𝒹",
                 description=f"**{name}** - Daily at 9:00 AM",
                 color=0x2ECC71
             )
@@ -197,7 +197,7 @@ class ScheduleEngine(commands.Cog):
             )
             
             for schedule in schedules[:10]:
-                status = "✅" if schedule.get("enabled", True) else "❌"
+                status = "✧" if schedule.get("enabled", True) else "⌬"
                 schedule_type = schedule.get("type", "unknown").title()
                 
                 if schedule_type == "Daily":
@@ -227,7 +227,7 @@ class ScheduleEngine(commands.Cog):
             
             if len(schedules) < original_count:
                 await rset_json(self.bot, f"schedules:{ctx.guild.id}", schedules)
-                await ctx.send(f"✅ Deleted schedule **{name}**")
+                await ctx.send(f"✧ **𝒟ℯ𝓁ℯ𝓉ℯ𝒹 𝓈𝒸𝒽ℯ𝒹𝓊𝓁ℯ: {name}**")
             else:
                 await ctx.send(f"❌ Schedule **{name}** not found")
                 
@@ -242,7 +242,7 @@ class ScheduleEngine(commands.Cog):
                     s["enabled"] = not s.get("enabled", True)
                     status = "enabled" if s["enabled"] else "disabled"
                     await rset_json(self.bot, f"schedules:{ctx.guild.id}", schedules)
-                    return await ctx.send(f"✅ Schedule **{name}** {status}")
+                    return await ctx.send(f"✧ **𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 **{name}** {status}**")
                     
             await ctx.send(f"❌ Schedule **{name}** not found")
             
