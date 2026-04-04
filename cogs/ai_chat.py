@@ -123,6 +123,11 @@ class AIChat(commands.Cog):
 
         processing_memory.append({"role": "user", "content": f"{user_label}: {safe_content}"})
 
+        # DISTRIBUTED LOCK: Prevent duplicate AI responses
+        lock_key = f"lock:ai:{message.channel.id}:{message.id}"
+        if not await self.bot.redis.set(lock_key, "1", nx=True, ex=3):
+            return
+
         try:
             async with message.channel.typing():
                 # Call the LLM with the full contextual background
@@ -147,7 +152,7 @@ class AIChat(commands.Cog):
             print(f"Chat Error: {e}")
             
             error_embed = discord.Embed(
-                title="❌ System Error",
+                title="⌬ 𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇",
                 description="The neural link dropped for a second. Please try your request again.",
                 color=0xe74c3c 
             )

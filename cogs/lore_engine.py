@@ -15,7 +15,7 @@ class LoreEngine(commands.Cog):
     async def _safe_rget(self, key):
         return await rget_json(self.bot, key) or {}
 
-    @commands.hybrid_command(name="aura", description="Analyzes the caller's distinct presence.")
+    @commands.hybrid_command(name="aura", description="Analyze a user's distinct spectral presence.")
     async def aura(self, ctx: commands.Context, user: discord.Member = None):
         await ctx.defer()
         try:
@@ -23,34 +23,42 @@ class LoreEngine(commands.Cog):
             trust_scores = await self._safe_rget("trust_scores")
             trust = trust_scores.get(str(target.id), 5.0)
             
-            # Simple algorithmic seed based on ID and joined date to make it consistent but unique
+            # Billion-Dollar Algorithmic Seed
             joined_ts = int(target.joined_at.timestamp()) if target.joined_at else 1
             seed = target.id * joined_ts
             rng = random.Random(seed)
             
-            dominance = int((trust / 10.0) * 100) + rng.randint(-10, 10)
-            dominance = max(0, min(100, dominance))
+            hex_code = f"#{rng.randint(0, 0xFFFFFF):06x}".upper()
+            resonance = int((trust * 10) + rng.randint(-5, 5))
+            resonance = max(0, min(100, resonance))
             
-            chaos = rng.randint(20, 95)
-            if trust < 3.0: chaos = max(chaos, 80)
+            purity = rng.randint(40, 99)
+            if trust < 2.0: purity = rng.randint(5, 30)
             
-            roles = ["Strategist", "Enforcer", "Wanderer", "Catalyst", "Observer", "Instigator", "Architect"]
-            narrative_role = rng.choice(roles)
-            
-            radius = "Expanding" if dominance > 60 else ("Stabilized" if dominance > 30 else "Contracting")
-            
-            embed = discord.Embed(title=f"❈ 𝒜𝓊𝓇𝒶 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒮𝒸𝒶𝓃: {target.display_name}", color=0x9B59B6)
+            # Cutesy Hyacine Aesthetic
+            embed = discord.Embed(
+                title=f"✧ 𝒜𝓊𝓇𝒶 𝒮𝓅ℯ𝒸𝓉𝓇𝒶𝓁 𝒮𝒾ℊ𝓃𝒶𝓉𝓊𝓇ℯ", 
+                color=0xB19CD9 # Hyacine Lavender
+            )
+            embed.set_author(name=f"{ctx.author.display_name} ⟡ {target.display_name}", icon_url=ctx.author.display_avatar.url)
             embed.set_thumbnail(url=target.display_avatar.url)
             
-            embed.add_field(name="Dominance", value=f"`{dominance}%`", inline=True)
-            embed.add_field(name="Chaos", value=f"`{chaos}%`", inline=True)
-            embed.add_field(name="Influence Radius", value=f"**{radius}**", inline=False)
-            embed.add_field(name="Narrative Classification", value=f"**{narrative_role}**", inline=False)
+            details = (
+                f"**» Spectral Resonance**\n"
+                f"Sync Hex: `{hex_code}`\n"
+                f"Frequency: **{resonance}%**\n"
+                f"Aether Purity: **{purity}%**\n\n"
+                f"**» Entity Profile**\n"
+                f"Presence: **{'Radiant ✧' if resonance > 70 else 'Stable ⌬'}**\n"
+                f"Trace: **{'Ancient Lore' if purity > 85 else 'Organic Flow'}**\n\n"
+                f"*Quantum footprint verified by Hyacine Protocol.*"
+            )
+            embed.description = details
+            embed.set_footer(text="© Hyacine Lore Engine | Metaphysical Data Map", icon_url=self.bot.user.display_avatar.url)
             
-            embed.set_footer(text="Engine: Hyacine Metaphysical Sensor")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒜𝓊𝓇𝒶 𝓇ℯ𝒶𝒹 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
+            await ctx.send(f"⌬ ⟡ **𝒜𝓊𝓇𝒶 𝓈𝓎狀𝓃𝒸𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="chronicle", description="Generates a micro-story about recent channel events.")
     @commands.has_permissions(manage_messages=True)
@@ -150,23 +158,37 @@ class LoreEngine(commands.Cog):
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒟ℴ𝓈𝓈𝒾ℯ𝓇 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
-    @commands.hybrid_command(name="psychoanalyze", description="Reads organic intentions.")
+    @commands.hybrid_command(name="psychoanalyze", description="Extract a target's intentionality matrix.")
     async def psychoanalyze(self, ctx: commands.Context, user: discord.Member = None):
         await ctx.defer()
-        target = user or ctx.author
-        
-        rng = random.Random(target.id)
-        motivations = ["Absolute Chaos", "Tactical Mischief", "Boredom", "Subversion", "Survival", "Self-Interest", "Devotion"]
-        strategies = ["Improvised", "Calculating", "Erratic", "Non-existent", "Methodical"]
-        confidences = ["Suspiciously High", "Delusional", "Calculated", "Wavering", "Nonchalant"]
-        
-        embed = discord.Embed(title=f"⌬ 𝒫𝓈𝓎𝒸𝒽ℴ𝒶𝓃𝒶𝓁𝓎𝓈𝒾𝓈: {target.display_name}", color=0xE67E22)
-        embed.add_field(name="Core Motivation", value=f"**{rng.choice(motivations)}**", inline=False)
-        embed.add_field(name="Execution Strategy", value=f"**{rng.choice(strategies)}**", inline=False)
-        embed.add_field(name="Confidence Level", value=f"**{rng.choice(confidences)}**", inline=False)
-        
-        embed.set_footer(text="Engine: Hyacine Psychological DAEMON")
-        await ctx.send(embed=embed)
+        try:
+            target = user or ctx.author
+            rng = random.Random(target.id + int(time.time() / 3600))
+            
+            mtrx = ["Subversive", "Protective", "Chaotic", "Algorithmic", "Empathetic"]
+            m_val = rng.choice(mtrx)
+            
+            embed = discord.Embed(
+                title=f"❂ 𝒫𝓈𝓎𝒸𝒽ℴ𝓁ℴℊ𝒾𝒸𝒶𝓁 ℳ𝒶𝓉𝓇𝒾𝓍",
+                color=0xB19CD9 # Hyacine Lavender
+            )
+            embed.set_author(name=f"{ctx.author.display_name} ⟡ {target.display_name}", icon_url=ctx.author.display_avatar.url)
+            embed.set_thumbnail(url=target.display_avatar.url)
+            
+            details = (
+                f"**» Intentionality Scan**\n"
+                f"Core Matrix: **{m_val}**\n"
+                f"Residue: **{'None' if rng.random() > 0.3 else 'Volatile'}**\n\n"
+                f"**» Forecast**\n"
+                f"Next Move: `{'Stabilize' if rng.random() > 0.5 else 'Infiltrate'}`\n\n"
+                f"*Caution: Psychological trace detected.*"
+            )
+            embed.description = details
+            embed.set_footer(text="© Hyacine Lore Engine | Cognitive Archetype Analysis", icon_url=self.bot.user.display_avatar.url)
+            
+            await ctx.send(embed=embed)
+        except Exception as e:
+             await ctx.send(f"⌬ ⟡ **𝒫ℴ𝓁𝒾𝒸𝓎 𝒮𝒸𝒶𝓃 𝒟𝒾𝓈𝓇𝓊𝓅𝓉ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="omen", description="Predicts a near-future server event.")
     @commands.cooldown(1, 1800, commands.BucketType.guild)

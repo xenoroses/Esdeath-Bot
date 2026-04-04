@@ -149,42 +149,62 @@ class PrestigeEngine(commands.Cog):
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **ℛℯ𝓃ℴ𝓌𝓃 𝒸𝒽ℯ𝒸𝓀 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
-    @commands.hybrid_command(name="stratum", description="Displays your current hierarchical class.")
+    @commands.hybrid_command(name="stratum", description="Displays your current hierarchical evolution.")
     async def stratum(self, ctx: commands.Context):
         await ctx.defer()
         try:
             trust_scores = await self._safe_rget("trust_scores")
             trust = trust_scores.get(str(ctx.author.id), 5.0)
             
-            title_key = f"titles:{ctx.guild.id}"
-            titles_data = await self._safe_rget(title_key)
-            my_titles = titles_data.get(str(ctx.author.id), [])
+            p_key = f"prestige:{ctx.author.id}"
+            p_data = await self._safe_rget(p_key)
+            points = p_data.get("points", 0)
             
-            tier = "Initiate"
-            next_tier = "Vanguard"
-            prog = int((trust / 4.0) * 100)
-            
-            if trust >= 4.0:
-                tier = "Vanguard"
-                next_tier = "Inner Circle"
-                prog = int(((trust - 4.0) / 4.0) * 100)
-            if trust >= 8.0:
-                tier = "Inner Circle"
-                next_tier = "Supreme Commander"
-                prog = int(((trust - 8.0) / 2.0) * 100)
+            # Dynamic Tiering (HSR Style)
+            if trust >= 9.0:
+                tier = "Aeon Emissary"
+                next_tier = "Ultima"
+                prog = min(100, int((trust - 9.0) / 1.0 * 100))
+                color = 0xF1C40F
+            elif trust >= 7.0:
+                tier = "Stellar Vanguard"
+                next_tier = "Aeon Emissary"
+                prog = int((trust - 7.0) / 2.0 * 100)
+                color = 0x9B59B6
+            elif trust >= 4.0:
+                tier = "Pathstrider"
+                next_tier = "Stellar Vanguard"
+                prog = int((trust - 4.0) / 3.0 * 100)
+                color = 0x3498DB
+            else:
+                tier = "Mortal Follower"
+                next_tier = "Pathstrider"
+                prog = int((trust / 4.0) * 100)
+                color = 0x95A5A6
                 
-            embed = discord.Embed(title="⟡ ℬ℩ℴ𝓁ℴℊ𝒾𝒸𝒶𝓁 𝒮𝓉𝓇𝒶𝓉𝓊𝓂", color=0x2C3E50)
-            embed.add_field(name="Current Tier", value=f"**{tier}**", inline=True)
-            embed.add_field(name="Next Evolution", value=f"**{next_tier}**", inline=True)
+            # Cutesy Hyacine Aesthetic
+            embed = discord.Embed(
+                title=f"⟡ ℬ𝒾ℴ𝓁ℴ𝑔𝒾𝒸𝒶𝓁 𝒮𝓉𝓇𝒶𝓉𝓊𝓂: {ctx.author.display_name}", 
+                color=0xB19CD9 # Hyacine Lavender
+            )
+            embed.set_author(name="Stellar Evolution Archive", icon_url=ctx.author.display_avatar.url)
             
-            prog_bar = "█" * int(prog / 10) + "░" * (10 - int(prog / 10))
-            embed.add_field(name="Evolution Progress", value=f"`[{prog_bar}] {prog}%`\n*Ascension requires increased server Trust.*", inline=False)
+            # Cutesy Progress Bar
+            prog_bar = "🌸" * int(prog / 10) + "✨" * (10 - int(prog / 10))
             
-            if my_titles:
-                embed.add_field(name="Bestowed Titles", value="\n".join([f"✧ {t}" for t in my_titles]), inline=False)
-                
-            embed.set_thumbnail(url=ctx.author.display_avatar.url)
-            embed.set_footer(text="Engine: Hyacine Evolutionary Matrix")
+            details = (
+                f"**» Current Evolution**\n"
+                f"Tier: **{tier}**\n"
+                f"Sync Points: **{points}**\n"
+                f"Trust Index: **{trust:.2f}**\n\n"
+                f"**» Path of Ascension**\n"
+                f"Next Goal: **{next_tier}**\n"
+                f"Progress: `[{prog_bar}]` **{prog}%**\n\n"
+                f"*Protocol: Stellar Synergy reached. ⟡*"
+            )
+            embed.description = details
+            embed.set_footer(text="© Hyacine Protocol | Evolutionary Data Map", icon_url=self.bot.user.display_avatar.url)
+            
             await ctx.send(embed=embed)
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒮𝓉𝓇𝒶𝓉𝓊𝓂 𝒶𝓃𝒶𝓁𝓎𝓈𝒾𝓈 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")

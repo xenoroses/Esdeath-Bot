@@ -85,22 +85,42 @@ def keep_alive():
 load_dotenv()
 TOKEN = os.getenv("dc_token")
 
-def decode_redis_data(data):
-    return data.decode('utf-8') if isinstance(data, bytes) else data
+# Standardized System-Wide Defaults
+HYACINE_DEFAULT_PREFIXES = ["!", ","]
 
 async def get_server_prefixes(bot, message):
-    default_prefixes = [","]
+    """Derives custom and system prefixes for message command handling."""
+    # Master Fallbacks
     if not message.guild or not getattr(bot, 'cache', None):
-        return commands.when_mentioned_or(*default_prefixes)(bot, message)
+        return commands.when_mentioned_or(*HYACINE_DEFAULT_PREFIXES)(bot, message)
+    
     try:
+        # Check Layer 1 Local Cache / Layer 2 Redis
         cached_prefixes = await bot.cache.get(f"prefixes:{message.guild.id}")
         if cached_prefixes:
-            # cache layer already decodes the data
+            # Parse the JSON string stored in the cache
             custom_prefixes = json.loads(cached_prefixes)
-            return commands.when_mentioned_or(*custom_prefixes)(bot, message)
+            
+            # Ensure the list is valid and non-empty
+            if isinstance(custom_prefixes, list) and custom_prefixes:
+                # Intelligent Auto-Expansion:
+                # If a prefix is alphanumeric (like 'hya'), we auto-add a version WITH a space. 
+                # This ensures both 'hyahelp' and 'hya help' work instantly.
+                expanded = []
+                for p in custom_prefixes:
+                    expanded.append(p)
+                    if p.isalnum() and not p.endswith(" "):
+                        expanded.append(p + " ")
+                
+                # Merge custom prefixes with global system fallbacks for absolute stability
+                final_prefixes = list(set(expanded + HYACINE_DEFAULT_PREFIXES))
+                return commands.when_mentioned_or(*final_prefixes)(bot, message)
+                
     except Exception as e:
-        print(f"Prefix Fetch Error: {e}")
-    return commands.when_mentioned_or(*default_prefixes)(bot, message)
+        import logging
+        logging.error(f"Hyacine Prefix Architecture Error: {e}")
+        
+    return commands.when_mentioned_or(*HYACINE_DEFAULT_PREFIXES)(bot, message)
 
 class HyacineBot(commands.Bot):
     def __init__(self):
@@ -167,7 +187,8 @@ class HyacineBot(commands.Bot):
             "cogs.observability_engine",
             "cogs.prestige_engine",
             "cogs.social_engine",
-            "cogs.lore_engine"
+            "cogs.lore_engine",
+            "cogs.synaptic_social"
         ]
 
         for ext in extensions:
@@ -306,11 +327,28 @@ if __name__ == "__main__":
     keep_alive()
     if TOKEN:
         print("Initiating Discord Login...")
-        bot = HyacineBot()
-        try:
-            bot.run(TOKEN)
-        except Exception as e:
-            print(f"FATAL ERROR ON STARTUP: {e}")
+        
+        # Exponential Backoff for 429 Rate Limits
+        max_retries = 5
+        retry_delay = 60 # Start with 1 minute
+        
+        for attempt in range(max_retries):
+            bot = HyacineBot()
+            try:
+                bot.run(TOKEN)
+                break # Success!
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "1015" in err_str:
+                    wait_time = retry_delay * (attempt + 1)
+                    print(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒯𝒽𝓇ℴ𝓉𝓉𝓁ℯ𝒹 (𝟦𝟤𝟫/𝟣𝟢𝟣𝟧).**")
+                    print(f"Waiting {wait_time}s before stellar reconnection attempt {attempt + 1}/{max_retries}...")
+                    time.sleep(wait_time)
+                else:
+                    print(f"FATAL ERROR ON STARTUP: {e}")
+                    sys.exit(1)
+        else:
+            print("⌬ ⟡ **𝒜𝒷𝓈ℴ𝓁𝓊𝓉ℯ 𝒯𝒽𝓇ℴ𝓉𝓉𝓁ℯ ℛℯ𝒶𝒸𝒽ℯ𝒹.** Check back in 30 minutes.")
             sys.exit(1)
     else:
         print("FATAL ERROR: dc_token missing!")

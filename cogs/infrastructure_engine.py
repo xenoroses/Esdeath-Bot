@@ -189,6 +189,10 @@ class InfrastructureEngine(commands.Cog):
         await ctx.defer()
         try:
             target = channel or ctx.channel
+            # Fix: Ensure r_cfg is defined for Raid Check
+            r_key = f"raid_config:{ctx.guild.id}"
+            r_cfg = await rget_json(self.bot, r_key) or {}
+            
             cutoff = datetime.datetime.now(timezone.utc) - timedelta(hours=24)
             
             msgs = 0
@@ -207,17 +211,28 @@ class InfrastructureEngine(commands.Cog):
             except: pass
             
             engagement = "High" if msgs > 200 else ("Medium" if msgs > 50 else "Low")
-            raid_active = "Active" if r_cfg.get("enabled") else "Inactive"
-            toxicity_risk = "Low"
-            if caps > 20: toxicity_risk = "Elevated"
-            
-            spam_risk = "Minimal"
-            if links > msgs * 0.2: spam_risk = "High"
+            raid_status = "Active ✧" if r_cfg.get("enabled") else "Inactive ⌬"
+            toxicity_risk = "Elevated" if caps > 20 else "Minimal"
+            spam_risk = "High" if links > msgs * 0.2 else "Minimal"
             
             embed = discord.Embed(
                 title=f"Vitality Scan: #{target.name}",
-                color=0x1ABC9C
+                color=0x9B59B6 
             )
+            embed.set_author(name="Stellar Infrastructure Engine", icon_url=self.bot.user.display_avatar.url)
+            
+            details = (
+                f"**» Core Metrics**\n"
+                f"Sectors Analyzed: **{msgs} messages**\n"
+                f"Active Entities: **{len(users)} users**\n"
+                f"Flow Density: **{engagement}**\n\n"
+                f"**» Security Telemetry**\n"
+                f"Raid Shield: **{raid_status}**\n"
+                f"Toxicity Leak: **{toxicity_risk}**\n"
+                f"Spam Turbulence: **{spam_risk}**"
+            )
+            embed.description = details
+            embed.set_footer(text="© Hyacine Protocol | Forensic Health Report")
             
             embed.add_field(name="Engagement", value=f"**{engagement}**", inline=True)
             embed.add_field(name="Toxicity", value=f"**{toxicity_risk}**", inline=True)

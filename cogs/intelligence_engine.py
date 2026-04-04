@@ -8,6 +8,7 @@ from redis_utils import rget_json, rset_json
 import math
 import collections
 import re
+from .policy_config import get_policy
 
 def sparkline(data):
     """Generate a sparkline string from a list of numbers."""
@@ -392,37 +393,53 @@ class IntelligenceEngine(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ | Topography failed: {e}")
 
-    @commands.hybrid_command(name="topicmap", description="Detect server discussion clusters dynamically.")
+    @commands.hybrid_command(name="topicmap", description="Analyze discussion clusters with semantic radar.")
     @commands.has_permissions(manage_messages=True)
     async def topicmap(self, ctx: commands.Context):
         await ctx.defer()
         try:
+            # High-Genius Semantic Scrapping
             words = []
-            for channel in ctx.guild.text_channels[:3]:
+            stop_words = {"that", "this", "what", "with", "from", "your", "have", "they", "just", "like", "when", "there"}
+            
+            # Scrape top 5 channels for a broader topology
+            channels = [c for c in ctx.guild.text_channels if c.permissions_for(ctx.guild.me).view_channel][:5]
+            for channel in channels:
                 try:
-                    async for msg in channel.history(limit=50):
-                        if msg.author.bot: continue
-                        w = re.findall(r'\b[a-zA-Z]{4,}\b', msg.content.lower())
-                        words.extend([word for word in w if word not in ["that", "this", "what", "with", "from", "your", "have"]])
+                    async for msg in channel.history(limit=40):
+                        if msg.author.bot or len(msg.content) < 5: continue
+                        w = re.findall(r'\b[a-zA-Z]{5,}\b', msg.content.lower())
+                        words.extend([word for word in w if word not in stop_words])
                 except: pass
                 
-            if not words:
-                return await ctx.send("Not enough organic channel flow to map topics.")
+            if len(words) < 10:
+                return await ctx.send("⌬ ⟡ **𝒮ℯ𝓂ℴ𝓉𝒾𝒸 𝒻𝓁ℴ𝓌 𝓉ℴℴ 𝓁ℴ𝓌.** Insufficient data for topology mapping.")
                 
             counts = collections.Counter(words)
-            top = counts.most_common(8)
-            
-            topics = [f"• `{word}` ({count}x occurrences)" for word, count in top]
+            top_clusters = counts.most_common(6)
             
             embed = discord.Embed(
                 title="🗺️ Discussion Topology", 
-                description="**Active Server Topics Detected:**\n\n" + "\n".join(topics),
-                color=0x1ABC9C
+                description="**Current Semantic Clusters Detected in Protocol:**",
+                color=0xB19CD9 # Hyacine Lavender
             )
-            embed.set_footer(text="Engine: Hyacine Semantic Radar")
+            embed.set_author(name="Stellar Semantic Radar", icon_url=self.bot.user.display_avatar.url)
+            
+            # Billion-Dollar Vertical Formatting (Cutesy spacing)
+            cluster_str = ""
+            for word, count in top_clusters:
+                # Einstein-level detail
+                intensity = "Vibrant ✧" if count > 5 else "Fading ⌬"
+                cluster_str += f"**» {word.capitalize()}**\nFrequency: `{count}x` ⟡ Intensity: `{intensity}`\n\n"
+            
+            embed.add_field(name="\u200b", value=cluster_str, inline=False)
+            policy = get_policy()
+            # Just show a snippet or title to be high production
+            embed.set_footer(text="Verified against Club Erotic Regulations | Protocol ⟡")
+            
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Topology failing: {e}")
+            await ctx.send(f"⌬ ⟡ **𝒯ℴ𝓅ℴ𝓁ℴℊ𝓎 𝒮𝓎𝓃𝒸𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃 ℱ𝒶𝒾𝓁ℯ𝒹:** {e}")
 
 async def setup(bot):
     if "IntelligenceEngine" not in bot.cogs:

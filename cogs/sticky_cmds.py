@@ -100,13 +100,7 @@ class StickyCommands(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-
-        # Ignore bot messages (self-sticky / bot loop guard)
-        if message.author.bot:
-            return
-
-        # Ignore DMs
-        if not message.guild:
+        if message.author.bot or not message.guild:
             return
 
         # Ignore command messages (avoid command overlaps)
@@ -128,6 +122,11 @@ class StickyCommands(commands.Cog):
         last_id = data.get("last_id")
 
         async with self.channel_locks[message.channel.id]:
+            # DISTRIBUTED LOCK: Only the first bot to claim handles the message
+            lock_key = f"lock:sticky:{message.channel.id}:{message.id}"
+            if not await self.bot.redis.set(lock_key, "1", nx=True, ex=3):
+                return # Already handled by another instance
+
             # Delete previous sticky if exists
             if last_id:
                 try:

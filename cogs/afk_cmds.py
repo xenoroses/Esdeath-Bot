@@ -77,6 +77,11 @@ class AFKCommands(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
+        # DISTRIBUTED LOCK: Prevent duplicate AFK removals/warnings
+        lock_key = f"lock:afk:{message.channel.id}:{message.id}"
+        if not await self.bot.redis.set(lock_key, "1", nx=True, ex=2):
+            return
+
         # 1. Check if the author is returning from AFK
         author_data = await self.get_afk_data(message.author.id, message.guild.id)
         if author_data:
@@ -85,12 +90,12 @@ class AFKCommands(commands.Cog):
                 await self.remove_afk_data(message.author.id, message.guild.id)
                 # Send a welcome back message that auto-deletes to keep chat clean
                 try:
-                    welcome_msg = await message.channel.send(f"Welcome back {message.author.mention}! Your AFK status has been removed.")
+                    welcome_msg = await message.channel.send(f"✧ **𝒲ℯ𝓁𝒸ℴ𝓂ℯ 𝒷𝒶𝒸𝓀 {message.author.mention}! 𝒜ℱ𝒦 𝓈𝓉𝒶𝓉𝓊𝓈 𝓅𝓊𝓇ℊℯ𝒹.**")
                     await welcome_msg.delete(delay=5)
                 except:
                     pass
 
-        # 2. Check if the messagementions any AFK users
+        # 2. Check if the message mentions any AFK users
         if message.mentions:
             for mentioned_user in set(message.mentions):
                 # Don't reply if they mention themselves
@@ -110,18 +115,16 @@ class AFKCommands(commands.Cog):
                     time_str += f"ago" if hours > 0 or mins > 0 else "just now"
 
                     embed = discord.Embed(
-                        description=f"**{mentioned_user.display_name}** went AFK {time_str}.\n\n**Reason:** `{afk_data['reason']}`",
-                        color=0x7289DA
+                        description=f"✦ ✧ **{mentioned_user.display_name}** went AFK {time_str}.\n\n**Reason:** `{afk_data['reason']}`",
+                        color=0x9B59B6
                     )
-                    embed.set_author(name="AFK Notification", icon_url=mentioned_user.display_avatar.url)
+                    embed.set_author(name="Stellar Dormancy Notice", icon_url=mentioned_user.display_avatar.url)
                     
                     try:
                         warn_msg = await message.reply(embed=embed, mention_author=False)
-                        # Auto-delete warning to prevent spam buildup
                         await warn_msg.delete(delay=10)
                     except:
                         pass
-                    # Only send one AFK warning per message to avoid spamming if multiple AFK people are pinged
                     break
 
 

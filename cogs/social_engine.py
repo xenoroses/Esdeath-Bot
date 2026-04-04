@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import random
 import datetime
-from datetime import timezone
+from datetime import timezone, timedelta
 from redis_utils import rget_json, rset_json
 import hashlib
 
@@ -77,29 +77,48 @@ class SocialEngine(commands.Cog):
             trust_scores = await self._safe_rget("trust_scores")
             trust = trust_scores.get(str(target.id), 5.0)
             
-            days_active = (datetime.datetime.now(timezone.utc) - target.joined_at).days if target.joined_at else 1
+            # Dynamic calculation based on tenure and trust
+            now = datetime.datetime.now(timezone.utc)
+            tenure_days = (now - target.joined_at).days if target.joined_at else 1
             
-            idx = min(100, int((trust / 10) * 80 + min(20, days_active)))
+            # Loyalty Index (0-100)
+            idx = min(100, int((trust * 8) + (min(20, tenure_days / 30 * 5))))
             
             if idx > 90:
-                align = "Inner Circle"
-                betrayal = "None"
-            elif idx > 60:
-                align = "Vanguard Force"
-                betrayal = "Minimal"
-            elif idx > 30:
-                align = "Mercenary"
-                betrayal = "Moderate"
+                align = "Eternal Vanguard"
+                risk = "Negligible"
+                color = 0x9B59B6
+            elif idx > 65:
+                align = "Sworn Disciple"
+                risk = "Low"
+                color = 0x3498DB
+            elif idx > 35:
+                align = "Mercenary Neutral"
+                risk = "Moderate"
+                color = 0xF1C40F
             else:
-                align = "Infiltrator"
-                betrayal = "Immediate"
-                
-            embed = discord.Embed(title=f"❈ ℱℯ𝒶𝓁𝓉𝓎 ℐ𝓃𝒹ℯ𝓍: {target.display_name}", color=0x34495E)
-            embed.add_field(name="Loyalty Index", value=f"**{idx}%**", inline=True)
-            embed.add_field(name="Alignment", value=f"**{align}**", inline=True)
-            embed.add_field(name="Risk of Betrayal", value=f"**{betrayal}**", inline=False)
+                align = "Potential Infiltrator"
+                risk = "High"
+                color = 0xE74C3C
+
+            # Cutesy Hyacine Aesthetic (Double-User Mode)
+            embed = discord.Embed(
+                title=f"✾ ℱℯ𝒶𝓁𝓉𝓎 𝒮𝓎𝓃𝒸𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃",
+                color=0xB19CD9 # Soft Lavender
+            )
+            embed.set_author(name=f"{ctx.author.display_name} ⟡ {target.display_name}", icon_url=ctx.author.display_avatar.url)
+            embed.set_thumbnail(url=target.display_avatar.url)
             
-            embed.set_footer(text="Engine: Hyacine Allegiance Tracking")
+            details = (
+                f"**» Allegiance Profile**\n"
+                f"Loyalty Index: **{idx}/100**\n"
+                f"Assigned Stratum: **{align}**\n"
+                f"Betrayal Probability: **{risk}**\n\n"
+                f"*Verified by Hyacine Protocol ⟡*"
+            )
+            embed.description = details
+            embed.set_footer(text=f"Joined {tenure_days} cycles ago • Protocol: Synergy")
+            
             await ctx.send(embed=embed)
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **ℱℯ𝒶𝓁𝓉𝓎 𝒸𝒶𝓁𝒸𝓊𝓁𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")

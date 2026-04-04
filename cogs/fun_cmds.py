@@ -11,7 +11,7 @@ class FunCmds(commands.Cog):
 
     @commands.hybrid_command(
         name="match",
-        description="Calculate the love score between two users!",
+        description="Calculate the resonance between two users.",
         aliases=["ship", "love"]
     )
     async def match(
@@ -20,79 +20,59 @@ class FunCmds(commands.Cog):
         user1: discord.Member,
         user2: discord.Member = None
     ):
-        """Calculates compatibility between users."""
-
+        """Calculates compatibility between users with high-density analysis."""
+        await ctx.defer()
+        
         # If only one user is provided, match author with that user
         if user2 is None:
             user2 = user1
             user1 = ctx.author
 
-        # Deterministic pairing result
+        # Deterministic pairing result (Billion-Dollar Precision)
         ids = sorted([user1.id, user2.id])
-        random.seed(f"{ids[0]}{ids[1]}")
+        seed_val = f"{ids[0]}{ids[1]}"
+        rng = random.Random(seed_val)
 
-        score = random.randint(0, 100)
+        score = rng.randint(0, 100)
+        
+        # Detailed Sub-metrics (Albert Einstein Level)
+        physical = rng.randint(40, 100) if score > 50 else rng.randint(10, 60)
+        emotional = rng.randint(40, 100) if score > 60 else rng.randint(10, 70)
+        destiny = rng.randint(5, 99)
 
-        shipped_roll = random.randint(1, 100)
-        shipped = "Yes! 💍" if shipped_roll > 85 else "No :("
-
-        # Reset RNG immediately
-        random.seed()
-
-        # Dynamic embed styling
-        if score >= 90:
-            conclusion = "A literal match made in heaven. ✨"
-            embed_color = discord.Color.from_rgb(255, 20, 147)
-
-        elif score >= 75:
-            conclusion = "There are definitely some sparks flying. ❤️‍🔥"
-            embed_color = discord.Color.from_rgb(255, 105, 180)
-
-        elif score >= 50:
-            conclusion = "There is potential, but it needs work. 🌱"
-            embed_color = discord.Color.from_rgb(255, 182, 193)
-
-        elif score >= 25:
-            conclusion = "Friendzone territory. 🧊"
-            embed_color = discord.Color.light_grey()
-
-        else:
-            conclusion = "Do not even try it. 💀"
-            embed_color = discord.Color.dark_grey()
-
-        # Visual love meter
-        filled_blocks = int(score / 10)
-        empty_blocks = 10 - filled_blocks
-        love_meter = ("█" * filled_blocks) + ("░" * empty_blocks)
-
+        # Hyacine Cutesy Aesthetic
         embed = discord.Embed(
-            description=(
-                f"Testing compatibility between **{user1.display_name}** "
-                f"and **{user2.display_name}**...\n\n"
-                f"**Love Meter:**\n"
-                f"`[{love_meter}]` **{score}%**\n\n"
-                f"**Conclusion:** {conclusion}\n"
-                f"**Shipped?** {shipped}"
-            ),
-            color=embed_color
+            title=f"✧ 𝒮𝓎𝓃𝒶𝓅𝓉𝒾𝒸 ℳ𝒶𝓉𝒸𝒽𝓂𝒶𝓀𝒾𝓃𝑔",
+            color=0xB19CD9 # Hyacine Lavender
         )
+        embed.set_author(name=f"{user1.display_name} ⟡ {user2.display_name}", icon_url=user1.display_avatar.url)
+        embed.set_thumbnail(url=user2.display_avatar.url)
 
-        # Safe avatar fallback protection
-        bot_avatar = (
-            self.bot.user.display_avatar.url
-            if self.bot.user
-            else None
+        # Dynamic Conclusion Logic (No Emojis)
+        if score >= 90:
+            conclusion = "A perfect cosmic alignment. Resonance is absolute. ✧"
+        elif score >= 70:
+            conclusion = "High vibrational synergy detected. Flow is stable. ❂"
+        elif score >= 40:
+            conclusion = "Moderate resonance. Potential for synchronization exists. ⌬"
+        else:
+            conclusion = "Low frequency match. Interference is likely. ⟡"
+
+        # Cutesy Progress Bar
+        prog_bar = "✧" * int(score / 10) + "◈" * (10 - int(score / 10))
+
+        details = (
+            f"**» Resonance Sync**\n"
+            f"Overall Harmony: **{score}%**\n"
+            f"Pulse Status: `[{prog_bar}]` \n\n"
+            f"**» Compatibility Matrix**\n"
+            f"Physical: **{physical}%** ⟡ Emotional: **{emotional}%**\n"
+            f"Destiny Factor: **{destiny}%**\n\n"
+            f"**» Final Oracle**\n"
+            f"*{conclusion}*"
         )
-
-        if bot_avatar:
-            embed.set_author(
-                name="Hyacine Matchmaking System",
-                icon_url=bot_avatar
-            )
-
-        embed.set_thumbnail(
-            url=user2.display_avatar.url
-        )
+        embed.description = details
+        embed.set_footer(text="© Hyacine Matchmaking | Orbital Synergy Data", icon_url=self.bot.user.display_avatar.url)
 
         await ctx.send(embed=embed)
 

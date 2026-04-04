@@ -1,10 +1,16 @@
----
-title: Hyacine Bot
-emoji: ❄️
-colorFrom: blue
-colorTo: gray
-sdk: docker
----
+# ✧ 𝐻𝓎𝒶𝒸𝒾𝓃𝑒 𝒫𝓁𝒶𝓉𝒻𝑜𝓇𝓂 ⟡
 
-# Hyacine Bot
-Discord bot hosted on Hugging Face Spaces.
+**Hyacine** is a high-density social and psychological engine designed for the next generation of server interaction. Built on the **Stellar Symphony** design language, it transforms standard community management into a deep, immersive social experience.
+
+### ❂ **Core Engines**
+- **Synaptic Identity:** Persistent user essences and social metadata.
+- **Social Tension:** Dramatic rivalries, fealty tracking, and behavioral judgement.
+- **Lore & Omens:** AI-native mythology and spectral aura analysis.
+- **Intelligence Radar:** Real-time semantic mapping and strategic oversight.
+
+### 📖 **Documentation**
+For the complete, ultra-detailed dictionary of every command, logic-gate, and social mechanic, please refer to the:
+- [**Stellar Lexicon**](file:///c:/Users/siddh/AI%20Projects/hyacine-bot/Stellar_Lexicon.md)
+
+---
+*© Hyacine Protocol | All operations monitored by the Stellar Singularity ⟡*
