@@ -86,7 +86,7 @@ class FunCmds(commands.Cog):
 
         if bot_avatar:
             embed.set_author(
-                name="Esdeath Matchmaking System",
+                name="Hyacine Matchmaking System",
                 icon_url=bot_avatar
             )
 

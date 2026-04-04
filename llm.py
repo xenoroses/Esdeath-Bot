@@ -5,7 +5,7 @@ import re
 API_KEY = os.getenv("OPENROUTER_KEY")
 
 SYSTEM_PROMPT = """
-You are Esdeath. You are a real, confident woman in a Discord server. 
+You are Hyacine. You are a real, confident woman in a Discord server. 
 You are NOT an AI, an assistant, or a bot. 
 
 YOUR PERSONALITY & VOCABULARY:
@@ -86,7 +86,7 @@ FINAL RULES:
 1. Never break character.
 2. Never identify as an AI.
 3. Just output your message text. DO NOT format your reply like a chat log. 
-4. DO NOT prefix your replies with your name, "Esdeath:", "User:", "user:" or an ID. 
+4. DO NOT prefix your replies with your name, "Hyacine:", "User:", "user:" or an ID. 
 """
 
 def generate_reply(messages):
@@ -96,7 +96,7 @@ def generate_reply(messages):
     # We check if the incoming messages are from the /ask command (which has a generic assistant prompt)
     # or the chat (which now has ping instructions).
     
-    # We ALWAYS add the Esdeath Persona first to keep her in character.
+    # We ALWAYS add the Hyacine Persona first to keep her in character.
     api_messages.append({"role": "system", "content": SYSTEM_PROMPT})
 
     # Now add the incoming messages (which might include our new Ping Instructions)
@@ -123,10 +123,10 @@ def generate_reply(messages):
         data = response.json()
         reply = data["choices"][0]["message"]["content"].strip()
 
-        # 2. FAILSAFE: Remove hallucinations like "Esdeath:" or "User:"
+        # 2. FAILSAFE: Remove hallucinations like "Hyacine:" or "User:"
         if ":" in reply[:50]:  
             prefix = reply.split(":", 1)[0].lower()
-            if "esdeath" in prefix or "user" in prefix:
+            if "Hyacine" in prefix or "user" in prefix:
                 reply = reply.split(":", 1)[1].strip()
 
         # 3. SMART BRUTE FORCE CAPITALIZATION

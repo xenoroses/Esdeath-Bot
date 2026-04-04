@@ -17,6 +17,12 @@ CATEGORY_METADATA = {
     "Forcenick": {"name": "✑ Force Nickname"},
     "AiChat": {"name": "⚝ AI Persona"},
     "Impersonator": {"name": "𖤍 Impersonator"},
+    "Intelligence": {"name": "🧠 Intelligence"},
+    "Infrastructure": {"name": "🛡️ Infrastructure"},
+    "Observability": {"name": "📊 Observability"},
+    "Prestige": {"name": "👑 Prestige Lineage"},
+    "Social": {"name": "⚔️ Social Dynamics"},
+    "Lore": {"name": "👁️ Lore & Aura"},
     "Miscellaneous": {"name": "✤ Miscellaneous"}
 }
 
@@ -95,7 +101,7 @@ class HelpCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command(name="help", description="Discover everything Esdeath can do.")
+    @commands.hybrid_command(name="help", description="Discover everything Hyacine can do.")
     async def help_command(self, ctx: commands.Context):
         cogs_dict = {}
         total_commands = 0
@@ -123,7 +129,7 @@ class HelpCommands(commands.Cog):
         
         # Design the Landing Embed
         embed = discord.Embed(
-            title="Commands for Esdeath", 
+            title="Commands for Hyacine", 
             description=f"I've got **{len(categories)}** categories and **{total_commands}** commands for you to explore.\n\n**» Categories**", 
             color=0x2B2D31
         )
@@ -135,8 +141,8 @@ class HelpCommands(commands.Cog):
             cat_str += "".join([f"{c:<20}" for c in row]) + "\n"
             
         embed.add_field(name="\u200b", value=f"```\n{cat_str}\n```", inline=False)
-        embed.add_field(name="» Useful links", value="[Dashboard](https://esdeath.dev) | [Support Server](https://discord.gg/esdeath)", inline=False)
-        embed.set_footer(text="© Esdeath Platform", icon_url=self.bot.user.display_avatar.url if self.bot.user else None)
+        embed.add_field(name="» Useful links", value="[Dashboard](https://Hyacine.dev) | [Support Server](https://discord.gg/Hyacine)", inline=False)
+        embed.set_footer(text="© Hyacine Platform", icon_url=self.bot.user.display_avatar.url if self.bot.user else None)
         
         # Attach the Dropdown UI
         view = View(timeout=120)
@@ -145,5 +151,6 @@ class HelpCommands(commands.Cog):
         await ctx.send(embed=embed, view=view)
 
 async def setup(bot):
+    bot.remove_command('help')
     if "HelpCommands" not in bot.cogs:
         await bot.add_cog(HelpCommands(bot))

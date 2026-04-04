@@ -119,6 +119,241 @@ class AIUtilityCommands(commands.Cog):
             
         await ctx.send(embed=embed)
 
+    # --- USER BEHAVIOR MEMORY ---
+    @commands.hybrid_command(name="memory", description="AI-powered user behavior analysis and memory.")
+    @commands.has_permissions(manage_messages=True)
+    async def memory(self, ctx: commands.Context, user: discord.Member, days: int = 7):
+        if days > 90:
+            return await ctx.send("❌ | Maximum 90 days for performance.")
+            
+        await ctx.defer()
+        try:
+            from datetime import datetime, timezone, timedelta
+            cutoff_time = datetime.now(timezone.utc) - timedelta(days=days)
+            
+            user_messages = []
+            message_counts = {}
+            
+            for channel in ctx.guild.text_channels:
+                try:
+                    async for message in channel.history(after=cutoff_time, limit=500):
+                        if message.author.id == user.id:
+                            user_messages.append({
+                                "content": message.content,
+                                "channel": message.channel.name,
+                                "timestamp": message.created_at,
+                                "has_attachments": bool(message.attachments),
+                                "mention_count": len(message.mentions)
+                            })
+                            message_counts[channel.name] = message_counts.get(channel.name, 0) + 1
+                except: continue
+            
+            if not user_messages:
+                return await ctx.send(f"📝 No messages found from {user.mention} in the last {days} days.")
+            
+            total_messages = len(user_messages)
+            avg_daily = total_messages / days
+            avg_length = sum(len(msg["content"]) for msg in user_messages) / total_messages
+            mention_count = sum(msg["mention_count"] for msg in user_messages)
+            
+            # Trust score access
+            from redis_utils import rget_json
+            trust_scores = await rget_json(self.bot, "trust_scores") or {}
+            current_trust = trust_scores.get(str(user.id), 5.0)
+            
+            embed = discord.Embed(
+                title=f"🧠 User Memory: {user.display_name}",
+                description=f"Behavior analysis for last **{days}** days",
+                color=0xE67E22
+            )
+            embed.set_thumbnail(url=user.display_avatar.url)
+            
+            embed.add_field(
+                name="📊 Activity Overview",
+                value=f"**Messages:** {total_messages}\n**Daily Average:** {avg_daily:.1f}\n**Avg Length:** {avg_length:.0f} chars\n**Trust Score:** {current_trust:.1f}/10",
+                inline=True
+            )
+            
+            top_channels = sorted(message_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+            channels_text = "\n".join([f"#{chan}: {count}" for chan, count in top_channels])
+            embed.add_field(name="📍 Channel Preferences", value=channels_text or "No channel data", inline=True)
+            
+            recent_sample = user_messages[-3:] if len(user_messages) >= 3 else user_messages
+            recent_text = [f"#{msg['channel']}: {msg['content'][:50]}..." for msg in recent_sample]
+            
+            if recent_text:
+                embed.add_field(name="💭 Recent Activity Snippets", value="\n".join(recent_text), inline=False)
+            
+            embed.set_footer(text=f"Engine: Hyacine Memory Core | {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            await ctx.send(f"❌ | Memory analysis failed: {e}")
+
+    # --- AI CASE SUGGESTIONS ---
+    @commands.hybrid_command(name="autocase", description="AI-powered moderation case suggestions.")
+    @commands.has_permissions(manage_messages=True)
+    async def autocase(self, ctx: commands.Context, user: discord.Member, reason: str = None):
+        await ctx.defer()
+        try:
+            from datetime import datetime, timezone, timedelta
+            from redis_utils import rget_json
+            
+            trust_scores = await rget_json(self.bot, "trust_scores") or {}
+            user_trust = trust_scores.get(str(user.id), 5.0)
+            
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
+            recent_msgs = 0
+            mentions = 0
+            
+            for channel in ctx.guild.text_channels:
+                try:
+                    async for message in channel.history(after=cutoff_time, limit=200):
+                        if message.author.id == user.id:
+                            recent_msgs += 1
+                            mentions += len(message.mentions)
+                except: continue
+            
+            suggestions = []
+            
+            if user_trust < 3:
+                suggestions.append("🚫 **Immediate Ban / Kick** - Trust score is critically low.")
+            elif user_trust < 5:
+                suggestions.append("⚠️ **Timeout (1-24h)** - Trust score suggests monitoring is needed.")
+                
+            if recent_msgs > 50:
+                suggestions.append("🔇 **Mute (30m-2h)** - Very high 24h message volume detected.")
+            if mentions > 15:
+                suggestions.append("🚷 **Mention Restriction** - Excessive user mentions.")
+                
+            if reason and "spam" in reason.lower():
+                suggestions.append("🗑️ **Message Purge** - Reason implies recent spam.")
+                
+            if not suggestions:
+                if user_trust > 7:
+                    suggestions.append("✅ **No Action Needed** - User has excellent standing.")
+                else:
+                    suggestions.append("👁️ **Monitor Closely** - No severe flags tripped, but worth watching.")
+            
+            embed = discord.Embed(
+                title=f"🤖 AI Case Analysis: {user.display_name}",
+                description="Automated moderation suggestions based on behavior.",
+                color=0xE74C3C
+            )
+            embed.set_thumbnail(url=user.display_avatar.url)
+            
+            embed.add_field(
+                name="📊 Target Stats",
+                value=f"**Trust Score:** {user_trust:.1f}/10\n**24h Vol:** {recent_msgs} msgs\n**24h Pings:** {mentions}",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="🎯 Hyacine Recommendations",
+                value="\n".join(suggestions),
+                inline=False
+            )
+            
+            embed.set_footer(text=f"Engine: Hyacine Case AI | {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            await ctx.send(f"❌ | Case analysis failed: {e}")
+
+    # --- WHY COMMAND (Plain Language History) ---
+    @commands.hybrid_command(name="why", description="Explains moderation history in plain language.")
+    @commands.has_permissions(manage_messages=True)
+    async def why(self, ctx: commands.Context, user: discord.Member):
+        await ctx.defer()
+        try:
+            from redis_utils import rget_json
+            from datetime import datetime, timezone
+            
+            # Fetch infractions history
+            key = f"infractions:{ctx.guild.id}:{user.id}"
+            data = await rget_json(self.bot, key) or {}
+            history = data.get("history", [])
+            
+            if not history:
+                embed = discord.Embed(
+                    title=f"🛡️ Case File: {user.display_name}",
+                    description=f"✅ {user.mention} has an **entirely clean record**. No moderation actions have ever been taken against this user.",
+                    color=0x2ECC71
+                )
+                embed.set_thumbnail(url=user.display_avatar.url)
+                embed.set_footer(text="Hyacine Records Management")
+                return await ctx.send(embed=embed)
+            
+            # Analyze history logically
+            warnings = 0
+            timeouts = 0
+            kicks = 0
+            bans = 0
+            
+            spam_count = 0
+            toxicity_count = 0
+            other_reasons = []
+            
+            for event in history:
+                action = event.get("action", "").lower()
+                reason = event.get("reason", "").lower()
+                
+                if "warn" in action: warnings += 1
+                elif "timeout" in action or "mute" in action: timeouts += 1
+                elif "kick" in action: kicks += 1
+                elif "ban" in action: bans += 1
+                
+                if "spam" in reason or "flood" in reason or "raid" in reason: spam_count += 1
+                elif "toxic" in reason or "harass" in reason or "slur" in reason: toxicity_count += 1
+                elif reason: other_reasons.append(reason)
+            
+            # Construct a 'plain language' explanation
+            explanation_parts = []
+            if warnings:
+                explanation_parts.append(f"has received **{warnings} warning(s)**")
+            if timeouts:
+                explanation_parts.append(f"has been **timed out {timeouts} time(s)**")
+            if kicks:
+                explanation_parts.append(f"was **kicked {kicks} time(s)**")
+            if bans:
+                explanation_parts.append(f"was **banned {bans} time(s)**")
+                
+            action_summary = " and ".join(explanation_parts) if explanation_parts else "has minor logged incidents"
+            
+            # Reason profile
+            reason_profile = []
+            if spam_count > 0:
+                reason_profile.append("repeated issues with **spam/flooding**")
+            if toxicity_count > 0:
+                reason_profile.append("instances of **toxicity or harassment**")
+            
+            profile = " and ".join(reason_profile)
+            if not profile:
+                profile = "various miscellaneous rule violations"
+                
+            plain_text = f"{user.mention} {action_summary}.\n\nTheir history primarily consists of {profile}."
+            
+            # Get latest incident
+            latest = history[-1] if history else None
+            
+            embed = discord.Embed(
+                title=f"🛡️ Case File: {user.display_name}",
+                description=str(plain_text),
+                color=0xE67E22 if timeouts or warnings > 2 else 0xF1C40F
+            )
+            embed.set_thumbnail(url=user.display_avatar.url)
+            
+            embed.add_field(name="Total Infractions", value=f"**{len(history)}** logged event(s)", inline=True)
+            
+            if latest:
+                embed.add_field(name="Latest Incident", value=f"**Action:** {latest.get('action', 'Unknown').capitalize()}\n**Reason:** {latest.get('reason', 'None')}", inline=False)
+            
+            embed.set_footer(text="Engine: Hyacine Case Profiler")
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            await ctx.send(f"❌ | History check failed: {e}")
+
 async def setup(bot):
     if "AIUtilityCommands" not in bot.cogs:
         await bot.add_cog(AIUtilityCommands(bot))

@@ -18,7 +18,7 @@ HEADERS = {
 
 BASE_URL = "https://discord.com/api/v10"
 
-mcp = FastMCP("Esdeath Admin Bridge")
+mcp = FastMCP("Hyacine Admin Bridge")
 
 
 async def discord_request(method, url, **kwargs):
@@ -170,8 +170,8 @@ async def list_roles(guild_id: str) -> str:
 @mcp.tool()
 async def execute_eval(code: str) -> str:
     """
-    Execute Python inside Esdeath bot runtime.
-    Equivalent to: esdeath eval <code>
+    Execute Python inside Hyacine bot runtime.
+    Equivalent to: Hyacine eval <code>
     """
 
     import httpx

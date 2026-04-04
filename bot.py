@@ -16,7 +16,7 @@ import logging
 import time
 import uvicorn
 import atexit
-from cache_layer import EsdeathCache
+from cache_layer import HyacineCache
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -59,7 +59,7 @@ app = Flask(__name__)
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    return "Esdeath is alive and guarding Hugging Face."
+    return "Hyacine is alive and guarding Hugging Face."
 
 def run_flask():
     port = int(os.environ.get("PORT", 7860))
@@ -89,7 +89,7 @@ def decode_redis_data(data):
     return data.decode('utf-8') if isinstance(data, bytes) else data
 
 async def get_server_prefixes(bot, message):
-    default_prefixes = ["!", "esdeath ", "es "]
+    default_prefixes = ["!", "Hyacine ", "es "]
     if not message.guild or not getattr(bot, 'cache', None):
         return commands.when_mentioned_or(*default_prefixes)(bot, message)
     try:
@@ -102,7 +102,7 @@ async def get_server_prefixes(bot, message):
         print(f"Prefix Fetch Error: {e}")
     return commands.when_mentioned_or(*default_prefixes)(bot, message)
 
-class EsdeathBot(commands.Bot):
+class HyacineBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -128,7 +128,7 @@ class EsdeathBot(commands.Bot):
             token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
             if url and token:
                 self.redis = Redis(url=url, token=token)
-                self.cache = EsdeathCache(self.redis)
+                self.cache = HyacineCache(self.redis)
                 for attempt in range(3):
                     try:
                         await asyncio.wait_for(self.redis.ping(), timeout=5.0)
@@ -162,8 +162,12 @@ class EsdeathBot(commands.Bot):
             "cogs.ai_utility_cmds",
             "cogs.workflow_cmds",
             "cogs.help_cmds",
-            "cogs.enterprise_tools",
-            "cogs.observability_tools"
+            "cogs.intelligence_engine",
+            "cogs.infrastructure_engine",
+            "cogs.observability_engine",
+            "cogs.prestige_engine",
+            "cogs.social_engine",
+            "cogs.lore_engine"
         ]
 
         for ext in extensions:
@@ -275,7 +279,7 @@ if __name__ == "__main__":
     keep_alive()
     if TOKEN:
         print("Initiating Discord Login...")
-        bot = EsdeathBot()
+        bot = HyacineBot()
         try:
             bot.run(TOKEN)
         except Exception as e:

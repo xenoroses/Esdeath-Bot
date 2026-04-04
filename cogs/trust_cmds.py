@@ -150,7 +150,7 @@ class TrustEngine(commands.Cog):
         from redis_utils import rset_json
         await rset_json(self.bot, f"trust:{ctx.guild.id}:{target.id}", trust_data)
         
-        embed.set_footer(text="Engine: Esdeath Trust Evaluation | Cached for 24h")
+        embed.set_footer(text="Engine: Hyacine Trust Evaluation | Cached for 24h")
         await ctx.send(embed=embed)
 
 async def setup(bot):

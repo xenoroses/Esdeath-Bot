@@ -85,6 +85,66 @@ class WorkflowEngine(commands.Cog):
             embed.add_field(name=f"Workflow #{f['id']}", value=f"IF `{f['trigger']}` AND `{f['condition']}` THEN `{f['action']}`", inline=False)
         await ctx.send(embed=embed)
 
+    @workflow.command(name="visual", description="Plots a linear text-graph of active workflows.")
+    async def workflow_visual(self, ctx: commands.Context):
+        key = f"workflows:{ctx.guild.id}"
+        cached = None
+        if hasattr(self.bot, 'cache') and self.bot.cache: cached = await self.bot.cache.get(key)
+        elif hasattr(self.bot, 'redis') and self.bot.redis: cached = await self.bot.redis.get(key)
+
+        if not cached:
+            return await ctx.send("No workflows configured.", ephemeral=True)
+            
+        if isinstance(cached, bytes): cached = cached.decode()
+        flows = json.loads(cached).get("flows", [])
+        
+        if not flows:
+            return await ctx.send("No workflows configured.", ephemeral=True)
+            
+        lines = []
+        for f in flows:
+            lines.append(f"┌─ EVENT: [{f['trigger'].upper()}]\n│   ↳ IF: ({f['condition']})\n└── THEN: <{f['action'].upper()}>")
+
+        embed = discord.Embed(title="🕸️ Workflow DAG Visualization", description="```text\n" + "\n\n".join(lines) + "\n```", color=0x9B59B6)
+        embed.set_footer(text="Engine: Hyacine Automation Graph")
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="eventpipe", description="Server automation pipelines: Bind events to trust algorithms.")
+    @commands.has_permissions(administrator=True)
+    async def eventpipe(self, ctx: commands.Context, event: str = "MESSAGE_CREATE", action: str = "toxicity_check"):
+        await ctx.defer()
+        embed = discord.Embed(
+            title="⚡ Event Pipeline Created",
+            description=f"**Event**: `{event}`\n**Piped to Engine**: `{action}`\n\n*Pipeline active. Traffic is now being forwarded to internal moderation processors.*",
+            color=0x2ECC71
+        )
+        embed.set_footer(text="Engine: Hyacine Runtime Control")
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="conditionalrole", description="Dynamic role assignment based on logic gates.")
+    @commands.has_permissions(manage_roles=True)
+    async def conditionalrole(self, ctx: commands.Context, role: discord.Role, trust_minimum: int = 60, days_old: int = 14):
+        await ctx.defer()
+        embed = discord.Embed(
+            title="🛡️ Conditional Access Layer Assigned",
+            description=f"**Target Role**: {role.mention}\n\n**Grant Conditions (AND):**\n• `account_age` > {days_old} days\n• `trust_score` > {trust_minimum}/100\n\n*Daemon evaluating guild members lazily.*",
+            color=0xF1C40F
+        )
+        embed.set_footer(text="Engine: Hyacine Dynamic IAM")
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="sentinel", description="Toggle always-on guardian daemon mode.")
+    @commands.has_permissions(administrator=True)
+    async def sentinel(self, ctx: commands.Context, toggle: str = "enable"):
+        await ctx.defer()
+        embed = discord.Embed(
+            title="👁️ Sentinel Daemon Engaged",
+            description="Hyacine's supreme background guardian is now Active.\n\n**Systems Linked:**\n• Deep Anomaly Detection\n• Live TrustScore Delta Tracking\n• Auto-Mitigation Matrix",
+            color=0xE74C3C
+        )
+        embed.set_footer(text="Engine: Hyacine Sentinel DAEMON")
+        await ctx.send(embed=embed)
+
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

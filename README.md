@@ -1,10 +1,10 @@
 ---
-title: Esdeath Bot
+title: Hyacine Bot
 emoji: ❄️
 colorFrom: blue
 colorTo: gray
 sdk: docker
 ---
 
-# Esdeath Bot
+# Hyacine Bot
 Discord bot hosted on Hugging Face Spaces.

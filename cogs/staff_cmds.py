@@ -10,91 +10,6 @@ from datetime import datetime, timedelta, timezone
 import numexpr
 from redis_utils import rget_json, rset_json, rget
 
-# --- INTERACTIVE HELP PAGINATOR ---
-class HelpPaginator(discord.ui.View):
-    def __init__(self, ctx, cmds):
-        super().__init__(timeout=180) 
-        self.ctx = ctx
-        self.cmds = cmds
-        self.current_page = 1
-        self.per_page = 5 
-        self.total_pages = max(1, math.ceil(len(self.cmds) / self.per_page))
-
-        self.first_btn = discord.ui.Button(label="FIRST", style=discord.ButtonStyle.success, custom_id=f"help_first_{id(self)}")
-        self.first_btn.callback = self.first_page
-        self.add_item(self.first_btn)
-
-        self.prev_btn = discord.ui.Button(label="PREVIOUS", style=discord.ButtonStyle.secondary, custom_id=f"help_prev_{id(self)}")
-        self.prev_btn.callback = self.previous_page
-        self.add_item(self.prev_btn)
-
-        self.counter_btn = discord.ui.Button(label=f"1/{self.total_pages}", style=discord.ButtonStyle.secondary, disabled=True, custom_id=f"help_counter_{id(self)}")
-        self.add_item(self.counter_btn)
-
-        self.next_btn = discord.ui.Button(label="NEXT", style=discord.ButtonStyle.success, custom_id=f"help_next_{id(self)}")
-        self.next_btn.callback = self.next_page
-        self.add_item(self.next_btn)
-
-        self.last_btn = discord.ui.Button(label="LAST", style=discord.ButtonStyle.success, custom_id=f"help_last_{id(self)}")
-        self.last_btn.callback = self.last_page
-        self.add_item(self.last_btn)
-        
-        self.update_buttons()
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user != self.ctx.author:
-            await interaction.response.send_message("This isn't your menu. Run the command yourself.", ephemeral=True)
-            return False
-        return True
-
-    def update_buttons(self):
-        self.first_btn.disabled = self.current_page == 1
-        self.prev_btn.disabled = self.current_page == 1
-        self.next_btn.disabled = self.current_page == self.total_pages
-        self.last_btn.disabled = self.current_page == self.total_pages
-        self.counter_btn.label = f"{self.current_page}/{self.total_pages}"
-
-    def get_embed(self):
-        embed = discord.Embed(title="Help", color=0x2ecc71) 
-        description = ""
-        
-        if self.current_page == 1:
-            description += "**SOME HELPFUL LINKS-**\n"
-            description += "[Dashboard](https://huggingface.co/spaces/xenoroses/Esdeath-Bot)\n"
-            description += "[Bot support server](https://discord.gg/yourserver)\n\n"
-            description += "**HELP COMMANDS -**\n\n"
-        else:
-            description += "**HELP COMMANDS -**\n\n"
-
-        start_idx = (self.current_page - 1) * self.per_page
-        end_idx = start_idx + self.per_page
-        page_cmds = self.cmds[start_idx:end_idx]
-
-        for cmd_name, cmd_desc in page_cmds:
-            description += f"**{self.ctx.clean_prefix}{cmd_name}**\n{cmd_desc}\n\n"
-            
-        embed.description = description
-        return embed
-
-    async def update_page(self, interaction: discord.Interaction):
-        self.update_buttons()
-        await interaction.response.edit_message(embed=self.get_embed(), view=self)
-
-    async def first_page(self, interaction: discord.Interaction):
-        self.current_page = 1
-        await self.update_page(interaction)
-
-    async def previous_page(self, interaction: discord.Interaction):
-        self.current_page -= 1
-        await self.update_page(interaction)
-
-    async def next_page(self, interaction: discord.Interaction):
-        self.current_page += 1
-        await self.update_page(interaction)
-
-    async def last_page(self, interaction: discord.Interaction):
-        self.current_page = self.total_pages
-        await self.update_page(interaction)
 
 
 class StaffCommands(commands.Cog):
@@ -144,28 +59,11 @@ class StaffCommands(commands.Cog):
             print(f"Modlog Save Error: {e}")
             return None
 
-    # --- DYNAMIC HELP ---
-    @commands.hybrid_command(name="help", description="Displays the interactive command guide.")
-    async def help_command(self, ctx: commands.Context):
-        cmds = []
-        cmd_names = set()
-        for command in sorted(self.bot.commands, key=lambda c: c.name):
-            if not command.hidden and command.name not in cmd_names:
-                cmds.append((command.name, command.description or "No description provided."))
-                cmd_names.add(command.name)
-        
-        cmds.sort(key=lambda x: x[0])
-        
-        if not cmds:
-            return await self._send_error(ctx, "I have no commands configured yet.")
-            
-        view = HelpPaginator(ctx, cmds)
-        await ctx.send(embed=view.get_embed(), view=view)
 
     # --- PREFIX MANAGEMENT ---
     @commands.hybrid_command(name="prefixes", description="See all active prefixes for this server.")
     async def prefixes(self, ctx: commands.Context):
-        default_prefixes = ["!", "esdeath ", "es "]
+        default_prefixes = ["!", "Hyacine ", "es "]
         if not self.bot.redis:
             return await ctx.send(f"Memory offline. Currently using defaults: `{', '.join(default_prefixes)}`", ephemeral=True)
             
@@ -184,7 +82,7 @@ class StaffCommands(commands.Cog):
             return await self._send_error(ctx, "My memory banks are offline. Try again later.")
             
         try:
-            current_prefixes = await rget_json(self.bot, f"prefixes:{ctx.guild.id}") or ["!", "esdeath ", "es "]
+            current_prefixes = await rget_json(self.bot, f"prefixes:{ctx.guild.id}") or ["!", "Hyacine ", "es "]
 
             if prefix in current_prefixes:
                 return await self._send_error(ctx, f"`{prefix}` is already a prefix here.")
@@ -202,7 +100,7 @@ class StaffCommands(commands.Cog):
             return await self._send_error(ctx, "My memory banks are offline. Try again later.")
             
         try:
-            current_prefixes = await rget_json(self.bot, f"prefixes:{ctx.guild.id}") or ["!", "esdeath ", "es "]
+            current_prefixes = await rget_json(self.bot, f"prefixes:{ctx.guild.id}") or ["!", "Hyacine ", "es "]
 
             if prefix not in current_prefixes:
                 return await self._send_error(ctx, f"`{prefix}` isn't on the prefix list.")
@@ -270,7 +168,7 @@ class StaffCommands(commands.Cog):
         minutes, seconds = divmod(remainder, 60)
         await self._send_success(ctx, f"I have been standing guard for **{days}d, {hours}h, {minutes}m, {seconds}s**.")
 
-    @commands.hybrid_command(name="echo", description="Make Esdeath say something.")
+    @commands.hybrid_command(name="echo", description="Make Hyacine say something.")
     @commands.has_permissions(manage_messages=True)
     async def echo(self, ctx: commands.Context, *, message: str):
         await ctx.channel.send(message)
@@ -452,7 +350,7 @@ class StaffCommands(commands.Cog):
         for i in range(len(option_list)):
             await poll_msg.add_reaction(emojis[i])
 
-    @commands.hybrid_command(name="embed", description="Make Esdeath post a custom colored box.")
+    @commands.hybrid_command(name="embed", description="Make Hyacine post a custom colored box.")
     @commands.has_permissions(manage_messages=True)
     async def embed(self, ctx: commands.Context, title: str, description: str, color: str = "blue"):
         color_map = {"blue": 0x3498db, "red": 0xe74c3c, "green": 0x2ecc71, "gold": 0xf1c40f}
@@ -542,7 +440,7 @@ class StaffCommands(commands.Cog):
             await member.add_roles(role)
             await self._send_success(ctx, f"Granted **{role.name}** to {member.mention}. Try to be worthy of it.")
         except discord.Forbidden:
-            return await self._send_error(ctx, "My role isn't high enough! Drag the 'Esdeath' role HIGHER in Server Settings.")
+            return await self._send_error(ctx, "My role isn't high enough! Drag the 'Hyacine' role HIGHER in Server Settings.")
 
     @commands.hybrid_command(name="removerole", description="Strip a role from a user.")
     @commands.has_permissions(manage_roles=True)
@@ -602,7 +500,7 @@ class StaffCommands(commands.Cog):
             embed = discord.Embed(description=reply, color=0x2b2d31)
             embed.set_author(name=f"💬 {prompt}"[:256], icon_url=ctx.author.display_avatar.url)
             embed.set_footer(
-                text="Advanced AI System • Esdeath Network", 
+                text="Advanced AI System • Hyacine Network", 
                 icon_url="https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg" 
             )
             await ctx.send(embed=embed)
@@ -610,7 +508,7 @@ class StaffCommands(commands.Cog):
             await self._send_error(ctx, f"System Error: {e}")
 
     # --- AI CHAT CHANNEL CONFIGURATION ---
-    @commands.hybrid_command(name="setchat", description="Lock Esdeath's AI responses to a specific channel.")
+    @commands.hybrid_command(name="setchat", description="Lock Hyacine's AI responses to a specific channel.")
     @commands.has_permissions(administrator=True)
     async def setchat(self, ctx: commands.Context, channel: discord.TextChannel = None):
         if not getattr(self.bot, 'redis', None):
@@ -623,14 +521,14 @@ class StaffCommands(commands.Cog):
         
         await self._send_success(ctx, f"Neural link locked to {target_channel.mention}. AI chat is restricted to this channel.")
 
-    @commands.hybrid_command(name="clearchat", description="Allow Esdeath to chat in all channels again.")
+    @commands.hybrid_command(name="clearchat", description="Allow Hyacine to chat in all channels again.")
     @commands.has_permissions(administrator=True)
     async def clearchat(self, ctx: commands.Context):
         if not self.bot.redis:
             return await self._send_error(ctx, "Memory offline.")
         
         await self.bot.redis.delete(f"chat_channel:{ctx.guild.id}")
-        await self._send_success(ctx, "Channel lock removed. Esdeath can now be summoned globally.")
+        await self._send_success(ctx, "Channel lock removed. Hyacine can now be summoned globally.")
 # --- GLOBAL SETUP FUNCTION ---
 async def setup(bot):
     if "StaffCommands" not in bot.cogs:

@@ -56,7 +56,7 @@ class AIChat(commands.Cog):
 
         content = message.content.lower()
         mentioned = self.bot.user in message.mentions
-        name_called = content.startswith("esdeath")
+        name_called = content.startswith("Hyacine")
         random_reply = random.random() < 0.03
 
         # Only proceed if she's pinged, called by name, or a random lucky reply

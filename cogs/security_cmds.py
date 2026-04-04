@@ -14,6 +14,12 @@ class SecurityCommands(commands.Cog):
     @commands.hybrid_command(name="shadowban", description="Invisible moderation: Auto-deletes all messages from a user silently.")
     @commands.has_permissions(ban_members=True)
     async def shadowban(self, ctx: commands.Context, user: discord.Member):
+        # Hierarchy Validation
+        if user.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            return await ctx.send("❌ | You cannot shadowban those of equal or higher rank.", ephemeral=True)
+        if user.top_role >= ctx.me.top_role:
+            return await ctx.send("❌ | Shadowban failed. Subject's neural shielding (Role Rank) is higher than mine.", ephemeral=True)
+
         key = f"shadowban:{ctx.guild.id}:{user.id}"
         
         # Check current status
@@ -48,7 +54,7 @@ class SecurityCommands(commands.Cog):
         if hasattr(self.bot, 'cache') and self.bot.cache: cached = await self.bot.cache.get(key)
         elif hasattr(self.bot, 'redis') and self.bot.redis: cached = await self.bot.redis.get(key)
 
-        if cached and cached.decode() == "true":
+        if cached == "true":
             # Disable
             value = "false"
             status = "Disabled"
@@ -94,7 +100,7 @@ class SecurityCommands(commands.Cog):
         raid_active = False
         if hasattr(self.bot, 'cache') and self.bot.cache:
             rs = await self.bot.cache.get(key)
-            raid_active = True if rs and rs.decode() == "true" else False
+            raid_active = True if rs == "true" else False
             
         embed.add_field(name="Security Triggers", value="Active" if raid_active else "None", inline=True)
         
@@ -126,7 +132,7 @@ class SecurityCommands(commands.Cog):
         raid_active = False
         if hasattr(self.bot, 'cache') and self.bot.cache:
             rs = await self.bot.cache.get(rs_key)
-            raid_active = True if rs and rs.decode() == "true" else False
+            raid_active = True if rs == "true" else False
         
         if raid_active:
             now = discord.utils.utcnow()

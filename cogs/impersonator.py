@@ -40,12 +40,12 @@ class Impersonator(commands.Cog):
 
             webhook = discord.utils.get(
                 webhooks,
-                name="Esdeath-Impersonator"
+                name="Hyacine-Impersonator"
             )
 
             if webhook is None:
                 webhook = await interaction.channel.create_webhook(
-                    name="Esdeath-Impersonator"
+                    name="Hyacine-Impersonator"
                 )
 
             # Send impersonated message

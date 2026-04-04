@@ -3,9 +3,9 @@ import time
 import json
 from collections import defaultdict
 
-class EsdeathCache:
+class HyacineCache:
     """
-    A multi-tier caching system for Esdeath.
+    A multi-tier caching system for Hyacine.
     Layer 1: Local memory dict for ultrafast reads.
     Layer 2: Upstash Redis over HTTP.
     """
