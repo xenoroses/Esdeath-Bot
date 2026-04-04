@@ -257,22 +257,43 @@ class HyacineBot(commands.Bot):
 
         print(f"Unhandled Command Error: {error}")
 
+import psutil
+
 # --- 4. STARTUP LOGIC ---
 if __name__ == "__main__":
     # Singleton lock to prevent multiple bot instances
     LOCK_FILE = "bot.lock"
     
     if os.path.exists(LOCK_FILE):
-        print("Another bot instance already running. Exiting.")
-        sys.exit(0)
+        try:
+            with open(LOCK_FILE, "r") as f:
+                old_pid = int(f.read().strip())
+            
+            # Check if previous process is still alive
+            if psutil.pid_exists(old_pid):
+                # Verify it's actually a python/bot process (optional but safer)
+                print(f"Another bot instance (PID {old_pid}) already running. Exiting.")
+                sys.exit(0)
+            else:
+                print("Detected stale lock file. Cleaning up...")
+                os.remove(LOCK_FILE)
+        except Exception:
+            # If file is empty or corrupted, just clear it
+            os.remove(LOCK_FILE)
     
-    # Create lock file
-    open(LOCK_FILE, "w").close()
+    # Create lock file with current PID
+    with open(LOCK_FILE, "w") as f:
+        f.write(str(os.getpid()))
     
     # Cleanup function for lock file
     def cleanup_lock():
         if os.path.exists(LOCK_FILE):
-            os.remove(LOCK_FILE)
+            try:
+                # Only remove if it belongs to us
+                with open(LOCK_FILE, "r") as f:
+                    if f.read().strip() == str(os.getpid()):
+                        os.remove(LOCK_FILE)
+            except: pass
     
     atexit.register(cleanup_lock)
     
