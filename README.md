@@ -1,11 +1,14 @@
 ---
 title: Hyacine
-emoji: ⟡
+emoji: ✨
 colorFrom: purple
 colorTo: indigo
 sdk: docker
 pinned: false
+app_file: bot.py
 ---
+
+Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
 
 # ✧ 𝐻𝓎𝒶𝒸𝒾𝓃𝑒 𝒫𝓁𝒶𝓉𝒻𝑜𝓇𝓂 ⟡
 
