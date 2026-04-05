@@ -96,10 +96,13 @@ async def get_server_prefixes(bot, message):
                 expanded = []
                 for p in custom_prefixes:
                     expanded.append(p)
-                    if p.isalnum() and not p.endswith(" "):
+                    # For alphanumeric prefixes (like hya, hyacine, chaos), 
+                    # we implicitly support a following space to ensure commands match.
+                    if p.replace(" ", "").isalnum() and not p.endswith(" "):
                         expanded.append(p + " ")
                 
-                final_prefixes = list(set(expanded + HYACINE_DEFAULT_PREFIXES))
+                # Critical Fix: Sort by length (descending) so 'hya ' is matched before 'hya'
+                final_prefixes = sorted(list(set(expanded + HYACINE_DEFAULT_PREFIXES)), key=len, reverse=True)
                 return commands.when_mentioned_or(*final_prefixes)(bot, message)
     except Exception as e:
         logging.error(f"Prefix Fetch Error: {e}")
