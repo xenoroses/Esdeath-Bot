@@ -1,9 +1,8 @@
 import discord
-from discord.ext import commands
-import asyncio
+from discord.ext import commands, tasks
 import time
-from collections import defaultdict, deque
-from datetime import datetime, timedelta
+from collections import deque, defaultdict
+from datetime import datetime, timedelta, timezone
 from redis_utils import rget_json, rset_json
 
 class RaidShield(commands.Cog):
@@ -15,31 +14,67 @@ class RaidShield(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.join_tracker = defaultdict(lambda: deque(maxlen=100))
-        self.message_tracker = defaultdict(lambda: deque(maxlen=200))
+        self.message_tracker = defaultdict(lambda: defaultdict(lambda: deque(maxlen=50)))
         self.mention_tracker = defaultdict(lambda: deque(maxlen=100))
         self.role_change_tracker = defaultdict(lambda: deque(maxlen=50))
         
+        # Start maintenance loop to prevent memory leaks in large scales
+        self.prune_trackers.start()
+        
         # Raid detection thresholds
-        self.JOIN_BURST_THRESHOLD = 5  # joins per minute
-        self.MESSAGE_BURST_THRESHOLD = 10  # messages per minute per user
-        self.MENTION_BURST_THRESHOLD = 15  # mentions per minute
-        self.ROLE_SPAM_THRESHOLD = 3  # role changes per minute
+        self.JOIN_BURST_THRESHOLD = 5
+        self.MESSAGE_BURST_THRESHOLD = 10
+        self.MENTION_BURST_THRESHOLD = 15
+        self.ROLE_SPAM_THRESHOLD = 3
         
-        # Auto-response actions
-        self.slowmode_duration = 300  # 5 minutes
-        self.channel_lock_duration = 600  # 10 minutes
+        self.slowmode_duration = 300
+        self.channel_lock_duration = 600
+
+    def cog_unload(self):
+        self.prune_trackers.cancel()
+
+    @tasks.loop(hours=6)
+    async def prune_trackers(self):
+        """Scale-Hardening: Evict tracking data for guilds that are no longer active or present."""
+        current_guild_ids = [g.id for g in self.bot.guilds]
         
+        for gid in list(self.join_tracker.keys()):
+            if gid not in current_guild_ids:
+                del self.join_tracker[gid]
+        
+        for gid in list(self.message_tracker.keys()):
+            if gid not in current_guild_ids:
+                del self.message_tracker[gid]
+            else:
+                # Scale-Hardening: Prune empty user tracks
+                for uid in list(self.message_tracker[gid].keys()):
+                    if not self.message_tracker[gid][uid]:
+                        del self.message_tracker[gid][uid]
+        
+        for gid in list(self.mention_tracker.keys()):
+            if gid not in current_guild_ids:
+                del self.mention_tracker[gid]
+                
+        for gid in list(self.role_change_tracker.keys()):
+            if gid not in current_guild_ids:
+                del self.role_change_tracker[gid]
+
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         """Track member joins for raid detection."""
         now = time.time()
         self.join_tracker[member.guild.id].append(now)
         
-        # Check for join burst
-        recent_joins = [t for t in self.join_tracker[member.guild.id] if now - t < 60]
-        if len(recent_joins) >= self.JOIN_BURST_THRESHOLD:
+        # Check for join burst (Efficient count)
+        cutoff = now - 60
+        raid_triggers = 0
+        for t in reversed(self.join_tracker[member.guild.id]):
+            if t < cutoff: break
+            raid_triggers += 1
+            
+        if raid_triggers >= self.JOIN_BURST_THRESHOLD:
             await self._trigger_raid_response(member.guild, "join_burst", 
-                                           f"Join burst detected: {len(recent_joins)} joins/minute")
+                                           f"Join burst detected: {raid_triggers} joins/minute")
     
     @commands.Cog.listener()  
     async def on_message(self, message: discord.Message):
@@ -51,9 +86,7 @@ class RaidShield(commands.Cog):
         user_id = message.author.id
         guild_id = message.guild.id
         
-        # Track messages per user
-        if user_id not in self.message_tracker[guild_id]:
-            self.message_tracker[guild_id][user_id] = deque(maxlen=50)
+        # Track messages per user (handled by nested defaultdict)
         self.message_tracker[guild_id][user_id].append(now)
         
         # Check for message burst per user
@@ -139,7 +172,7 @@ class RaidShield(commands.Cog):
                 )
                 
                 if actions_taken:
-                    embed.add_field(name="Auto-Actions Taken", value="\n".join(actions_taken[:5]), inline=False)
+                    embed.add_field(name="Automation Gates", value="\n".join(actions_taken[:5]), inline=False)
                 
                 embed.set_footer(text=f"Shield will reset in {self.slowmode_duration//60} minutes")
                 await alert_channel.send(embed=embed)
@@ -201,7 +234,7 @@ class RaidShield(commands.Cog):
             
             embed.add_field(
                 name="Auto Slowmode", 
-                value="✧ ℰ𝓃𝒶𝒷𝓁ℯ𝒹" if config["slowmode"] else "⌬ 𝒟𝒾𝓈𝒶𝒷𝓁ℯ𝒹", 
+                value="✧ ℰ𝓃𝒶𝒷𝓁ℯ𝒹" if config["slowmode"] else "⌬ 𝒟i𝓈𝒶𝒷𝓁ℯ𝒹", 
                 inline=True
             )
             

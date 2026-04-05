@@ -1,16 +1,28 @@
-import discord
-from discord.ext import commands
-import json
 import asyncio
+import json
 from collections import defaultdict
-from redis_utils import rget_json, rset_json
-
+from discord.ext import commands, tasks
+import discord
+import re
+from redis_utils import rget_json, rset_json, rdelete
 
 class StickyCommands(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
         self.channel_locks = defaultdict(asyncio.Lock)
+        self.prune_trackers.start()
+
+    def cog_unload(self):
+        self.prune_trackers.cancel()
+
+    @tasks.loop(hours=24)
+    async def prune_trackers(self):
+        """Scale-Hardening: Evict locks for inactive channels and guilds."""
+        for cid in list(self.channel_locks.keys()):
+            # If the channel is no longer reachable, it's safe to clear the lock memory
+            if not self.bot.get_channel(cid):
+                del self.channel_locks[cid]
 
 
     # ---------------- SET STICKY ----------------
@@ -34,18 +46,14 @@ class StickyCommands(commands.Cog):
 
         key = f"sticky:{ctx.channel.id}"
 
+        # Removed non-ASCII stripper to preserve Stellar font styling
         data = {
             "message": message,
             "last_id": None
         }
 
-        # Update both cache and Redis
-        if hasattr(self.bot, 'cache') and self.bot.cache:
-            await self.bot.cache.set(key, json.dumps(data))
-        else:
-            await self.bot.redis.set(key, json.dumps(data))
-
-        await ctx.send("Sticky message set for this channel.")
+        await rset_json(self.bot, key, data)
+        await ctx.send("✧ 𝒮𝓉𝒾𝒸𝓀𝓎 𝓂ℯ𝓈𝓈𝒶𝑔ℯ 𝓈ℯ𝓉 𝒻ℴ𝓇 𝓉𝒽𝒾𝓈 𝒸𝒽𝒶𝓃𝓃ℯ𝓁.")
 
 
     # ---------------- REMOVE STICKY ----------------
@@ -68,32 +76,9 @@ class StickyCommands(commands.Cog):
             return # Someone else got the lock, abort execution.
 
         key = f"sticky:{ctx.channel.id}"
+        await rdelete(self.bot, key)
 
-        cached = await self.bot.redis.get(key)
-
-        if cached:
-
-            if isinstance(cached, bytes):
-                cached = cached.decode()
-
-            data = json.loads(cached)
-
-            last_id = data.get("last_id")
-
-            if last_id:
-                try:
-                    msg = await ctx.channel.fetch_message(last_id)
-                    await msg.delete()
-                except:
-                    pass
-
-        # Delete from both cache and Redis
-        if hasattr(self.bot, 'cache') and self.bot.cache:
-            await self.bot.cache.delete(key)
-        else:
-            await self.bot.redis.delete(key)
-
-        await ctx.send("Sticky message removed from this channel.")
+        await ctx.send("⌬ 𝒮𝓉𝒾𝒸𝓀𝓎 𝓂ℯ𝓈𝓈𝒶𝑔ℯ 𝓇ℯ𝓂ℴ𝓋ℯ𝒹 𝒻𝓇ℴ𝓂 𝓉𝒽𝒾𝓈 𝒸𝒽𝒶𝓃𝓃ℯ𝓁.")
 
 
     # ---------------- STICKY LISTENER ----------------
@@ -103,10 +88,11 @@ class StickyCommands(commands.Cog):
         if message.author.bot or not message.guild:
             return
 
-        # Ignore command messages (avoid command overlaps)
-        ctx = await self.bot.get_context(message)
-        if ctx.valid:
-            return
+        # Optimization: Check prefix before heavy get_context call
+        prefix = await self.bot.get_prefix(message)
+        if isinstance(prefix, list):
+            if any(message.content.startswith(p) for p in prefix): return
+        elif message.content.startswith(prefix): return
 
         if not self.bot.redis:
             return
@@ -120,6 +106,10 @@ class StickyCommands(commands.Cog):
 
         sticky_text = data.get("message")
         last_id = data.get("last_id")
+        
+        # Optimization: Only re-send if the last message wasn't already the sticky
+        if message.channel.last_message_id == last_id:
+            return
 
         async with self.channel_locks[message.channel.id]:
             # DISTRIBUTED LOCK: Only the first bot to claim handles the message

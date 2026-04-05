@@ -1,6 +1,7 @@
-import requests
+import httpx
 import os
 import re
+import asyncio
 
 API_KEY = os.getenv("OPENROUTER_KEY")
 
@@ -89,17 +90,9 @@ FINAL RULES:
 4. DO NOT prefix your replies with your name, "Hyacine:", "User:", "user:" or an ID. 
 """
 
-def generate_reply(messages):
-    api_messages = []
+async def generate_reply(messages):
+    api_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
-    # 1. SMART PERSONA CHECK
-    # We check if the incoming messages are from the /ask command (which has a generic assistant prompt)
-    # or the chat (which now has ping instructions).
-    
-    # We ALWAYS add the Hyacine Persona first to keep her in character.
-    api_messages.append({"role": "system", "content": SYSTEM_PROMPT})
-
-    # Now add the incoming messages (which might include our new Ping Instructions)
     for msg in messages:
         api_messages.append({
             "role": msg["role"],
@@ -107,34 +100,34 @@ def generate_reply(messages):
         })
 
     try:
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "meta-llama/llama-3.1-8b-instruct",
-                "messages": api_messages 
-            },
-            timeout=90
-        )
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "meta-llama/llama-3.1-8b-instruct",
+                    "messages": api_messages 
+                },
+                timeout=45.0
+            )
+            response.raise_for_status()
+            data = response.json()
 
-        data = response.json()
         reply = data["choices"][0]["message"]["content"].strip()
 
-        # 2. FAILSAFE: Remove hallucinations like "Hyacine:" or "User:"
+        # Failsafe: Remove hallucinations
         if ":" in reply[:50]:  
-            prefix = reply.split(":", 1)[0].lower()
-            if "Hyacine" in prefix or "user" in prefix:
+            prefix_part = reply.split(":", 1)[0].lower()
+            if "hyacine" in prefix_part or "user" in prefix_part:
                 reply = reply.split(":", 1)[1].strip()
 
-        # 3. SMART BRUTE FORCE CAPITALIZATION
-        # Only capitalizes the first character after a sentence-ender (.!?) or start of string.
+        # Smart Capitalization
         reply = re.sub(r'(^|[.?!]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), reply)
-
         return reply
 
     except Exception as e:
-        print("OpenRouter error:", e)
-        return "Ugh, something broke for a second. Try again."
+        print(f"OpenRouter Async Error: {e}")
+        return "Ugh, the neural link is flickering. Try again in a second."

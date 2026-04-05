@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import json
 import datetime
-from datetime import timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from redis_utils import rget_json, rset_json
 
@@ -18,7 +18,6 @@ class PrestigeEngine(commands.Cog):
 
     async def _safe_rset(self, key, val):
         await rset_json(self.bot, key, val)
-
     @commands.hybrid_command(name="bestow", description="Hyacine grants a dynamic prestige title to a user.")
     @commands.has_permissions(manage_roles=True)
     async def bestow(self, ctx: commands.Context, user: discord.Member, *, title: str):
@@ -57,7 +56,7 @@ class PrestigeEngine(commands.Cog):
             pantheon[str(user.id)] = {
                 "name": user.display_name,
                 "legacy": legacy,
-                "date": datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d")
             }
             data["legends"] = pantheon
             await self._safe_rset(key, data)
@@ -83,10 +82,11 @@ class PrestigeEngine(commands.Cog):
             
             legends = data.get("legends", {})
             if not legends:
-                return await ctx.send("The Pantheon remains empty. No legends have been canonized.")
+                return await ctx.send("⌬ ⟡ **𝒯𝒽ℯ 𝒫𝒶𝓃𝓉𝒽ℯℴ𝓃 𝓇ℯ𝓂𝒶𝒾𝓃𝓈 ℯ𝓂𝓅𝓉𝓎. 𝒩ℴ 𝓁ℯ𝑔ℯ𝓃𝒹𝓈 𝒽𝒶𝓋ℯ 𝒷ℯℯ𝓃 𝒸𝒶𝓃ℴ𝓃𝒾𝓏ℯ𝒹.**")
                 
             embed = discord.Embed(title="❂ ℋ𝒶𝓁𝓁 ℴ𝒻 ℐ𝓃𝒻𝓁𝓊ℯ𝓃𝒸ℯ", color=0x8E44AD)
-            for uid, info in legends.items():
+            # SCALE GUARD: Limit to top 20 legends to prevent overflow
+            for uid, info in list(legends.items())[:20]:
                 embed.add_field(
                     name=f"✧ {info['name']}",
                     value=f"_{info['legacy']}_\n└ Canonized: `{info['date']}`",
@@ -131,7 +131,8 @@ class PrestigeEngine(commands.Cog):
             trust_scores = await self._safe_rget("trust_scores")
             
             base_trust = trust_scores.get(str(target.id), 5.0)
-            bonus = (datetime.datetime.now(timezone.utc) - target.joined_at).days if target.joined_at else 0
+            now = datetime.now(timezone.utc)
+            bonus = (now - target.joined_at.replace(tzinfo=timezone.utc)).days if target.joined_at else 0
             
             renown_score = int((base_trust * 10) + (bonus * 0.1))
             
@@ -141,7 +142,7 @@ class PrestigeEngine(commands.Cog):
             else: standing = "Unknown Entity"
             
             embed = discord.Embed(title=f"✵ ℛℯ𝓃ℴ𝓌𝓃 𝒜𝒷𝓈𝓉𝓇𝒶𝒸𝓉: {target.display_name}", color=0x34495E)
-            embed.add_field(name="Aggregate Renown", value=f"**{renown_score}**", inline=True)
+            embed.add_field(name="Aggregate ℛℯ𝓃ℴ𝓌𝓃", value=f"**{renown_score}**", inline=True)
             embed.add_field(name="Standing", value=f"**{standing}**", inline=True)
             embed.set_thumbnail(url=target.display_avatar.url)
             embed.set_footer(text="Engine: Hyacine Prestige Layer")
@@ -221,9 +222,9 @@ class PrestigeEngine(commands.Cog):
             last = await self._safe_rget(key)
             if last and trust < 8.0:
                 self.awaken.reset_cooldown(ctx)
-                return await ctx.send("Your biological stratum is not yet ready for ascension. Increase your server value.")
+                return await ctx.send("⌬ ⟡ **𝒴ℴ𝓊𝓇 𝒷𝒾ℴ𝓁ℴ𝑔𝒾𝒸𝒶𝓁 𝓈𝓉ℯ𝓁𝓁𝒶𝓇 𝓈𝓉𝓇𝒶𝓉𝓊𝓂 𝒾𝓈 𝓃ℴ𝓉 𝓎ℯ𝓉 𝓇ℯ𝒶𝒹𝓎 𝒻ℴ𝓇 𝒶𝓈𝒸ℯ𝓃𝓈𝒾ℴ𝓃.**")
                 
-            await self._safe_rset(key, {"timestamp": datetime.datetime.now(timezone.utc).isoformat()})
+            await self._safe_rset(key, {"timestamp": datetime.now(timezone.utc).isoformat()})
             
             embed = discord.Embed(
                 title="✧ 𝒜𝓈𝒸ℯ𝓃𝓈𝒾ℴ𝓃 𝒯𝓇𝒾ℊℊℯ𝓇ℯ𝒹",

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import json
-from redis_utils import rget_json
+from redis_utils import rget_json, rset_json, rdelete
 
 
 class ForceNick(commands.Cog):
@@ -24,17 +24,11 @@ class ForceNick(commands.Cog):
         try:
             await member.edit(nick=nickname, reason="Nickname frozen by admin")
         except discord.Forbidden:
-            return await ctx.send("I cannot change this user's nickname.")
+            return await ctx.send("⌬ ⟡ **𝒜𝓊𝓉𝒽ℴ𝓇𝒾𝓉𝓎 𝒟ℯℐ𝒾ℯ𝒹:** ℐ 𝒸𝒶𝓃𝓃ℴ𝓉 𝓂ℴ𝒹𝒾𝒻𝓎 𝓉𝒽𝒾𝓈 𝓈𝓊𝒷𝒿ℯ𝒸𝓉'𝓈 𝒾𝒹ℯ𝓃𝓉𝒾𝓉𝓎.")
 
         key = f"forcenick:{ctx.guild.id}:{member.id}"
-
-        data = {
-            "nick": nickname
-        }
-
-        await self.bot.redis.set(key, json.dumps(data))
-
-        await ctx.send(f"Nickname locked for {member.mention}.")
+        await rset_json(self.bot, key, {"nick": nickname})
+        await ctx.send(f"✧ **𝒩𝒾𝒸𝓀𝓃𝒶𝓂ℯ ℒℴ𝒸𝓀ℯ𝒹:** {member.mention} has been synchronized to `{nickname}`.")
 
 
     # ---------------- UNLOCK NICK ----------------
@@ -50,10 +44,8 @@ class ForceNick(commands.Cog):
             return await ctx.send("Memory offline.")
 
         key = f"forcenick:{ctx.guild.id}:{member.id}"
-
-        await self.bot.redis.delete(key)
-
-        await ctx.send(f"Nickname unlocked for {member.mention}.")
+        await rdelete(self.bot, key)
+        await ctx.send(f"✧ **𝒩𝒾𝒸𝓀𝓃𝒶𝓂ℯ 𝒰𝓃𝓁ℴ𝒸𝓀ℯ𝒹:** {member.mention} has regained identity control.")
 
 
     # ---------------- AUTO REVERT LISTENER ----------------

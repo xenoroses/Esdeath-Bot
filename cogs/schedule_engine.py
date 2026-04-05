@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands, tasks
 import asyncio
 import json
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime, timezone, timedelta
 from redis_utils import rget_json, rset_json
 
 class ScheduleEngine(commands.Cog):
@@ -28,6 +29,7 @@ class ScheduleEngine(commands.Cog):
         try:
             # This is a simplified approach - in production you'd want to track active guilds
             for guild in self.bot.guilds:
+                await asyncio.sleep(0.05) # Yield event loop to prevent starvation
                 schedules = await rget_json(self.bot, f"schedules:{guild.id}")
                 if not schedules:
                     continue
@@ -39,7 +41,7 @@ class ScheduleEngine(commands.Cog):
                     await self._execute_schedule_if_due(schedule, guild)
                         
         except Exception as e:
-            print(f"Schedule check error: {e}")
+            logging.error(f"Schedule check error: {e}")
     
     async def _execute_schedule_if_due(self, schedule: dict, guild: discord.Guild):
         """Execute a schedule if it's due."""
@@ -47,7 +49,7 @@ class ScheduleEngine(commands.Cog):
             schedule_type = schedule.get("type", "")
             last_run = schedule.get("last_run")
             
-            now = datetime.now()
+            now = discord.utils.utcnow()
             
             if schedule_type == "daily":
                 # Run once per day at specified hour
@@ -71,7 +73,7 @@ class ScheduleEngine(commands.Cog):
                     await self._execute_schedule_actions(schedule, guild)
                     
         except Exception as e:
-            print(f"Schedule execution error: {e}")
+            logging.error(f"Schedule execution error: {e}")
     
     async def _execute_schedule_actions(self, schedule: dict, guild: discord.Guild):
         """Execute scheduled actions."""
@@ -108,7 +110,7 @@ class ScheduleEngine(commands.Cog):
                 elif action_type == "cleanup_threads":
                     # Close old inactive threads
                     days_old = action.get("days_old", 30)
-                    cutoff_date = datetime.now() - timedelta(days=days_old)
+                    cutoff_date = discord.utils.utcnow() - timedelta(days=days_old)
                     
                     for channel in guild.text_channels:
                         try:
@@ -120,10 +122,10 @@ class ScheduleEngine(commands.Cog):
                             continue
                             
             except Exception as e:
-                print(f"Scheduled action error: {e}")
+                logging.error(f"Scheduled action error: {e}")
         
         # Update last run time
-        schedule["last_run"] = datetime.now().isoformat()
+        schedule["last_run"] = discord.utils.utcnow().isoformat()
         
         # Save updated schedule
         schedules = await rget_json(self.bot, f"schedules:{guild.id}") or []
@@ -165,7 +167,7 @@ class ScheduleEngine(commands.Cog):
                     }
                 ],
                 "created_by": ctx.author.id,
-                "created_at": datetime.now().isoformat()
+                "created_at": discord.utils.utcnow().isoformat()
             }
             
             schedules = await rget_json(self.bot, f"schedules:{ctx.guild.id}") or []
@@ -242,7 +244,7 @@ class ScheduleEngine(commands.Cog):
                     s["enabled"] = not s.get("enabled", True)
                     status = "enabled" if s["enabled"] else "disabled"
                     await rset_json(self.bot, f"schedules:{ctx.guild.id}", schedules)
-                    return await ctx.send(f"✧ **𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 **{name}** {status}**")
+                    return await ctx.send(f"✧ **𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ **{name}** {status}**")
                     
             await ctx.send(f"❌ Schedule **{name}** not found")
             

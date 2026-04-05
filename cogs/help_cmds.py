@@ -4,15 +4,13 @@ from discord.ui import Select, View
 
 CATEGORY_METADATA = {
     "Staff": {"icon": "✧", "name": "Stellar Decrees"},
-    "FunCmds": {"icon": "❂", "name": "Aether Waves"},
-    "OwnerCmds": {"icon": "❖", "name": "Sovereign Essence"},
+    "Fun": {"icon": "❂", "name": "Aether Waves"},
+    "Owner": {"icon": "❖", "name": "Sovereign Essence"},
     "Sticky": {"icon": "📌", "name": "Pinned Beacons"},
     "ForceNick": {"icon": "⌬", "name": "Identity Lock"},
-    "Automod": {"icon": "🛡️", "name": "Robotic Guardian"},
     "AFK": {"icon": "🌙", "name": "Dormancy Protocol"},
     "Trust": {"icon": "⟡", "name": "Harmony Network"},
     "SmartPurge": {"icon": "🧹", "name": "Vaporization"},
-    "Security": {"icon": "⚔️", "name": "Path of Protection"},
     "AIUtility": {"icon": "🤖", "name": "Simulated Intelligence"},
     "Workflow": {"icon": "⚙️", "name": "Automation Gates"},
     "Help": {"icon": "❓", "name": "Assistance"},

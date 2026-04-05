@@ -3,6 +3,7 @@ from discord.ext import commands
 import random
 import datetime
 from datetime import timezone, timedelta
+import time
 from redis_utils import rget_json
 
 class LoreEngine(commands.Cog):
@@ -40,7 +41,7 @@ class LoreEngine(commands.Cog):
                 title=f"✧ 𝒜𝓊𝓇𝒶 𝒮𝓅ℯ𝒸𝓉𝓇𝒶𝓁 𝒮𝒾ℊ𝓃𝒶𝓉𝓊𝓇ℯ", 
                 color=0xB19CD9 # Hyacine Lavender
             )
-            embed.set_author(name=f"{ctx.author.display_name} ⟡ {target.display_name}", icon_url=ctx.author.display_avatar.url)
+            embed.set_author(name=f"{ctx.author.display_name} | {target.display_name}", icon_url=ctx.author.display_avatar.url)
             embed.set_thumbnail(url=target.display_avatar.url)
             
             details = (
@@ -49,7 +50,7 @@ class LoreEngine(commands.Cog):
                 f"Frequency: **{resonance}%**\n"
                 f"Aether Purity: **{purity}%**\n\n"
                 f"**» Entity Profile**\n"
-                f"Presence: **{'Radiant ✧' if resonance > 70 else 'Stable ⌬'}**\n"
+                f"Presence: **{'Radiant' if resonance > 70 else 'Stable'}**\n"
                 f"Trace: **{'Ancient Lore' if purity > 85 else 'Organic Flow'}**\n\n"
                 f"*Quantum footprint verified by Hyacine Protocol.*"
             )
@@ -58,7 +59,7 @@ class LoreEngine(commands.Cog):
             
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒜𝓊𝓇𝒶 𝓈𝓎狀𝓃𝒸𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
+            await ctx.send(f"⌬ ⟡ **𝒜𝓊𝓇𝒶 𝓈𝓎𝓃ℴ𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="chronicle", description="Generates a micro-story about recent channel events.")
     @commands.has_permissions(manage_messages=True)
@@ -67,7 +68,7 @@ class LoreEngine(commands.Cog):
         try:
             messages = [m async for m in ctx.channel.history(limit=100)]
             if not messages:
-                return await ctx.send("The archives of this sector are entirely empty.")
+                return await ctx.send("⌬ ⟡ **𝒯𝒽ℯ 𝒶𝓇𝒸𝒽𝒾𝓋ℯ𝓈 ℴ𝒻 𝓉𝒽𝒾𝓈 𝓈ℯ𝒸𝓉ℴ𝓇 𝒶𝓇ℯ ℯ𝓃𝓉𝒾𝓇ℯ𝓁𝓎 ℯℳ𝓅𝓉𝓎.**")
                 
             authors = list(set([m.author.display_name for m in messages if not m.author.bot]))
             
@@ -129,7 +130,7 @@ class LoreEngine(commands.Cog):
             
             joined = target.joined_at
             if not joined:
-                return await ctx.send("Temporal data missing for this target.")
+                return await ctx.send("⌬ ⟡ **𝒯ℯ𝓂𝓅ℴ𝓇𝒶𝓁 𝒹𝒶𝓉𝒶 𝓂𝒾𝓈𝓈𝒾𝓃𝑔 𝒻ℴ𝓇 𝓉𝒽𝒾𝓈 𝓉𝒶𝓇𝑔ℯ𝓉.**")
                 
             entry_phase = "Joined the sector under absolute silence, blending with the civilians."
             if trust > 7:
@@ -172,7 +173,7 @@ class LoreEngine(commands.Cog):
                 title=f"❂ 𝒫𝓈𝓎𝒸𝒽ℴ𝓁ℴℊ𝒾𝒸𝒶𝓁 ℳ𝒶𝓉𝓇𝒾𝓍",
                 color=0xB19CD9 # Hyacine Lavender
             )
-            embed.set_author(name=f"{ctx.author.display_name} ⟡ {target.display_name}", icon_url=ctx.author.display_avatar.url)
+            embed.set_author(name=f"{ctx.author.display_name} | {target.display_name}", icon_url=ctx.author.display_avatar.url)
             embed.set_thumbnail(url=target.display_avatar.url)
             
             details = (
@@ -181,14 +182,14 @@ class LoreEngine(commands.Cog):
                 f"Residue: **{'None' if rng.random() > 0.3 else 'Volatile'}**\n\n"
                 f"**» Forecast**\n"
                 f"Next Move: `{'Stabilize' if rng.random() > 0.5 else 'Infiltrate'}`\n\n"
-                f"*Caution: Psychological trace detected.*"
+                f"*𝒞𝒶𝓊𝓉𝒾ℴℐ: 𝒫𝓈𝓎𝒸𝒽ℴ𝓁ℴ𝑔𝒾𝒸𝒶𝓁 𝓉𝓇𝒶𝒸ℯ 𝒹ℯ𝓉ℯ𝒸𝓉ℯ𝒹.*"
             )
             embed.description = details
             embed.set_footer(text="© Hyacine Lore Engine | Cognitive Archetype Analysis", icon_url=self.bot.user.display_avatar.url)
             
             await ctx.send(embed=embed)
         except Exception as e:
-             await ctx.send(f"⌬ ⟡ **𝒫ℴ𝓁𝒾𝒸𝓎 𝒮𝒸𝒶𝓃 𝒟𝒾𝓈𝓇𝓊𝓅𝓉ℯ𝒹:** {e}")
+             await ctx.send(f"⌬ ⟡ **𝒫𝓈𝓎𝒸𝒽ℴ𝒶𝓃𝒶𝓁𝓎𝓈𝒾𝓈 𝒹𝒾𝓈𝓇𝓊𝓅𝓉ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="omen", description="Predicts a near-future server event.")
     @commands.cooldown(1, 1800, commands.BucketType.guild)
@@ -204,7 +205,7 @@ class LoreEngine(commands.Cog):
         ]
         
         embed = discord.Embed(
-            title="𖦹 𝒪𝓇𝒶𝒸𝓁ℯ'𝓈 𝒪𝓂ℯ𝓃",
+            title="𖦹 𝒪𝓇𝒶𝒸𝓁ℯ'𝓈 𝒪ℳℯ𝓃",
             description=f"**Prediction:**\n{random.choice(events)}\n\n**ETA:** *{random.choice(timers)}*",
             color=0x9B59B6
         )

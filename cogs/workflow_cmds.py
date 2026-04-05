@@ -1,8 +1,10 @@
 import discord
 from discord.ext import commands
 import json
+import re
+from redis_utils import rget_json, rset_json
 
-class WorkflowEngine(commands.Cog):
+class WorkflowCommands(commands.Cog):
     """
     Tier 3 Platform Automation: Zapier-style Workflow Graph.
     """
@@ -38,14 +40,7 @@ class WorkflowEngine(commands.Cog):
             return await ctx.send(f"❌ Invalid action. Choose from: `{', '.join(valid_actions)}`")
 
         key = f"workflows:{ctx.guild.id}"
-        cached = None
-        if hasattr(self.bot, 'cache') and self.bot.cache: cached = await self.bot.cache.get(key)
-        elif hasattr(self.bot, 'redis') and self.bot.redis: cached = await self.bot.redis.get(key)
-
-        data = {"flows": []}
-        if cached:
-            if isinstance(cached, bytes): cached = cached.decode()
-            data = json.loads(cached)
+        data = await rget_json(self.bot, key) or {"flows": []}
 
         flow_id = len(data["flows"]) + 1
         new_flow = {
@@ -56,31 +51,22 @@ class WorkflowEngine(commands.Cog):
         }
         data["flows"].append(new_flow)
 
-        payload = json.dumps(data)
-        if hasattr(self.bot, 'cache') and self.bot.cache: await self.bot.cache.set(key, payload)
-        elif hasattr(self.bot, 'redis') and self.bot.redis: await self.bot.redis.set(key, payload)
+        await rset_json(self.bot, key, data)
 
-        embed = discord.Embed(title="≛ 𝗪𝗼𝗿𝗸𝗳𝗹𝗼𝘄 𝗖𝗿𝗲𝗮𝘁𝗲𝗱", color=0x2ECC71)
+        embed = discord.Embed(title="≛ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 𝒞𝓇ℯ𝒶𝓉ℯ𝒹", color=0x2ECC71)
         embed.description = f"**ID:** {flow_id}\n\n**IF** `{trigger}`\n**AND** `{condition}`\n**THEN** `{action}`"
         await ctx.send(embed=embed)
 
     @workflow.command(name="list", description="List all active workflows.")
     async def workflow_list(self, ctx: commands.Context):
         key = f"workflows:{ctx.guild.id}"
-        cached = None
-        if hasattr(self.bot, 'cache') and self.bot.cache: cached = await self.bot.cache.get(key)
-        elif hasattr(self.bot, 'redis') and self.bot.redis: cached = await self.bot.redis.get(key)
-
-        if not cached:
-            return await ctx.send("No workflows configured.", ephemeral=True)
-
-        if isinstance(cached, bytes): cached = cached.decode()
-        flows = json.loads(cached).get("flows", [])
+        data = await rget_json(self.bot, key) or {"flows": []}
+        flows = data.get("flows", [])
 
         if not flows:
             return await ctx.send("No workflows configured.", ephemeral=True)
 
-        embed = discord.Embed(title="≛ 𝗔𝗰𝘁𝗶𝘃𝗲 𝗪𝗼𝗿𝗸𝗳𝗹𝗼𝘄𝘀", color=0x34495E)
+        embed = discord.Embed(title="≛ 𝒜𝒸𝓉𝒾𝓋ℯ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌𝓈", color=0x34495E)
         for f in flows:
             embed.add_field(name=f"Workflow #{f['id']}", value=f"IF `{f['trigger']}` AND `{f['condition']}` THEN `{f['action']}`", inline=False)
         await ctx.send(embed=embed)
@@ -88,15 +74,8 @@ class WorkflowEngine(commands.Cog):
     @workflow.command(name="visual", description="Plots a linear text-graph of active workflows.")
     async def workflow_visual(self, ctx: commands.Context):
         key = f"workflows:{ctx.guild.id}"
-        cached = None
-        if hasattr(self.bot, 'cache') and self.bot.cache: cached = await self.bot.cache.get(key)
-        elif hasattr(self.bot, 'redis') and self.bot.redis: cached = await self.bot.redis.get(key)
-
-        if not cached:
-            return await ctx.send("No workflows configured.", ephemeral=True)
-            
-        if isinstance(cached, bytes): cached = cached.decode()
-        flows = json.loads(cached).get("flows", [])
+        data = await rget_json(self.bot, key) or {"flows": []}
+        flows = data.get("flows", [])
         
         if not flows:
             return await ctx.send("No workflows configured.", ephemeral=True)
@@ -105,7 +84,7 @@ class WorkflowEngine(commands.Cog):
         for f in flows:
             lines.append(f"┌─ EVENT: [{f['trigger'].upper()}]\n│   ↳ IF: ({f['condition']})\n└── THEN: <{f['action'].upper()}>")
 
-        embed = discord.Embed(title="❂ 𝗪𝗼𝗿𝗸𝗳𝗹𝗼𝘄 𝗗𝗔𝗚 𝗩𝗶𝘀𝘂𝗮𝗹𝗶𝘇𝗮𝘁𝗶𝗼𝗻", description="```text\n" + "\n\n".join(lines) + "\n```", color=0x9B59B6)
+        embed = discord.Embed(title="❂ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 𝒟𝒜𝒢 𝒱𝒾𝓈𝓊𝒶𝓁𝒾𝓏𝒶𝓉𝒾ℴ𝓃", description="```text\n" + "\n\n".join(lines) + "\n```", color=0x9B59B6)
         embed.set_footer(text="Engine: Hyacine Automation Graph")
         await ctx.send(embed=embed)
 
@@ -114,7 +93,7 @@ class WorkflowEngine(commands.Cog):
     async def eventpipe(self, ctx: commands.Context, event: str = "MESSAGE_CREATE", action: str = "toxicity_check"):
         await ctx.defer()
         embed = discord.Embed(
-            title="✧ 𝗘𝘃𝗲𝗻𝘁 𝗣𝗶𝗽𝗲𝗹𝗶𝗻𝗲 𝗖𝗿𝗲𝗮𝘁𝗲𝗱",
+            title="✧ ℰ𝓋ℯ𝓃𝓉 𝒫𝒾𝓅ℯ𝓁𝒾𝓃ℯ 𝒞𝓇ℯ𝒶𝓉ℯ𝒹",
             description=f"**Event**: `{event}`\n**Piped to Engine**: `{action}`\n\n*Pipeline active. Traffic is now being forwarded to internal moderation processors.*",
             color=0x2ECC71
         )
@@ -126,7 +105,7 @@ class WorkflowEngine(commands.Cog):
     async def conditionalrole(self, ctx: commands.Context, role: discord.Role, trust_minimum: int = 60, days_old: int = 14):
         await ctx.defer()
         embed = discord.Embed(
-            title="⟡ 𝗖𝗼𝗻𝗱𝗶𝘁𝗶𝗼𝗻𝗮𝗹 𝗔𝗰𝗰𝗲𝘀𝘀 𝗟𝗮𝘆𝗲𝗿 𝗔𝘀𝘀𝗶𝗴𝗻𝗲𝗱",
+            title="⟡ 𝒞ℴ𝓃𝒹𝒾𝓉iℴ𝓃𝒶𝓁 𝒜𝒸𝒸ℯ𝓈𝓈 ℒ𝒶𝓎ℯ𝓇 𝒜𝓈𝓈𝒾𝑔𝓃ℯ𝒹",
             description=f"**Target Role**: {role.mention}\n\n**Grant Conditions (AND):**\n• `account_age` > {days_old} days\n• `trust_score` > {trust_minimum}/100\n\n*Daemon evaluating guild members lazily.*",
             color=0xF1C40F
         )
@@ -138,7 +117,7 @@ class WorkflowEngine(commands.Cog):
     async def sentinel(self, ctx: commands.Context, toggle: str = "enable"):
         await ctx.defer()
         embed = discord.Embed(
-            title="𖦹 𝗦𝗲𝗻𝘁𝗶𝗻𝗲𝗹 𝗗𝗮𝗲𝗺𝗼𝗻 𝗘𝗻𝗴𝗮𝗴𝗲𝗱",
+            title="𖦹 𝒮ℯ𝓃𝓉𝒾𝓃ℯ𝓁 𝒟𝒶ℯ𝓂ℴ𝓃 ℰ𝓃𝑔𝒶𝑔ℯ𝒹",
             description="Hyacine's supreme background guardian is now Active.\n\n**Systems Linked:**\n• Deep Anomaly Detection\n• Live TrustScore Delta Tracking\n• Auto-Mitigation Matrix",
             color=0xE74C3C
         )
@@ -152,18 +131,11 @@ class WorkflowEngine(commands.Cog):
             return
 
         key = f"workflows:{message.guild.id}"
-        cached = None
-        if hasattr(self.bot, 'cache') and self.bot.cache: cached = await self.bot.cache.get(key)
-        
-        if not cached: return
-        if isinstance(cached, bytes): cached = cached.decode()
-        
-        try:
-            flows = json.loads(cached).get("flows", [])
-            if not flows: return
-        except: return
+        data = await rget_json(self.bot, key)
+        if not data: return
+        flows = data.get("flows", [])
+        if not flows: return
 
-        import re
         has_link = bool(re.search(r"http[s]?://", message.content))
         has_attachment = len(message.attachments) > 0
         
@@ -202,11 +174,11 @@ class WorkflowEngine(commands.Cog):
                         await message.delete()
                     elif a == "delete_and_warn":
                         await message.delete()
-                        await message.channel.send(f"⌬ ⟡ {message.author.mention}, your message was caught by an automatic workflow.", delete_after=5)
+                        await message.channel.send(f"⌬ ⟡ {message.author.mention}, 𝓎ℴ𝓊𝓇 𝓂ℯ𝓈𝓈𝒶𝑔ℯ 𝓌𝒶𝓈 𝒸𝒶𝓊𝑔𝒽𝓉 𝒷𝓎 𝒶𝓃 𝒶𝓊𝓉ℴ𝓂𝒶𝓉𝒾𝒸 𝓌ℴ𝓇𝓀𝒻𝓁ℴ𝓌.", delete_after=5)
                 except:
                     pass
                 break # Only execute the highest matched workflow per message
 
 async def setup(bot):
-    if "WorkflowEngine" not in bot.cogs:
-        await bot.add_cog(WorkflowEngine(bot))
+    if "WorkflowCommands" not in bot.cogs:
+        await bot.add_cog(WorkflowCommands(bot))

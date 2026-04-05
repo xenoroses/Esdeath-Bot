@@ -1,5 +1,5 @@
 import socket
-import requests
+import httpx
 import random
 import discord
 from discord.ext import commands
@@ -16,40 +16,38 @@ import logging
 import time
 import uvicorn
 import atexit
+import psutil
 from cache_layer import HyacineCache
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # --- 1. THE DOH MASTER BYPASS (DNS OVER HTTPS) ---
-# Hugging Face's DNS servers block Discord. This bypasses them completely
-# by asking Google's API for the real IPs via a standard web request.
-print("Fetching live Discord IPs via Google DNS-over-HTTPS...")
-try:
-    d_com = requests.get("https://dns.google/resolve?name=discord.com&type=A", timeout=5).json()
-    d_gg = requests.get("https://dns.google/resolve?name=gateway.discord.gg&type=A", timeout=5).json()
-    
-    DISCORD_COM_IPS = [ans['data'] for ans in d_com.get('Answer', []) if ans['type'] == 1]
-    DISCORD_GG_IPS = [ans['data'] for ans in d_gg.get('Answer', []) if ans['type'] == 1]
-    print(f"Bypass Successful! Found IPs: {len(DISCORD_COM_IPS)} API, {len(DISCORD_GG_IPS)} Gateway")
-except Exception as e:
-    print(f"DoH Bypass Failed: {e}")
-    DISCORD_COM_IPS, DISCORD_GG_IPS = [], []
+async def fetch_discord_ips():
+    """Fetches real terminal IPs via Google's DNS-over-HTTPS API."""
+    print("Fetching live Discord IPs via Google DoH...")
+    async with httpx.AsyncClient() as client:
+        try:
+            d_com = (await client.get("https://dns.google/resolve?name=discord.com&type=A", timeout=5.0)).json()
+            d_gg = (await client.get("https://dns.google/resolve?name=gateway.discord.gg&type=A", timeout=5.0)).json()
+            
+            com_ips = [ans['data'] for ans in d_com.get('Answer', []) if ans['type'] == 1]
+            gg_ips = [ans['data'] for ans in d_gg.get('Answer', []) if ans['type'] == 1]
+            return com_ips, gg_ips
+        except Exception as e:
+            logging.error(f"DoH Bypass Error: {e}")
+            return [], []
 
-if not DISCORD_COM_IPS or not DISCORD_GG_IPS:
-    print("WARNING: Discord API IP fetch failed - bot may not connect properly")
-
+# Socket-Level Patching
+DISCORD_COM_IPS, DISCORD_GG_IPS = [], []
 original_getaddrinfo = socket.getaddrinfo
 
 def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     safe_host = host.decode('utf-8') if isinstance(host, bytes) else host
-    
-    # Secretly swap the blocked hostname for a freshly fetched live IP
     if safe_host == "discord.com" and DISCORD_COM_IPS:
         return original_getaddrinfo(random.choice(DISCORD_COM_IPS), port, family, type, proto, flags)
     elif safe_host == "gateway.discord.gg" and DISCORD_GG_IPS:
         return original_getaddrinfo(random.choice(DISCORD_GG_IPS), port, family, type, proto, flags)
-        
     return original_getaddrinfo(host, port, family, type, proto, flags)
 
 socket.getaddrinfo = patched_getaddrinfo
@@ -71,8 +69,6 @@ def start_eval_server():
     uvicorn.run(eval_app, host="127.0.0.1", port=9000, log_level="warning")
 
 def keep_alive():
-    print("Starting Web Server Thread...")
-
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
@@ -85,44 +81,31 @@ def keep_alive():
 load_dotenv()
 TOKEN = os.getenv("dc_token")
 
-# Standardized System-Wide Defaults
 HYACINE_DEFAULT_PREFIXES = ["!", ","]
 
 async def get_server_prefixes(bot, message):
-    """Derives custom and system prefixes for message command handling."""
-    # Master Fallbacks
     if not message.guild or not getattr(bot, 'cache', None):
         return commands.when_mentioned_or(*HYACINE_DEFAULT_PREFIXES)(bot, message)
     
     try:
-        # Check Layer 1 Local Cache / Layer 2 Redis
         cached_prefixes = await bot.cache.get(f"prefixes:{message.guild.id}")
         if cached_prefixes:
-            # Parse the JSON string stored in the cache
             custom_prefixes = json.loads(cached_prefixes)
-            
-            # Ensure the list is valid and non-empty
             if isinstance(custom_prefixes, list) and custom_prefixes:
-                # Intelligent Auto-Expansion:
-                # If a prefix is alphanumeric (like 'hya'), we auto-add a version WITH a space. 
-                # This ensures both 'hyahelp' and 'hya help' work instantly.
                 expanded = []
                 for p in custom_prefixes:
                     expanded.append(p)
                     if p.isalnum() and not p.endswith(" "):
                         expanded.append(p + " ")
                 
-                # Merge custom prefixes with global system fallbacks for absolute stability
                 final_prefixes = list(set(expanded + HYACINE_DEFAULT_PREFIXES))
                 return commands.when_mentioned_or(*final_prefixes)(bot, message)
-                
     except Exception as e:
-        import logging
-        logging.error(f"Hyacine Prefix Architecture Error: {e}")
-        
+        logging.error(f"Prefix Fetch Error: {e}")
     return commands.when_mentioned_or(*HYACINE_DEFAULT_PREFIXES)(bot, message)
 
-class HyacineBot(commands.Bot):
+class HyacineBot(commands.AutoShardedBot):
+    """Tier S Architecture: Automatically handles sharding for massive server scales."""
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -134,85 +117,60 @@ class HyacineBot(commands.Bot):
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸𝒽ℴℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
-            case_insensitive=True
+            case_insensitive=True,
+            shard_count=None # Auto-detect
         )
-        self.last_result = None
         self.redis = None
         self.cache = None
 
     async def setup_hook(self):
+        logging.info("Initializing setup_hook...")
         register_bot(self)
-        logging.info("--- SETUP HOOK STARTING ---")
         try:
             url = os.getenv("UPSTASH_REDIS_REST_URL")
             token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
             if url and token:
+                logging.info("Connecting to Upstash Redis...")
                 self.redis = Redis(url=url, token=token)
                 self.cache = HyacineCache(self.redis)
-                for attempt in range(3):
-                    try:
-                        await asyncio.wait_for(self.redis.ping(), timeout=5.0)
-                        logging.info("Redis Connected successfully.")
-                        break
-                    except Exception as e:
-                        if attempt == 2:
-                            logging.warning(f"REDIS WARNING: Connection failed after retries. Error: {e}")
-                        else:
-                            logging.info(f"Redis connection attempt {attempt+1} failed, retrying...")
-                            await asyncio.sleep(1)
-            else:
-                logging.error("REDIS ERROR: Missing Environment Variables.")
+                # Use a timeout for the ping to prevent indefinite hanging
+                await asyncio.wait_for(self.redis.ping(), timeout=5.0)
+                logging.info("Redis Connection: SUCCESS")
+        except asyncio.TimeoutError:
+            logging.error("Redis Connection: TIMEOUT (Check URL/Token or Network)")
         except Exception as e:
-            logging.warning(f"REDIS WARNING: Connection failed. Error: {e}")
-
+            logging.warning(f"REDIS CONNECTION FAILURE: {e}")
 
         extensions = [
-            "cogs.staff_cmds",
-            "cogs.ai_chat",
-            "cogs.impersonator",
-            "cogs.fun_cmds",
-            "cogs.admin_cmds",
-            "cogs.sticky_cmds",
-            "cogs.forcenick_cmds",
-            "cogs.automod_engine",
-            "cogs.afk_cmds",
-            "cogs.trust_cmds",
-            "cogs.smartpurge_cmds",
-            "cogs.security_cmds",
-            "cogs.ai_utility_cmds",
-            "cogs.workflow_cmds",
-            "cogs.help_cmds",
-            "cogs.intelligence_engine",
-            "cogs.infrastructure_engine",
-            "cogs.observability_engine",
-            "cogs.prestige_engine",
-            "cogs.social_engine",
-            "cogs.lore_engine",
-            "cogs.synaptic_social"
+            "cogs.staff_cmds", "cogs.ai_chat", "cogs.impersonator", "cogs.fun_cmds",
+            "cogs.admin_cmds", "cogs.sticky_cmds", "cogs.forcenick_cmds",
+            "cogs.afk_cmds", "cogs.trust_cmds",
+            "cogs.smartpurge_cmds", "cogs.ai_utility_cmds",
+            "cogs.help_cmds", "cogs.intelligence_engine",
+            "cogs.infrastructure_engine", "cogs.observability_engine",
+            "cogs.prestige_engine", "cogs.social_engine", "cogs.lore_engine",
+            "cogs.synaptic_social", "cogs.schedule_engine",
+            "cogs.workflow_engine"
         ]
 
+        logging.info(f"Loading {len(extensions)} extensions...")
         for ext in extensions:
-            if ext not in self.extensions:
-                try:
-                    await self.load_extension(ext)
-                    logging.info(f"Successfully loaded {ext}")
-                except Exception as e:
-                    logging.error(f"CRITICAL: Failed to load {ext} -> {e}")
+            try:
+                logging.info(f" -> Loading {ext}...")
+                await self.load_extension(ext)
+            except Exception as e:
+                logging.error(f"Failed to load {ext}: {e}")
+        logging.info("All extensions loaded.")
 
         try:
             synced = await self.tree.sync()
-            self._app_cmd_cache = {c.name: c.id for c in synced}
-            with open("command_cache.json", "w") as f:
-                json.dump(self._app_cmd_cache, f, indent=4)
-            logging.info(f"--- SLASH COMMANDS SYNCED ({len(synced)} commands) ---")
+            logging.info(f"Synced {len(synced)} slash commands.")
         except Exception as e:
             logging.error(f"Sync Error: {e}")
 
     async def on_ready(self):
         self.start_time = time.time()
-        print(f"BOT INSTANCE PID: {os.getpid()}")
-        logging.info(f"SUCCESS: {self.user} is online and operational on Hugging Face.")
-        # Start presence rotation
+        logging.info(f"SUCCESS: {self.user} represents the Stellar Symphony (PID: {os.getpid()})")
         if not hasattr(self, "presence_task"):
             self.presence_task = self.loop.create_task(self.rotate_presence())
 
@@ -220,136 +178,89 @@ class HyacineBot(commands.Bot):
         await self.process_commands(message)
 
     async def rotate_presence(self):
-        statuses = [
-            discord.Activity(type=discord.ActivityType.watching, name="Stalking Zen"),
-            discord.Activity(type=discord.ActivityType.listening, name="Your Commands"),
-            discord.Activity(type=discord.ActivityType.playing, name="With Fire"),
-            discord.Activity(type=discord.ActivityType.watching, name="The Server")
+        """Rotates stellar activities and statuses to keep the engine dynamic."""
+        presets = [
+            (discord.Status.online, discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸𝒽ℴℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹")),
+            (discord.Status.idle, discord.Activity(type=discord.ActivityType.listening, name="❂ 𝒯𝒽ℯ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 𝒮𝓎𝓂Ⓟ𝒽ℴ𝓃𝓎")),
+            (discord.Status.dnd, discord.Activity(type=discord.ActivityType.competing, name="⌬ 𝒞𝒶𝓁𝒞𝓊𝓁𝒶𝓉𝒾𝓃ℊ 𝒯ℯ𝓃𝓈𝒾ℴ𝓃")),
+            (discord.Status.online, discord.Activity(type=discord.ActivityType.watching, name="𖦹 𝒮ℯ𝒶 ℴ𝒻 𝒬𝓊𝒶𝓃𝓉𝒶 𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎")),
+            (discord.Status.idle, discord.Activity(type=discord.ActivityType.playing, name="⟡ 𝒫𝒶𝓉𝒽 ℴ𝒻 𝓉𝒽ℯ 𝒯𝓇𝒶𝒾𝓁𝒷𝓁𝒶𝒷ℯ𝓇"))
         ]
         while True:
-            for status in statuses:
-                await self.change_presence(activity=status)
-                await asyncio.sleep(300)  # 5 minutes
+            for status, activity in presets:
+                await self.change_presence(status=status, activity=activity)
+                await asyncio.sleep(300)
+
+    async def on_error(self, event, *args, **kwargs):
+        import traceback
+        logging.error(f"Stellar Event Error in {event}: {traceback.format_exc()}")
 
     async def on_command_error(self, ctx: commands.Context, error):
-        # Ignore slash-command errors (hybrid commands trigger both)
-        if ctx.interaction is not None:
-            return
-
-        # Ignore unknown commands
-        if isinstance(error, commands.CommandNotFound):
-            return
-
-        # Prevent duplicate handling
-        if getattr(ctx, "_error_handled", False):
-            return
+        if ctx.interaction is not None: return
+        if isinstance(error, commands.CommandNotFound): return
+        if getattr(ctx, "_error_handled", False): return
         ctx._error_handled = True
 
-        if isinstance(error, commands.MissingRequiredArgument):
-            missing_param = error.param.name
-            command_name = ctx.command.qualified_name
-            prefix = ctx.clean_prefix
-
-            base_str = f"{prefix}{command_name} "
-            current_len = len(base_str)
-
-            signature_parts = []
-            target_start_idx = 0
-            target_length = 0
-
-            for name, param in ctx.command.clean_params.items():
-                part = f"<{name}>" if param.required else f"[{name}]"
-                if name == missing_param:
-                    target_start_idx = current_len
-                    target_length = len(part)
-                signature_parts.append(part)
-                current_len += len(part) + 1
-
-            full_command_str = base_str + " ".join(signature_parts)
-            carets = (" " * target_start_idx) + ("^" * target_length)
-
-            return await ctx.send(
-                f"```\n"
-                f"{full_command_str}\n"
-                f"{carets}\n"
-                f"{missing_param} is a required argument that is missing.\n"
-                f"```"
-            )
-
-        print(f"Unhandled Command Error: {error}")
-
-import psutil
+        if isinstance(error, (commands.MissingRequiredArgument, commands.BadArgument)):
+            return await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℛℯ𝓆𝓊𝒾𝓈𝒾𝓉𝒾ℴ𝓃 ℱ𝒶𝒾𝓁𝓊𝓇ℯ:**\n```\nUsage: {ctx.clean_prefix}{ctx.command.qualified_name} {ctx.command.signature}\n```")
+        elif isinstance(error, commands.MissingPermissions):
+            return await ctx.send(f"⌬ ⟡ **𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟:** Missing `{', '.join(error.missing_permissions)}`.")
+        elif isinstance(error, commands.CommandOnCooldown):
+            return await ctx.send(f"⌬ ⟡ **𝒯ℋℛ𝒪𝒯𝒯ℒℐ𝒩𝒢:** `{error.retry_after:.1f}s` remaining.")
+        logging.error(f"Command Error: {error}")
 
 # --- 4. STARTUP LOGIC ---
-if __name__ == "__main__":
-    # Singleton lock to prevent multiple bot instances
-    LOCK_FILE = "bot.lock"
+async def main():
+    """Main asynchronous entry point for the Hyacine Protocol."""
+    global DISCORD_COM_IPS, DISCORD_GG_IPS
+    DISCORD_COM_IPS, DISCORD_GG_IPS = await fetch_discord_ips()
     
+    LOCK_FILE = "bot.lock"
     if os.path.exists(LOCK_FILE):
         try:
             with open(LOCK_FILE, "r") as f:
                 old_pid = int(f.read().strip())
-            
-            # Check if previous process is still alive
             if psutil.pid_exists(old_pid):
-                print(f"Another bot instance (PID {old_pid}) detected. Forcefully terminating...")
-                try:
-                    p = psutil.Process(old_pid)
-                    p.terminate()
-                    p.wait(timeout=3)
-                    print("Previous instance terminated. Proceeding.")
-                except Exception as e:
-                    print(f"Could not terminate old instance: {e}. Exiting to prevent duplication.")
-                    sys.exit(0)
-            else:
-                print("Detected stale lock file. Cleaning up...")
-                os.remove(LOCK_FILE)
-        except Exception:
-            # If file is empty or corrupted, just clear it
+                try: 
+                    psutil.Process(old_pid).terminate()
+                    time.sleep(1)
+                except: pass
             os.remove(LOCK_FILE)
+        except: 
+            if os.path.exists(LOCK_FILE): os.remove(LOCK_FILE)
     
-    # Create lock file with current PID
-    with open(LOCK_FILE, "w") as f:
-        f.write(str(os.getpid()))
-    
-    # Cleanup function for lock file
+    with open(LOCK_FILE, "w") as f: f.write(str(os.getpid()))
     def cleanup_lock():
-        if os.path.exists(LOCK_FILE):
-            try:
-                # Only remove if it belongs to us
-                with open(LOCK_FILE, "r") as f:
-                    if f.read().strip() == str(os.getpid()):
-                        os.remove(LOCK_FILE)
-            except: pass
-    
+        try:
+            with open(LOCK_FILE, "r") as f:
+                if f.read().strip() == str(os.getpid()): os.remove(LOCK_FILE)
+        except: pass
     atexit.register(cleanup_lock)
-    
+
     keep_alive()
-    if TOKEN:
-        print("Initiating Discord Login...")
-        
-        # Exponential Backoff for 429 Rate Limits
-        max_retries = 5
-        retry_delay = 60 # Start with 1 minute
-        
-        for attempt in range(max_retries):
-            bot = HyacineBot()
-            try:
-                bot.run(TOKEN)
-                break # Success!
-            except Exception as e:
-                err_str = str(e)
-                if "429" in err_str or "1015" in err_str:
-                    wait_time = retry_delay * (attempt + 1)
-                    print(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒯𝒽𝓇ℴ𝓉𝓉𝓁ℯ𝒹 (𝟦𝟤𝟫/𝟣𝟢𝟣𝟧).**")
-                    print(f"Waiting {wait_time}s before stellar reconnection attempt {attempt + 1}/{max_retries}...")
-                    time.sleep(wait_time)
-                else:
-                    print(f"FATAL ERROR ON STARTUP: {e}")
-                    sys.exit(1)
-        else:
-            print("⌬ ⟡ **𝒜𝒷𝓈ℴ𝓁𝓊𝓉ℯ 𝒯𝒽𝓇ℴ𝓉𝓉𝓁ℯ ℛℯ𝒶𝒸𝒽ℯ𝒹.** Check back in 30 minutes.")
-            sys.exit(1)
-    else:
-        print("FATAL ERROR: dc_token missing!")
+    
+    if not TOKEN:
+        logging.error("FATAL: dc_token missing.")
         sys.exit(1)
+
+    max_retries = 5
+    for attempt in range(max_retries):
+        bot = HyacineBot()
+        try:
+            async with bot:
+                await bot.start(TOKEN)
+            break
+        except Exception as e:
+            if "429" in str(e) or "1015" in str(e):
+                wait_time = 60 * (attempt + 1)
+                logging.warning(f"Throttled. Reconnection in {wait_time}s...")
+                await asyncio.sleep(wait_time)
+            else:
+                logging.error(f"Fatal Error: {e}")
+                sys.exit(1)
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

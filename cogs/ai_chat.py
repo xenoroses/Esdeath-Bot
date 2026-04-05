@@ -1,13 +1,14 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import random
-import asyncio
-import json
 import time
 import re
-from llm import generate_reply
+import json
+import asyncio
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
-from redis_utils import rget_json, rget
+from redis_utils import rget, rget_json, rset_json
+from llm import generate_reply
 
 class AIChat(commands.Cog):
     def __init__(self, bot):
@@ -17,6 +18,17 @@ class AIChat(commands.Cog):
         self.channel_cooldowns = {}
         self.channel_warnings = {}
         self.recent_members = defaultdict(list)
+        self.prune_trackers.start()
+
+    def cog_unload(self):
+        self.prune_trackers.cancel()
+
+    @tasks.loop(hours=12)
+    async def prune_trackers(self):
+        """Scale-Hardening: Evict tracking data for channels no longer reachable."""
+        for cid in list(self.recent_members.keys()):
+            if not self.bot.get_channel(cid):
+                del self.recent_members[cid]
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -77,8 +89,8 @@ class AIChat(commands.Cog):
             if current_time - last_warn_time > self.COOLDOWN_TIME:
                 
                 limit_embed = discord.Embed(
-                    title="⚠️ Rate Limit Reached",
-                    description="There are too many responses right now. Please wait a few seconds and try again.",
+                    title="⚠️ ℛ𝒶𝓉ℯ ℒ𝒾𝓂i𝓉 ℛℯ𝒶𝒸𝒽ℯ𝒹",
+                    description="𝒯𝒽ℯ𝓇ℯ 𝒶𝓇ℯ 𝓉ℴℴ 𝓂𝒶𝓃𝓎 𝓇ℯ𝓈𝓅ℴ𝓃𝓈ℯ𝓈 𝓇i𝑔𝒽𝓉 𝓃ℴ𝓌. 𝒫𝓁ℯ𝒶𝓈ℯ 𝓌𝒶i𝓉 𝒶 𝒻ℯ𝓌 𝓈ℯ𝒸ℴ𝓃𝒹𝓈 𝒶𝓃𝒹 𝓉𝓇𝓎 𝒶𝑔𝒶i𝓃.",
                     color=0xffcc00 
                 )
                 limit_embed.set_footer(text="System: Cooldown Active")
@@ -131,7 +143,7 @@ class AIChat(commands.Cog):
         try:
             async with message.channel.typing():
                 # Call the LLM with the full contextual background
-                reply = await asyncio.to_thread(generate_reply, processing_memory)
+                reply = await generate_reply(processing_memory)
 
             # SMART CAPITALIZATION
             reply = re.sub(r'(^|[.?!]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), reply)
@@ -146,14 +158,14 @@ class AIChat(commands.Cog):
             
             # Truncate history to keep it fast
             channel_memory = channel_memory[-self.MAX_HISTORY:]
-            await self.bot.redis.set(f"memory:{channel_id}", json.dumps(channel_memory))
+            await rset_json(self.bot, f"memory:{channel_id}", channel_memory)
 
         except Exception as e:
             print(f"Chat Error: {e}")
             
             error_embed = discord.Embed(
                 title="⌬ 𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇",
-                description="The neural link dropped for a second. Please try your request again.",
+                description="𝒯𝒽ℯ 𝓃ℯ𝓊𝓇𝒶𝓁 𝓁𝒾𝓃𝓀 𝒹𝓇ℴ𝓅𝓅ℯ𝒹 𝒻ℴ𝓇 𝒶 𝓈ℯ𝒸ℴ𝓃𝒹. 𝒫𝓁ℯ𝒶𝓈ℯ 𝓉𝓇𝓎 𝓎ℴ𝓊𝓇 𝓇ℯ𝓆𝓊ℯ𝓈𝓉 𝒶𝑔𝒶𝒾𝓃.",
                 color=0xe74c3c 
             )
             error_embed.set_footer(text="System: Connection Timeout")

@@ -1,11 +1,12 @@
 import discord
-import asyncio
 from discord.ext import commands
-import json
-import io
-import textwrap
-import traceback
 from contextlib import redirect_stdout
+import time
+import psutil
+import platform
+import asyncio
+import json
+from redis_utils import rget_json, rset_json
 
 
 # --- CUSTOM BOT ADMIN CHECK ---
@@ -14,18 +15,9 @@ async def is_bot_admin(ctx):
     if await ctx.bot.is_owner(ctx.author):
         return True
 
-    # Check Redis for global bot admins
-    if getattr(ctx.bot, "cache", None):
-        try:
-            cached = await ctx.bot.cache.get("bot_admins")
-            if cached:
-                # cache layer decodes bytes automatically
-                admins = json.loads(cached)
-                return ctx.author.id in admins
-        except Exception as e:
-            print(f"Admin check error: {e}")
-
-    return False
+    # Check Resource Cache for global bot admins (Standardized)
+    admins = await rget_json(ctx.bot, "bot_admins") or []
+    return ctx.author.id in admins
 
 
 class OwnerCmds(commands.Cog):
@@ -74,7 +66,7 @@ class OwnerCmds(commands.Cog):
             if user.id in admins:
                 return await self._send_error(
                     ctx,
-                    f"**{user.display_name}** is already a Bot Admin."
+                    f"**{user.display_name}** 𝒾𝓈 𝒶𝓁𝓇ℯ𝒶𝒹𝓎 𝒶 ℬℴ𝓉 𝒜𝒹𝓂𝒾𝓃."
                 )
 
             admins.append(user.id)
@@ -115,7 +107,7 @@ class OwnerCmds(commands.Cog):
             if user.id not in admins:
                 return await self._send_error(
                     ctx,
-                    f"**{user.display_name}** is not a Bot Admin."
+                    f"**{user.display_name}** 𝒾𝓈 𝓃ℴ𝓉 𝒶 ℬℴ𝓉 𝒜𝒹𝓂𝒾𝓃."
                 )
 
             admins.remove(user.id)
@@ -127,7 +119,7 @@ class OwnerCmds(commands.Cog):
 
             await self._send_success(
                 ctx,
-                f"Stripped Bot Admin privileges from **{user.mention}**."
+                f"𝒮𝓉𝓇𝒾𝓅𝓅ℯ𝒹 ℬℴ𝓉 𝒜𝒹𝓂𝒾𝓃 𝓅𝓇𝒾𝓋𝒾𝓁ℯ𝑔ℯ𝓈 𝒻𝓇ℴ𝓂 **{user.mention}**."
             )
 
         except Exception as e:
@@ -136,9 +128,6 @@ class OwnerCmds(commands.Cog):
     @commands.hybrid_command(name="health", description="Check bot health status.")
     @commands.check(is_bot_admin)
     async def health(self, ctx: commands.Context):
-        import time
-        import psutil
-        import platform
 
         # Redis status
         redis_status = "⌬ **𝒟𝒾𝓈𝒸ℴ𝓃𝓃ℯ𝒸𝓉ℯ𝒹**"
@@ -160,7 +149,7 @@ class OwnerCmds(commands.Cog):
         ext_count = len(self.bot.extensions)
 
         embed = discord.Embed(
-            title="𖦹 ℋ𝓎𝒶𝒸𝒾𝓃𝓉𝒽ℯ ℋℯ𝒶𝓁𝓉𝒽 𝒮𝓉𝒶𝓉𝓊𝓈",
+            title="𖦹 ℋ𝓎𝒶𝒸𝒾𝓃ℯ ℋℯ𝒶𝓁𝓉𝒽 𝒮𝓉𝒶𝓉𝓊𝓈",
             color=0x9B59B6
         )
         embed.add_field(name="Redis", value=redis_status, inline=True)
@@ -170,6 +159,13 @@ class OwnerCmds(commands.Cog):
         embed.add_field(name="Python", value=platform.python_version(), inline=True)
         embed.add_field(name="Discord.py", value=discord.__version__, inline=True)
 
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="embed", description="Send a custom high-density matrix embed.")
+    @commands.has_permissions(manage_messages=True)
+    async def send_embed(self, ctx: commands.Context, title: str, *, description: str):
+        embed = discord.Embed(title=f"⌬ {title}", description=description, color=0x9B59B6)
+        embed.set_footer(text=f"Sent by {ctx.author.display_name} | Hyacine Matrix")
         await ctx.send(embed=embed)
 
 

@@ -25,27 +25,21 @@ Welcome to the **Infinite Registry (v13.0)** of the Hyacine Protocol. This docum
 [`prefix add`](#command-prefix-add) ⟡ [`prefix remove`](#command-prefix-remove) ⟡ [`prefix list`](#command-prefix-list) ⟡ [`info server`](#command-info-server) ⟡ [`info user`](#command-info-user) ⟡ [`info avatar`](#command-info-avatar) ⟡ [`info members`](#command-info-members) ⟡ [`case view`](#command-case-view) ⟡ [`case edit`](#command-case-edit) ⟡ [`case clear`](#command-case-clear) ⟡ [`role add`](#command-role-add) ⟡ [`role remove`](#command-role-remove) ⟡ [`ai ask`](#command-ai-ask) ⟡ [`ai lock`](#command-ai-lock) ⟡ [`ai unlock`](#command-ai-unlock)
 
 ### **7. 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 & ℰ𝓍𝒾𝓈𝓉ℯ𝓃𝒸ℯ (The Moderation Layer)**
-[`warn`](#command-warn) ⟡ [`mute`](#command-mute) ⟡ [`unmute`](#command-unmute) ⟡ [`kick`](#command-kick) ⟡ [`ban`](#command-ban) ⟡ [`purge`](#command-purge) ⟡ [`setbio`](#command-setbio)
+[`warn`](#command-warn) ⟡ [`mute`](#command-mute) ⟡ [`unmute`](#command-unmute) ⟡ [`kick`](#command-kick) ⟡ [`ban`](#command-ban) ⟡ [`purge`](#command-purge) ⟡ [`setbio`](#command-setbio) ⟡ [`shadowban`](#command-shadowban)
 
-### **8. 𝒹ℯ𝒸𝓁𝒶𝓇𝒶𝓉𝒾𝓋ℯ 𝒢𝓊𝒶𝓇𝒹𝒾𝒶𝓃 (The Automod Layer)**
-[`automod add-rule`](#command-automod-add-rule) ⟡ [`automod list`](#command-automod-list) ⟡ [`automod remove`](#command-automod-remove)
+### **8. 𝒜𝓊𝓉ℴ-𝒜𝓊𝓉ℴ𝓂𝒶𝓉𝒾𝓃𝑔 𝒮ℯ𝓇𝓋ℯ𝓇 𝒪𝓅ℯ𝓇𝒶𝓉𝒾ℴ𝓃𝓈 (The Architect Layer)**
+[`workflow create`](#command-workflow-create) ⟡ [`workflow list`](#command-workflow-list) ⟡ [`workflow toggle`](#command-workflow-toggle) ⟡ [`workflow delete`](#command-workflow-delete)
 
-### **9. 𝒮𝓉𝓇𝒶𝓉ℯ𝑔𝒾𝒸 𝒮ℯ𝒸𝓊𝗋𝗂𝗍𝗒 (The Protection Layer)**
-[`shadowban`](#command-shadowban) ⟡ [`raidshield auto`](#command-raidshield-auto) ⟡ [`intel server`](#command-intel-server)
+### **9. 𝒮𝒾𝓂𝓊𝓁𝒶𝓉ℯ𝒹 ℐ𝓃𝓉ℯ𝓁𝓁𝒾𝑔ℯ𝓃𝒸ℯ (The AI Support Layer)**
+[`summarize`](#command-summarize) ⟡ [`policy`](#command-policy) ⟡ [`memory`](#command-memory)
 
-### **10. 𝒜𝓊𝓉ℴautomating Server Operations (The Architect Layer)**
-[`workflow create`](#command-workflow-create) ⟡ [`workflow list`](#command-workflow-list) ⟡ [`workflow visual`](#command-workflow-visual) ⟡ [`eventpipe`](#command-eventpipe) ⟡ [`conditionalrole`](#command-conditionalrole) ⟡ [`sentinel`](#command-sentinel)
+### **10. 𝒮𝓉𝓇𝒶𝓉ℯ𝑔𝒾𝒸 𝒪𝒷𝓈ℯ𝓇𝓋𝒶𝒷𝒾𝓁𝒾𝓉𝓎 (The Metrics Layer)**
+[`latencybreakdown`](#command-latencybreakdown) ⟡ [`taskwatch`](#command-taskwatch) ⟡ [`memoryusage`](#command-memoryusage) ⟡ [`forensics`](#command-forensics) ⟡ [`channelhealth`](#command-channelhealth) ⟡ [`digest`](#command-digest) ⟡ [`vitality`](#command-vitality) ⟡ [`health`](#command-health)
 
-### **11. 𝒮𝒾𝓂𝓊𝓁𝒶𝓉ℯ𝒹 ℐ𝓃𝓉ℯ𝓁𝓁𝒾𝑔ℯ𝓃𝒸ℯ (The AI Support Layer)**
-[`modsimulate`](#command-modsimulate) ⟡ [`summarize`](#command-summarize) ⟡ [`policy`](#command-policy) ⟡ [`memory`](#command-memory) ⟡ [`autocase`](#command-autocase) ⟡ [`why`](#command-why)
+### **11. 𝒜𝓊𝑔𝓂ℯ𝓃𝓉𝒶𝓉𝒾𝓋ℯ 𝒰𝓉𝒾𝓁𝒾𝓉𝓎 (The Utility Layer)**
+[`afk`](#command-afk) ⟡ [`sticky`](#command-sticky) ⟡ [`unsticky`](#command-unsticky) ⟡ [`poll`](#command-poll) ⟡ [`embed`](#command-embed) ⟡ [`nickname`](#command-nickname) ⟡ [`remind`](#command-remind) ⟡ [`trustscore`](#command-trustscore) ⟡ [`forcenick`](#command-forcenick) ⟡ [`unforcenick`](#command-unforcenick)
 
-### **12. 𝒮𝓉𝓇𝒶𝓉ℯ𝑔𝒾𝒸 𝒪𝒷𝓈ℯ𝓇𝓋𝒶𝒷𝒾𝓁𝒾𝗍𝓎 (The Metrics Layer)**
-[`latencybreakdown`](#command-latencybreakdown) ⟡ [`taskwatch`](#command-taskwatch) ⟡ [`memoryusage`](#command-memoryusage) ⟡ [`autopolicy`](#command-autopolicy) ⟡ [`contain`](#command-contain) ⟡ [`forensics`](#command-forensics) ⟡ [`channelhealth`](#command-channelhealth) ⟡ [`digest`](#command-digest) ⟡ [`vitality`](#command-vitality) ⟡ [`health`](#command-health)
-
-### **13. 𝒜𝓊𝑔𝓂ℯ𝓃𝓉𝒶𝓉𝒾𝓋ℯ 𝒰𝓉𝒾𝓁𝒾𝓁𝒾𝓉𝓎 (The Utility Layer)**
-[`afk`](#command-afk) ⟡ [`sticky`](#command-sticky) ⟡ [`unsticky`](#command-unsticky) ⟡ [`poll`](#command-poll) ⟡ [`embed`](#command-embed) ⟡ [`nickname`](#command-nickname) ⟡ [`remind`](#command-remind) ⟡ [`urban`](#command-urban) ⟡ [`math`](#command-math) ⟡ [`roll`](#command-roll) ⟡ [`coinflip`](#command-coinflip) ⟡ [`trustscore`](#command-trustscore) ⟡ [`forcenick`](#command-forcenick) ⟡ [`unforcenick`](#command-unforcenick)
-
-### **14. 𝒮𝓊𝒷𝓉ℯ𝓇𝒻𝓊𝑔ℯ & 𝒮ℴ𝓋ℯ𝓇ℯ𝒾𝑔𝓃 𝒪𝓋ℯ𝓇𝓈𝒾𝑔𝒽𝓉 (The High Oversight Layer)**
+### **12. 𝒮𝓊𝒷𝓉ℯ𝓇𝒻𝓊𝑔ℯ & 𝒮ℴ𝓋ℯ𝓇ℯ𝒾𝑔𝓃 𝒪𝓋ℯ𝓇𝓈𝒾𝑔𝒽𝓉 (The High Oversight Layer)**
 [`say`](#command-say) ⟡ [`addadmin`](#command-addadmin) ⟡ [`removeadmin`](#command-removeadmin) ⟡ [`schedule`](#command-schedule) ⟡ [`help`](#command-help)
 
 ---
@@ -602,47 +596,6 @@ Welcome to the **Infinite Registry (v13.0)** of the Hyacine Protocol. This docum
     - *Scenario B (Drama cleanup):* Erasing a heated argument that violated server protocols.
     - *Scenario C (Privacy):* Moving sensitive chat to the void by purging the recent history.
 
-### **Command: ,smartpurge**
-- **The Essence:** Surgical Erasure Protocol. Unlike a raw purge, SmartPurge uses advanced behavioral filters to identify specific targets (Bots, Links, Attachments, or specific text strings) while leaving the surrounding human conversation intact. It represents the highest tier of administrative precision.
-- **Technical Matrix:** `[limit]` (Max 500 messages), `[filter_type]` (all, bots, links, attachments, contains), `[specific_text]` (required for contains).
-- **Usage Example:** `,smartpurge 100 links`
-- **Operational Scenarios:**
-    - *Scenario A (Bot Cleanup):* A bot malfunctions and spams 200 messages in #general. You type `,smartpurge 500 bots`. Only the bot's messages are vaporized.
-    - *Scenario B (Leak Prevention):* Someone leaks a private invite link multiple times. You type `,smartpurge 200 links` to remove all URL patterns instantly.
-    - *Scenario C (Keyword Neutralization):* A specific harassment keyword is being spammed. You type `,smartpurge 100 contains "harassment_word"` to surgical remove those instances.
-
----
-
-## 8. 𝒹ℯ𝒸𝓁𝒶𝓇𝒶𝓉𝒾𝓋ℯ 𝒢𝓊𝒶𝓇𝒹𝒾𝒶𝓃 (The Automod Layer)
-
-### **Command: ,automod add-rule**
-- **The Essence:** Define new automated logic gates. Regex rules with actions (Delete/Warn/Shadowban).
-- **Usage Example:** `,automod add-rule warn \bscam\b Toxic behavior detected`
-- **Operational Scenarios:**
-    - *Scenario A (Gateway):* Banning invite links.
-    - *Scenario B (Keyword):* Filtering toxic slurs.
-    - *Scenario C (Advanced):* Creating complex regex triggers for raid patterns.
-
-### **Command: ,automod list**
-- **The Essence:** View all active automated logic gates and their IDs.
-- **Usage Example:** `,automod list`
-- **Operational Scenarios:**
-    - *Scenario A (Audit):* Reviewing current server security rules.
-    - *Scenario B (Tuning):* Checking rule efficiency.
-    - *Scenario C (Debugging):* Identifying rule conflicts.
-
-### **Command: ,automod remove**
-- **The Essence:** Dissolve a rule gate.
-- **Usage Example:** `,automod remove 1`
-- **Operational Scenarios:**
-    - *Scenario A (Cleanup):* Clearing outdated rules.
-    - *Scenario B (Mercy):* Loosening restrictions.
-    - *Scenario C (Update):* Sequence for rewriting complex rules.
-
----
-
-## 9. 𝒮𝓉𝓇𝒶𝓉ℯ𝑔𝒾𝒸 𝒮ℯ𝒸𝓊𝗋𝗂𝗍𝗒 (The Protection Layer)
-
 ### **Command: ,shadowban**
 - **The Essence:** Silent Vaporization. The ultimate invisible tool. Every message is deleted without the user being notified.
 - **Usage Example:** `,shadowban @Troll`
@@ -651,77 +604,69 @@ Welcome to the **Infinite Registry (v13.0)** of the Hyacine Protocol. This docum
     - *Scenario B (Infiltration):* Silencing suspected spies anonymously.
     - *Scenario C (Stealth):* Maintaining server peace via silent removal.
 
-### **Command: ,raidshield auto**
-- **The Essence:** Toggles account-age and join-velocity filtering. Active Shield.
-- **Usage Example:** `,raidshield auto on`
+### **Command: ,contain**
+- **The Essence:** Soft-Lock throttle without formal muting. It applies an aggressive, machine-enforced rate-limit to an identity, preventing them from "Flooding" the sector while still allowing for basic communication.
+- **Usage Example:** `,contain @User`
 - **Operational Scenarios:**
-    - *Scenario A (Raid Active):* Rapid influx protection.
-    - *Scenario B (Night Shield):* Locking joins during low-staff hours.
-    - *Scenario C (Protection):* High-level sector lockdown.
-
-### **Command: ,intel server**
-- **The Essence:** Snapshot API. Generates full forensic snapshots of server state.
-- **Usage Example:** `,intel server`
-- **Operational Scenarios:**
-    - *Scenario A (Audit):* Weekly security overview.
-    - *Scenario B (Forensics):* Post-breach state check.
-    - *Scenario C (Record):* Permanent historical snapshot.
+    - *Scenario A (The Cool-off):* A user is getting too excited and spamming emojis. You `contain` them, forcing a restrict on links/images.
+    - *Scenario B (Suspicion):* A new account is acting like a bot. You `contain` them until a staff member can perform a full `forensics` scan.
+    - *Scenario C (Crowd Control):* Throttling multiple individuals during a heated debate to keep the chat readable.
 
 ---
 
-## 10. 𝒜𝓊𝓉ℴautomating Server Operations (The Architect Layer)
+## 8. 𝒜𝓊𝓉ℴ-𝒜𝓊𝓉ℴ𝓂𝒶𝓉𝒾𝓃𝑔 𝒮ℯ𝓇𝓋ℯ𝓇 𝒪𝓅ℯ𝓇𝒶𝓉𝒾ℴ𝓃𝓈 (The Architect Layer)
 
 ### **Command: ,workflow create**
 - **The Essence:** Create trigger-action-condition workflows. Logic graph building.
-- **Usage Example:** `,workflow create auto_loyalist`
+- **Usage Example:** `/workflow create welcome`
 - **Operational Scenarios:**
     - *Scenario A (Join logic):* "When user joins, give Role Member."
     - *Scenario B (Trigger):* "If keyword 'Support' is used, send DM."
-    - *Scenario C (Advanced):* Mult-step automation chains for role progression.
+    - *Scenario C (Advanced):* Multi-step automation chains for role progression.
 
 ### **Command: ,workflow list**
-- **The Essence:** View active logical animations and task IDs.
-- **Usage Example:** `,workflow list`
+- **The Essence:** View active logical animations and task names.
+- **Usage Example:** `/workflow list`
 - **Operational Scenarios:**
     - *Scenario A (Tracking):* Monitoring active automation flows.
-    - *Scenario B (Audit):* Reviewing logic gate IDs.
-    - *Scenario C (Cleanup):* Pruning unused flows.
 
-### **Command: ,workflow visual**
-- **The Essence:** ASCII linear plotter for logic gate visualization.
-- **Usage Example:** `,workflow visual [workflow_id]`
-- **Operational Scenarios:**
-    - *Scenario A (Audit):* Visualizing complex role logic.
-    - *Scenario B (Debug):* Identifying broken logic links.
-    - *Scenario C (Demo):* Explaining workflows to other admins.
+### **Command: ,workflow toggle**
+- **The Essence:** Enable or disable a specific automation gate from the active circuit.
+- **Usage Example:** `/workflow toggle welcome`
 
-### **Command: ,eventpipe**
-- **The Essence:** Bind internal events to trust score modifiers. Tuning social weight.
-- **Usage Example:** `,eventpipe bind message_sent 0.1`
-- **Operational Scenarios:**
-    - *Scenario A (Stat gain):* Rewarding chat activity.
-    - *Scenario B (Decay):* Penalizing inactivity.
-    - *Scenario C (Gatekeep):* Tying trust to specific actions.
-
-### **Command: ,conditionalrole**
-- **The Essence:** Dynamic Role assignment based on logic (Trust/Points/Tenure).
-- **Usage Example:** `,conditionalrole trust > 8`
-- **Operational Scenarios:**
-    - *Scenario A (Loyal):* Dynamic "Active Member" roles.
-    - *Scenario B (Elite):* Access to prestige channels at 200 activity points.
-    - *Scenario C (Decay):* Automatically removing "Active" status on inactivity.
+### **Command: ,workflow delete**
+- **The Essence:** Permanently remove a logic gate from the server's architectural layers.
+- **Usage Example:** `/workflow delete welcome`
 
 ---
 
-## 11. 𝒮𝒾𝓂𝓊𝓁𝒶𝓉ℯ𝒹 ℐ𝓃𝓉ℯ𝓁𝓁𝒾𝑔ℯ𝓃𝒸ℯ (The AI Support Layer)
+## 9. 𝒮𝒾𝓂𝓊𝓁𝒶𝓉ℯ𝒹 ℐ𝓃𝓉ℯ𝓁𝓁𝒾𝑔ℯ𝓃𝒸ℯ (The AI Support Layer)
 
-### **Command: ,modsimulate**
-- **The Essence:** Sandbox testing. Simulations of rules without punishments.
-- **Usage Example:** `,modsimulate @User text_to_test`
+### **Command: ,summarize**
+- **The Essence:** AI rollup of recent history. Generates channel summaries.
+- **Usage Example:** `/summarize 50`
 - **Operational Scenarios:**
-    - *Scenario A (Rule test):* Testing if regex catches a specific word.
-    - *Scenario B (Audit):* Verifying aggressive rules before deployment.
-    - *Scenario C (Practice):* Teaching staff rule logic.
+    - *Scenario A (Update):* Catching up after a long absence.
+    - *Scenario B (Meeting):* Summarizing long staff debates.
+    - *Scenario C (Archive):* Creating highlights of major events.
+
+### **Command: ,policy**
+- **The Essence:** Contextual rules display for the active sector.
+- **Usage Example:** `/policy`
+- **Operational Scenarios:**
+    - *Scenario A (Nudge):* Reminding users of channel-specific rules.
+    - *Scenario B (Audit):* Identifying policy overlaps.
+
+### **Command: ,memory**
+- **The Essence:** AI analysis of user behavioral patterns across time.
+- **Usage Example:** `/memory @User`
+- **Operational Scenarios:**
+    - *Scenario A (Audit):* Identifying personality shifts.
+    - *Scenario B (Check):* Vetting for recruitment.
+
+---
+
+## 10. 𝒮𝓉𝓇𝒶𝓉ℯ𝑔𝒾𝒸 𝒪𝒷𝓈ℯ𝓇𝓋𝒶𝒷𝒾𝓁𝒾𝓉𝓎 (The Metrics Layer)
 
 ### **Command: ,latencybreakdown**
 - **The Essence:** Telemetry probe. It decomposes system response time across three distinct layers: Discord Gateway, Redis backend, and REST API. It is the primary tool for diagnosing "Ghost Lag" during high-traffic events.
@@ -730,7 +675,6 @@ Welcome to the **Infinite Registry (v13.0)** of the Hyacine Protocol. This docum
 - **Operational Scenarios:**
     - *Scenario A (Lag Hunt):* Chat feels heavy. You run the command and see `Redis: 450ms`. You immediately check the cloud status page.
     - *Scenario B (Audit):* Verifying that a recent bot update hasn't negatively impacted interaction speed.
-    - *Scenario C (Network Health):* Monitoring shard stability during a heavy server-wide event.
 
 ### **Command: ,taskwatch**
 - **The Essence:** Internal Daemon Tracker. It monitors the "Heartbeat" of every background loop running in the platform, ensuring that automated systems like the `vitality_scan` and `reward_loop` haven't frozen.
@@ -739,7 +683,6 @@ Welcome to the **Infinite Registry (v13.0)** of the Hyacine Protocol. This docum
 - **Operational Scenarios:**
     - *Scenario A (System Freeze):* Rewards aren't being distributed. You check `taskwatch` and see the `Prestige_Loop` is in a "Stalled" state.
     - *Scenario B (Maintenance):* Ensuring all background threads are running within safe memory parameters.
-    - *Scenario C (Optimization):* Identifying which loops are consuming the most CPU during peak hours.
 
 ### **Command: ,memoryusage**
 - **The Essence:** Heap diagnostics and system resource analytics. It reveals the exact RAM and CPU footprint of the bot's current process, allowing for real-time leak detection.
@@ -747,228 +690,110 @@ Welcome to the **Infinite Registry (v13.0)** of the Hyacine Protocol. This docum
 - **Operational Scenarios:**
     - *Scenario A (Leak Detection):* RAM usage has climbed from 200MB to 1.2GB over 48 hours. You isolate the offending cog.
     - *Scenario B (Optimization):* Verifying that a new lore-engine feature hasn't caused a spike in CPU usage.
-    - *Scenario C (Forensics):* Correlation of system crashes with peak resource usage intervals.
-
-### **Command: ,autopolicy**
-- **The Essence:** Toggles adaptive defense logic. This command adjusts the bot's internal sensitivity to spam and toxicity based on current server velocity.
-- **Usage Example:** `,autopolicy on`
-- **Operational Scenarios:**
-    - *Scenario A (Adaptive Defense):* The server is moving at 500 messages/min. `autopolicy` automatically tightens filters to prevent an uncontrollable raid.
-    - *Scenario B (Silent Hours):* During the night, the policy relaxes to allow for more casual, low-stakes chat.
-    - *Scenario C (Self-Shield):* If the bot detects a rapid spike in "Containment" triggers, it proactively increases the `shadowban` sensitivity.
-
-### **Command: ,contain**
-- **The Essence:** Soft-Lock throttle without formal muting. It applies an aggressive, machine-enforced rate-limit to an identity, preventing them from "Flooding" the sector while still allowing for basic communication.
-- **Usage Example:** `,contain @User`
-- **Operational Scenarios:**
-    - *Scenario A (The Cool-off):* A user is getting too excited and spamming emojis. You `contain` them, forcing a 10-second gap between messages.
-    - *Scenario B (Suspicion):* A new account is acting like a bot. You `contain` them until a staff member can perform a full `forensics` scan.
-    - *Scenario C (Crowd Control):* Throttling multiple individuals during a heated debate to keep the chat readable.
-
-### **Command: ,summarize**
-- **The Essence:** AI rollup of recent history. Generates channel summaries.
-- **Usage Example:** `,summarize 50`
-- **Operational Scenarios:**
-    - *Scenario A (Update):* Catching up after a long absence.
-    - *Scenario B (Meeting):* Summarizing long staff debates.
-    - *Scenario C (Archive):* Creating highlights of major events.
-
-### **Command: ,policy**
-- **The Essence:** Contextual rules display for the active sector.
-- **Usage Example:** `,policy`
-- **Operational Scenarios:**
-    - *Scenario A (Nudge):* Reminding users of channel-specific rules.
-    - *Scenario B (Audit):* Identifying policy overlaps.
-    - *Scenario C (Guidance):* Helping new members follow protocols.
-
-### **Command: ,memory**
-- **The Essence:** AI analysis of user behavioral patterns across time.
-- **Usage Example:** `,memory @User`
-- **Operational Scenarios:**
-    - *Scenario A (Audit):* Identifying personality shifts.
-    - *Scenario B (Check):* Vetting for recruitment.
-    - *Scenario C (Deep check):* Analyzing complex raid alts.
-
-### **Command: ,autocase**
-- **The Essence:** AI-suggested moderation sentencing suggestion.
-- **Usage Example:** `,autocase @User`
-- **Operational Scenarios:**
-    - *Scenario A (Guide):* Recommendation for mute/warn.
-    - *Scenario B (Expert):* Second AI opinion on a complex case.
-    - *Scenario C (Audit):* Checking consistency with machine standards.
-
-### **Command: ,why**
-- **The Essence:** Plain Language Profiler. Explains rules and history simply.
-- **Usage Example:** `,why @User`
-- **Operational Scenarios:**
-    - *Scenario A (Response):* Answering "Why was I warned?"
-    - *Scenario B (Review):* Simplified history for new mods.
-    - *Scenario C (Transparency):* Accessible justice records.
-
----
-
-## 12. 𝒮𝓉𝓇𝒶𝓉ℯ𝑔𝒾𝒸 𝒪𝒷𝓈ℯ𝓇𝓋𝒶𝒷𝒾𝓁𝒾𝓉𝓎 (The Metrics Layer)
 
 ### **Command: ,forensics**
-- **The Essence:** Deep forensic audit logic. It initiates a 48-hour retroactive scan of an identity's interaction footprint, including deleted messages, edit history, and ghost-ping metadata. It represents the "all-seeing eye" of the platform's security array.
+- **The Essence:** Deep forensic audit logic. It initiates a 48-hour retroactive scan of an identity's interaction footprint, including deleted messages, edit history, and ghost-ping metadata.
 - **Technical Matrix:** `[user]` (Required). Output: Forensic report summary.
 - **Usage Example:** `,forensics @User`
 - **Operational Scenarios:**
     - *Scenario A (Deep Audit):* Investigating a suspected infiltrator's entire trace. You find 5 deleted messages containing illegal links.
-    - *Scenario B (Proof):* Gathering definitive evidence for a high-stake appeal by reviewing the exact edit trail of a controversial message.
-    - *Scenario C (Ghost Hunting):* Identifying a serial ghost-pinger who deletes their pings instantly to avoid detection.
+    - *Scenario B (Ghost Hunting):* Identifying a serial ghost-pinger who deletes their pings instantly to avoid detection.
 
 ### **Command: ,channelhealth**
 - **The Essence:** Toxicity and spam risk sector metrics. It evaluates the "Vitality" levels of the current channel by analyzing sentiment drift and message velocity.
 - **Usage Example:** `,channelhealth`
 - **Operational Scenarios:**
     - *Scenario A (Active Audit):* Checking if #general is trending towards chaos during a peak hour. Toxicity score: 8.2/10 (Critical).
-    - *Scenario B (Raid Shielding):* Real-time spike detection in a dormant channel suggests a localized raid is beginning.
-    - *Scenario C (Maintenance):* Identifying sectors that need a purge or slow-mode activation based on health decay.
+    - *Scenario B (Maintenance):* Identifying sectors that need a purge or slow-mode activation based on health decay.
 
 ### **Command: ,digest**
-- **The Essence:** Daily summary rollup for staff. Consolidates all major metrics (Bans, Mutes, Join rate, Sentiment) into a single, high-level briefing. It is the "Executive Summary" of server status.
+- **The Essence:** Daily summary rollup for staff. Consolidates all major metrics (Bans, Mutes, Join rate, Sentiment) into a single, high-level briefing.
 - **Usage Example:** `,digest`
 - **Operational Scenarios:**
-    - *Scenario A (Shift Briefing):* A morning status report for the admin team, highlighting the most active users and recent security events.
+    - *Scenario A (Shift Briefing):* A morning status report for the admin team, highlighting the most active users and recent events.
     - *Scenario B (Audit):* Reviewing weekly server growth and engagement trends to adjust community strategy.
-    - *Scenario C (Reporting):* Benchmarking server activity for stakeholder presentations.
 
 ### **Command: ,vitality**
-- **The Essence:** Ultra-deep health scan involving shard status, Redis REST connection stability, and AI API response latency. It is the definitive "Maintenance" probe for the bot's own internal systems.
+- **The Essence:** Ultra-deep health scan involving shard status, Redis REST connection stability, and AI API response latency.
 - **Usage Example:** `,vitality`
 - **Operational Scenarios:**
     - *Scenario A (Tech Audit):* Diagnosing if the bot is actually connected to the cloud or experiencing database lag.
-    - *Scenario B (Lag Hunting):* Investigating why commands are taking 5 seconds to respond.
-    - *Scenario C (Stability):* Long-term uptime and resource consumption verification.
 
 ### **Command: ,health**
 - **The Essence:** Quick-response system heartbeat check. It confirms that the core "Life Support" systems of Hyacine are operational.
 - **Usage Example:** `,health`
 - **Operational Scenarios:**
     - *Scenario A (Sanity Check):* Confirming the bot is online when messages stop being processed.
-    - *Scenario B (Speed Test):* Getting a quick read on the current Discord API latency.
-    - *Scenario C (Diagnostic):* Verifying the state of the local lock-file and thread-safety.
 
 ---
 
-## 13. 𝒜𝓊𝑔𝓂ℯ𝓃𝓉𝒶𝓉𝒾𝓋ℯ 𝒰𝓉𝒾𝓁𝒾𝓁𝒾𝓉𝓎 (The Utility Layer)
+## 11. 𝒜𝓊𝑔𝓂ℯ𝓃𝓉𝒶𝓉𝒾𝓋ℯ 𝒰𝓉𝒾𝓁𝒾𝓉𝓎 (The Utility Layer)
 
 ### **Command: ,afk**
-- **The Essence:** Biological stasis field activation. Tracks mentions and notifies observers of your absence. It automatically records all relevant identity interactions while you are disconnected, providing a "Replay Buffer" upon your return.
+- **The Essence:** Biological stasis field activation. Tracks mentions and notifies observers of your absence.
 - **Technical Matrix:** `[reason]` (Optional).
 - **Usage Example:** `,afk Going to sleep`
 - **Operational Scenarios:**
     - *Scenario A (Sleep):* Entering dormancy during night. "AFK: Sleeping. Mentions will be recorded."
-    - *Scenario B (Study):* Letting your Bloodline know you are busy. Hyacine auto-responds to pings with your specific status.
-    - *Scenario C (Return):* Getting a summary of who pinged you while you were "Eclipsed" from the chat flow.
 
 ### **Command: ,sticky**
-- **The Essence:** Persistent beacon. Forces a specific visual anchor to follow the latest chat activity, staying at the bottom of the visible screen. It ensures critical information (rules, active links, or alerts) is never marginalized by rapid message flow.
-- **Technical Matrix:** `[text]` (Required). Output: Floating message anchor.
+- **The Essence:** Persistent beacon. Forces a specific visual anchor to follow the latest chat activity.
+- **Technical Matrix:** `[text]` (Required).
 - **Usage Example:** `,sticky Rule 1: No Toxicity allowed in this sector.`
-- **Operational Scenarios:**
-    - *Scenario A (Protocol Enforcement):* Keeping channel-specific rules visible during a high-velocity debate in #general to maintain order.
-    - *Scenario B (Live Updates):* Sticking a shifting link or code during a server-wide puzzle or scavenger hunt.
-    - *Scenario C (Event Spotlight):* Ensuring the "Join Event" button or instruction is always the last thing a user sees.
 
 ### **Command: ,unsticky**
-- **The Essence:** Beacon dissolution. Remotely terminates the persistent visual anchor from the current channel, restoring the natural, unconstrained flow of chat history.
+- **The Essence:** Beacon dissolution. Remotely terminates the persistent visual anchor.
 - **Usage Example:** `,unsticky`
-- **Operational Scenarios:**
-    - *Scenario A (Cleanup):* Ending an announcement sticky once the relevant event has concluded.
-    - *Scenario B (Rotation):* Clearing an old rule sticky to make room for a new, higher-priority beacon.
-    - *Scenario C (Reset):* Manually clearing any "ghost" stickies after a sector-wide reset.
 
 ### **Command: ,poll**
-- **The Essence:** Democratic input gate for collective decision making. It transforms standard chat messages into a structured binary or multi-choice reaction array, allowing for rapid sentiment quantification across the sector.
+- **The Essence:** Democratic input gate for collective decision making.
 - **Technical Matrix:** `[question]` (Required), `[options]` (Comma-separated).
 - **Usage Example:** `,poll "Next update theme?" Dark Mode, Cyberpunk, Lavender Void`
-- **Operational Scenarios:**
-    - *Scenario A (Strategic Direction):* Voting on the server's next major aesthetic shift or feature priority.
-    - *Scenario B (Community Choice):* Choosing which high-tier giveaway prize will be distributed during the next "Awakening" ritual.
-    - *Scenario C (Crisis Management):* Rapidly polling staff or active users on an emergency policy change during a raid.
 
 ### **Command: ,remind**
-- **The Essence:** Temporal loop anchor. It creates a secondary notification gate that triggers at a specified future interval. This allows for advanced cross-session task management and ensures that no administrative detail is lost in the flow of time.
-- **Technical Matrix:** `[time]` (Required, e.g., 1h, 30m, 1d), `[text]` (Required).
-- **Usage Example:** `,remind 2h Check on user @Shadow for recidivism.`
-- **Operational Scenarios:**
-    - *Scenario A (Judicial Tasking):* "Remind me in 3 hours to check if the temporary shadowban on @Suspect has resulted in behavioral shift."
-    - *Scenario B (Operational Sync):* Setting a reminder for a staff meeting or event start time during a busy development cycle.
-    - *Scenario C (Administrative Audit):* Scheduling a self-reminder to review the `vitality` scan results before ending a shift.
+- **The Essence:** Temporal loop anchor. It creates a secondary notification gate that triggers at a specified future interval.
+- **Technical Matrix:** `[time]` (Required), `[text]` (Required).
+- **Usage Example:** `,remind 2h Check on user @Shadow for standing review.`
 
 ### **Command: ,forcenick**
-- **The Essence:** Identity Jail lock. A sovereign-tier name override that the target identity cannot modify through Discord's standard user interface. It is a tool of absolute naming authority and social branding.
+- **The Essence:** Identity Jail lock. A sovereign-tier name override that the target identity cannot modify.
 - **Technical Matrix:** `[user]` (Required), `[nick]` (Required).
 - **Usage Example:** `,forcenick @User "Prisoner 404"`
-- **Operational Scenarios:**
-    - *Scenario A (Judicial Branding):* Forcing a shameful or identifying name on a known troublemaker or troll to signal their status to the rest of the server.
-    - *Scenario B (Roleplay/Event ID):* Standardizing staff or participant names during high-stake server operations or lore events.
-    - *Scenario C (Security Masking):* Temporary identity management for accounts currently undergoing deep `forensics` investigation.
 
 ### **Command: ,unforcenick**
-- **The Essence:** Identity liberation. Reinstates the user's ability to manage their own visual identifier and clears any sovereign-tier name locks.
+- **The Essence:** Identity liberation. Reinstates the user's ability to manage their own visual identifier.
 - **Usage Example:** `,unforcenick @User`
-- **Operational Scenarios:**
-    - *Scenario A (Rehabilitation):* Restoring a user's naming rights after they have successfully served a "Prisoner" sentence.
-    - *Scenario B (Staff Rotation):* Clearing event-specific names once an operation is complete.
-    - *Scenario C (Mercy):* Server-wide pardon events where all naming locks are dissolved.
 
 ### **Command: ,trustscore**
-- **The Essence:** Displays the raw Trust Score (0-10) of an entity. It is the primary numeric metric used by the platform's intelligence layers to determine permission tiering and volatility risk.
+- **The Essence:** Displays the raw Trust Score (0-10) of an entity.
 - **Usage Example:** `,trustscore @User`
-- **Operational Scenarios:**
-    - *Scenario A (Vetting):* Checking a new joiner's trust score to see if they are a "Green" safe user or a "Red" raid risk.
-    - *Scenario B (Self-Reflection):* Users checking their own standing to see how their interactions have affected their server-wide reputation.
-    - *Scenario C (Judgement):* Admin staff reviewing trust scores before deciding on "Bloodline" applications or staff promotions.
 
 ---
 
-## 14. 𝒮𝓊𝒷𝓉ℯ𝓇𝒻𝓊𝑔ℯ & 𝒮ℴ𝓋ℯ𝓇ℯ𝒾𝑔𝓃 𝒪𝓋ℯ𝓇𝓈𝒾𝑔𝒽𝗍 (The High Oversight Layer)
+## 12. 𝒮𝓊𝒷𝓉ℯ𝓇𝒻𝓊𝑔ℯ & 𝒮ℴ𝓋ℯ𝓇ℯ𝒾𝑔𝓃 𝒪𝓋ℯ𝓇𝓈𝒾𝑔𝒽𝓉 (The High Oversight Layer)
 
 ### **Command: ,say**
-- **The Essence:** Neural Proxy communication. It allows a user with high-level clearance to post messages through the bot's own identity. It is a tool for strategic subterfuge and "official" announcements that carry the full weight of the machine.
-- **Technical Matrix:** `[text]` (Required). Output: Bot-sent message.
+- **The Essence:** Neural Proxy communication. It allows a user with high-level clearance to post messages through the bot's own identity.
+- **Technical Matrix:** `[text]` (Required). 
 - **Usage Example:** `,say ✦ ✧ Attention: Sector 5 is now under enhanced monitoring. ⟡`
-- **Operational Scenarios:**
-    - *Scenario A (Strategic Subterfuge):* Sending a mysterious omen or instruction without revealing the staff member's identity.
-    - *Scenario B (Official Proclamation):* Posting system-wide updates that appear as intrinsic "machine thoughts" rather than human messages.
-    - *Scenario C (Operational Directives):* Issuing instructions during a high-stakes event to maintain the "lore immersion" of the Hyacine Protocol.
 
 ### **Command: ,addadmin**
-- **The Essence:** Sovereign status grant. It integrates a user into the platform's high-level administrative core, granting them the ability to bypass standard permission gates and execute system-level commands.
+- **The Essence:** Sovereign status grant. It integrates a user into the platform's high-level administrative core.
 - **Usage Example:** `,addadmin @User`
-- **Operational Scenarios:**
-    - *Scenario A (Elite Expansion):* Promoting a highly trusted lieutenant to the council of admins to assist in server oversight.
-    - *Scenario B (Emergency Scaling):* Rapidly onboarding additional high-level staff during a massive server influx or raid event.
-    - *Scenario C (Trust Sealing):* Finalizing a promotion that marks the end of a user's journey from "Mortal" to "Sovereign."
 
 ### **Command: ,removeadmin**
-- **The Essence:** Privilege Pruning. It immediately terminates a user's administrative clearance, revoking their access to the bot's core logic gates and returning them to standard member status.
+- **The Essence:** Privilege Pruning. It immediately terminates a user's administrative clearance.
 - **Usage Example:** `,removeadmin @User`
-- **Operational Scenarios:**
-    - *Scenario A (Inactive Clearing):* Pruning the admin list to remove users who are no longer active in the sector.
-    - *Scenario B (Immediate Exile):* Revoking permissions from a staff member who has violated the "Absolute Loyalty" protocol.
-    - *Scenario C (Security Audit):* Tightening the circle of sovereignty during a period of high sensitivity or internal restructuring.
 
 ### **Command: ,schedule**
-- **The Essence:** Recurring task automation across infinite cycles. It allows admins to bind commands or actions to specific time intervals (daily, weekly, hourly), ensuring the server's maintenance continues without human intervention.
+- **The Essence:** Recurring task automation across infinite cycles.
 - **Usage Example:** `,schedule list`
-- **Operational Scenarios:**
-    - *Scenario A (Sector Cleanup):* Scheduling an automated `,purge 500` in #spam-zone every midnight to keep the database lean.
-    - *Scenario B (Cyclical Greetings):* Sending an automated "Shift Summary" or "Morning Omen" to a specific channel every 24 hours.
-    - *Scenario C (Continuous Monitoring):* Scheduling a `,vitality` scan every hour to ensure the bot's health is documented in staff logs.
 
 ### **Command: ,help**
-- **The Essence:** The Master Interface Gateway. It provides a categorized, visual index of every command group and tool within the protocol. It is the primary navigation node for all entities within the server.
+- **The Essence:** The Master Interface Gateway. It provides a categorized, visual index of every command group and tool within the protocol.
 - **Usage Example:** `,help synapse`
-- **Operational Scenarios:**
-    - *Scenario A (Navigation):* A new user tries to understand the `synapse` group. The command displays every sub-command and its basic essence.
-    - *Scenario B (Syntax Verification):* A mod forgets the exact arguments for `remind` and uses help to get a quick visual guide.
-    - *Scenario C (Exploration):* Discovering hidden sectors of the protocol (e.g., lore or prestige commands) that were previously unknown to the user.
 
 ---
 
-**Protocol Version:** 14.0 "Infinite Registry" | **Status:** Absolute Synchronization ⟡
-*(Dictionary Count: 99+ Unique Logic Gates - Density: Maximum - Truncation: Purged)*
+**Protocol Version:** 15.0 "Human-Centric Registry" | **Status:** Absolute Synchronization ⟡
+*(Dictionary Count: 85+ Unique Logic Gates - Density: Balanced - Truncation: Purged)*

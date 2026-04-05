@@ -1,8 +1,9 @@
 import discord
 from discord.ext import commands
+import asyncio
 import json
 import re
-from redis_utils import rget_json
+from redis_utils import rget_json, rset_json, rappend
 
 class AutomodEngine(commands.Cog):
     """
@@ -12,86 +13,68 @@ class AutomodEngine(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _safe_regex_match(self, pattern, content):
+        """Executes regex in a thread with a strict timeout to prevent ReDoS."""
+        try:
+            # Using a thread for re.search to avoid blocking the event loop
+            match = await asyncio.wait_for(
+                asyncio.to_thread(re.search, pattern, content),
+                timeout=0.1 # 100ms budget per rule
+            )
+            return bool(match)
+        except asyncio.TimeoutError:
+            print(f"CRITICAL: Regex timeout on pattern '{pattern}'")
+            return False
+        except Exception:
+            return False
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        # Ignore bots and DMs
-        if message.author.bot or not message.guild:
-            return
-
-        # Do not moderate admins/owners
-        if message.author.guild_permissions.administrator:
-            return
-
-        # Fetch rules for this guild via Multi-Tier Cache
-        if not getattr(self.bot, "cache", None):
-            return
+        if message.author.bot or not message.guild: return
+        if message.author.guild_permissions.administrator: return
+        if not getattr(self.bot, "cache", None): return
 
         key = f"automod_rules:{message.guild.id}"
         data = await rget_json(self.bot, key)
-        
-        if not data:
-            return
+        if not data: return
 
-        try:
-            rules = data.get("rules", [])
-        except Exception as e:
-            print(f"Automod Rules Parse Error: {e}")
-            return
-
-        # Evaluate ruleset
+        rules = data.get("rules", [])
         content = message.content
+
         for rule in rules:
             rtype = rule.get("type")
             action = rule.get("action")
             
-            # Pattern Matching rule (Regex)
             if rtype == "regex":
                 pattern = rule.get("pattern", "")
-                try:
-                    if re.search(pattern, content):
-                        await self.execute_action(message, action, rule)
-                        # Stop processing further rules for this message
-                        break
-                except re.error:
-                    print(f"Invalid regex pattern in automod for guild {message.guild.id}: {pattern}")
-                    
-            # Add more rule types here (e.g. sentiment analysis, wordlist, etc.)
+                if await self._safe_regex_match(pattern, content):
+                    await self.execute_action(message, action, rule)
+                    break
 
     async def execute_action(self, message: discord.Message, action: str, rule: dict):
         """Execute the defined consequences of a triggered rule."""
         try:
             if action == "delete":
                 await message.delete()
-                
             elif action == "warn":
-                await message.channel.send(f"⚠️ {message.author.mention}, your message triggered an automod rule and was removed.")
+                try:
+                    await message.channel.send(f"⚠️ {message.author.mention}, 𝓎ℴ𝓊𝓇 𝓂ℯ𝓈𝓈𝒶𝑔ℯ 𝓉𝓇𝒾𝑔𝑔ℯ𝓇ℯ𝒹 𝒶𝓃 𝒶𝓊𝓉ℴ𝓂ℴ𝒹 𝓇𝓊𝓁ℯ 𝒶𝓃𝒹 𝓌𝒶𝓈 𝓇ℯ𝓂ℴ𝓋ℯ𝒹.", delete_after=10)
+                except: pass
                 await message.delete()
 
-            # Record the infraction for the Trust Engine
-            key = f"infractions:{message.guild.id}:{message.author.id}"
-            cached = None
-            if hasattr(self.bot, 'cache'): cached = await self.bot.cache.get(key)
-            elif hasattr(self.bot, 'redis'): cached = await self.bot.redis.get(key)
-            
-            data = {"history": []}
-            if cached:
-                if isinstance(cached, bytes): cached = cached.decode()
-                data = json.loads(cached)
-                
-            data["history"].append({
+            # --- ATOMIC LOGGING (Scale-Ready) ---
+            infraction_key = f"infractions:{message.guild.id}:{message.author.id}"
+            entry = {
                 "action": action,
                 "rule_id": rule.get("id", "?"),
-                "timestamp": int(discord.utils.utcnow().timestamp())
-            })
+                "timestamp": int(discord.utils.utcnow().timestamp()),
+                "trigger": "automod"
+            }
+            # Use atomic append to prevent race conditions during spam bursts
+            await rappend(self.bot, infraction_key, json.dumps(entry))
             
-            payload = json.dumps(data)
-            if hasattr(self.bot, 'cache'): await self.bot.cache.set(key, payload)
-            elif hasattr(self.bot, 'redis'): await self.bot.redis.set(key, payload)
-            
-        except discord.Forbidden:
-            pass # Bot doesn't have permissions
-        except discord.NotFound:
-            pass # Message already deleted
+        except discord.Forbidden: pass
+        except discord.NotFound: pass
         except Exception as e:
             print(f"Automod Action Error: {e}")
 
@@ -115,71 +98,47 @@ class AutomodEngine(commands.Cog):
             return await ctx.send("⌬ ⟡ **ℐ𝓃𝓋𝒶𝓁𝒾𝒹 𝓇ℯℊℯ𝓍.**", ephemeral=True)
 
         key = f"automod_rules:{ctx.guild.id}"
-        cached = None
-        if hasattr(self.bot, 'cache'): cached = await self.bot.cache.get(key)
-        elif hasattr(self.bot, 'redis'): cached = await self.bot.redis.get(key)
-
-        data = {"rules": []}
-        if cached:
-            if isinstance(cached, bytes): cached = cached.decode()
-            data = json.loads(cached)
+        data = await rget_json(self.bot, key) or {"rules": []}
 
         new_rule = {"id": len(data["rules"]) + 1, "type": "regex", "pattern": regex_pattern, "action": action.lower()}
         data["rules"].append(new_rule)
-
-        payload = json.dumps(data)
-        if hasattr(self.bot, 'cache'): await self.bot.cache.set(key, payload)
-        elif hasattr(self.bot, 'redis'): await self.bot.redis.set(key, payload)
+        await rset_json(self.bot, key, data)
 
         await ctx.send(f"✧ ✦ **ℛ𝓊𝓁ℯ 𝒜𝒹𝒹ℯ𝒹:** Added rule **#{new_rule['id']}**.")
 
     @automod.command(name="list", description="List active automod rules.")
     async def list_rules(self, ctx: commands.Context):
         key = f"automod_rules:{ctx.guild.id}"
-        cached = None
-        if hasattr(self.bot, 'cache'): cached = await self.bot.cache.get(key)
-        elif hasattr(self.bot, 'redis'): cached = await self.bot.redis.get(key)
+        data = await rget_json(self.bot, key)
 
-        if not cached:
+        if not data or not data.get("rules"):
             return await ctx.send("No automod rules configured.", ephemeral=True)
 
-        if isinstance(cached, bytes): cached = cached.decode()
-        rules = json.loads(cached).get("rules", [])
-
-        if not rules:
-            return await ctx.send("No automod rules configured.", ephemeral=True)
-
-        embed = discord.Embed(title="🛡️ Active Automod Rules", color=0x2B2D31)
+        rules = data.get("rules", [])
+        embed = discord.Embed(title="🛡️ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 𝒜𝓊𝓉ℴ𝓂ℴ𝒹 𝒢𝓊𝒶𝓇𝒹𝒾𝒶𝓃", color=0x2B2D31)
         for r in rules:
-            embed.add_field(name=f"ID: {r.get('id', '?')} | Action: {r.get('action')}", value=f"`{r.get('pattern')}`", inline=False)
+            embed.add_field(name=f"Rule #{r.get('id', '?')} | {r.get('action').upper()}", value=f"Pattern: `{r.get('pattern')}`", inline=False)
         
+        embed.set_footer(text="Engine: Hyacine Recursive Logic Array")
         await ctx.send(embed=embed)
 
     @automod.command(name="remove", description="Remove an automod rule by ID.")
     async def remove_rule(self, ctx: commands.Context, rule_id: int):
         key = f"automod_rules:{ctx.guild.id}"
-        cached = None
-        if hasattr(self.bot, 'cache'): cached = await self.bot.cache.get(key)
-        elif hasattr(self.bot, 'redis'): cached = await self.bot.redis.get(key)
+        data = await rget_json(self.bot, key)
 
-        if not cached:
+        if not data or not data.get("rules"):
             return await ctx.send("No automod rules configured.", ephemeral=True)
 
-        if isinstance(cached, bytes): cached = cached.decode()
-        data = json.loads(cached)
         rules = data.get("rules", [])
-
         initial_len = len(rules)
         data["rules"] = [r for r in rules if r.get("id") != rule_id]
 
         if len(data["rules"]) == initial_len:
             return await ctx.send(f"❌ | Rule #{rule_id} not found.", ephemeral=True)
 
-        payload = json.dumps(data)
-        if hasattr(self.bot, 'cache'): await self.bot.cache.set(key, payload)
-        elif hasattr(self.bot, 'redis'): await self.bot.redis.set(key, payload)
-
-        await ctx.send(f"✧ ✦ **ℛ𝓊𝓁ℯ 𝒱𝒶𝓅ℴ𝓇𝒾𝓏ℯ𝒹:** Removed rule **#{rule_id}**.")
+        await rset_json(self.bot, key, data)
+        await ctx.send(f"✧ ✦ **ℛ𝓊𝓁ℯ 𝒱𝒶𝓅ℴ𝓇𝒾𝓏ℯ𝒹:** Removed rule **#{rule_id}** from the protocol.")
 
 async def setup(bot):
     if "AutomodEngine" not in bot.cogs:

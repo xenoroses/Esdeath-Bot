@@ -1,7 +1,8 @@
 import discord
 from discord.ext import commands
 import random
-
+import asyncio
+import httpx
 
 class FunCmds(commands.Cog):
 
@@ -75,6 +76,40 @@ class FunCmds(commands.Cog):
         embed.set_footer(text="© Hyacine Matchmaking | Orbital Synergy Data", icon_url=self.bot.user.display_avatar.url)
 
         await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="urban", description="Search the Urban Dictionary (Stellar slang audit).")
+    async def urban(self, ctx: commands.Context, *, term: str):
+        await ctx.defer()
+        async with httpx.AsyncClient() as client:
+            try:
+                resp = await client.get(f"https://api.urbandictionary.com/v0/define?term={term}")
+                data = resp.json()
+            except:
+                return await ctx.send("⌬ ⟡ **𝒩ℯ𝓉𝓌ℴ𝓇𝓀 ℐ𝓃𝓉ℯ𝓇𝒻ℯ𝓇ℯ𝓃𝒸ℯ.** Urban Dictionary is unreachable.")
+        
+        if not data['list']:
+            return await ctx.send("⌬ ⟡ **𝒩ℴ 𝒹ℯ𝒻𝒾𝓃𝒾𝓉𝒾ℴ𝓃 𝒻ℴ𝓊𝓃𝒹 𝒾𝓃 𝓉𝒽ℯ 𝓋ℴ𝒾𝒹.**")
+        
+        top = data['list'][0]
+        embed = discord.Embed(title=f"✧ 𝒰𝓇𝒷𝒶𝓃 𝒜𝓊𝒹𝒾𝓉: {term}", description=top['definition'].replace("[", "").replace("]", ""), color=0x9B59B6)
+        embed.add_field(name="Example", value=top['example'].replace("[", "").replace("]", "") or "No example.")
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="poll", description="Create a simple demographic sync (poll).")
+    async def poll(self, ctx: commands.Context, question: str, opt1: str, opt2: str):
+        embed = discord.Embed(title="❂ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 𝒟ℯ𝓂ℴℊ𝓇𝒶𝓅ℋ𝒾𝒸 𝒮𝓎𝓃𝒸", description=f"**{question}**\n\n1️⃣ {opt1}\n2️⃣ {opt2}", color=0xB19CD9)
+        msg = await ctx.send(embed=embed)
+        await msg.add_reaction("1️⃣")
+        await msg.add_reaction("2️⃣")
+
+    @commands.hybrid_command(name="remind", description="Set a temporal resonance alert.")
+    async def remind(self, ctx: commands.Context, minutes: int, *, task: str):
+        await ctx.send(f"✧ Temporal anchor set for **{minutes}m**. I will pulse you then.", ephemeral=True)
+        await asyncio.sleep(minutes * 60)
+        try:
+            await ctx.author.send(f"❂ ⟡ **𝒯ℯ𝓂ℴ𝓇𝒶𝓁 ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ:** {task}")
+        except:
+            await ctx.send(f"{ctx.author.mention} ❂ ⟡ **𝒯ℯ𝓂𝓅ℴ𝓇𝒶𝓁 ℛℯ𝓈ℴ𝓃𝒶𝓃ℯ:** {task}")
 
 
 async def setup(bot):

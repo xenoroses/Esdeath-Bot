@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import datetime
 import json
-from redis_utils import rget_json
+from redis_utils import rget_json, rset_json
 
 class TrustEngine(commands.Cog):
     """
@@ -38,15 +38,15 @@ class TrustEngine(commands.Cog):
         acc_score = min(15, int(account_age_days / 180) * 2)
         score += acc_score
         if account_age_days < 30:
-            signals.append("⟡ **𝗩𝗲𝗿𝘆 𝗻𝗲𝘄 𝗗𝗶𝘀𝗰𝗼𝗿𝗱 𝗮𝗰𝗰𝗼𝘂𝗻𝘁**")
+            signals.append("⟡ **𝒱ℯ𝓇𝓎 𝓃ℯ𝓌 𝒟𝒾𝓈𝒸ℴ𝓇𝒹 𝒶𝒸ℴ𝓊𝓃𝓉**")
             
         # 2. Join Age (+ max 35)
         join_score = min(35, int(join_age_days / 30) * 2)
         score += join_score
         if join_age_days > 365:
-            signals.append("✧ **𝗟𝗼𝗻𝗴-𝘁𝗲𝗿𝗺 𝗺𝗲𝗺𝗯𝗲𝗿𝘀𝗵𝗶𝗽**")
+            signals.append("✧ **ℒℴ𝓃𝑔-𝓉ℯ𝓇𝓂 𝓂ℯ𝓂𝒷ℯ𝓇𝓈𝒽𝒾𝓅**")
         elif join_age_days < 7:
-            signals.append("✵ **𝗥𝗲𝗰𝗲𝗻𝘁𝗹𝘆 𝗷𝗼𝗶𝗻𝗲𝗱 𝘀𝗲𝗿𝘃𝗲𝗿**")
+            signals.append("✵ **ℛℯ𝒸ℯ𝓃𝓉𝓁𝓎 𝒿ℴ𝒾𝓃ℯ𝒹 𝓈ℯ𝓇𝓋ℯ𝓇**")
             
         # 3. Role Hierarchy (+ max 30)
         total_roles = len(ctx.guild.roles)
@@ -55,18 +55,18 @@ class TrustEngine(commands.Cog):
         role_score = min(30, int(role_ratio * 30))
         if target.guild_permissions.administrator:
             role_score = 30
-            signals.append("✧ **𝗦𝗲𝗿𝘃𝗲𝗿 𝗔𝗱𝗺𝗶𝗻𝗶𝘀𝘁𝗿𝗮𝘁𝗼𝗿**")
+            signals.append("✧ **𝒮ℯ𝓇𝓋ℯ𝓇 𝒜𝒹𝓂𝒾𝓃𝒾𝓈𝓉𝓇𝒶𝓉ℴ𝓇**")
         elif role_ratio > 0.6:
-            signals.append("✧ **𝗛𝗶𝗴𝗵 𝗿𝗮𝗻𝗸𝗶𝗻𝗴 𝗿𝗼𝗹𝗲**")
+            signals.append("✧ **ℋ𝒾𝑔𝒽 𝓇𝒶𝓃𝓀𝒾𝓃𝑔 𝓇ℴ𝓁ℯ**")
         score += role_score
         
         # 4. Infractions (-20 each)
         infractions = await self.get_infraction_count(target.id, ctx.guild.id)
         if infractions == 0:
-            signals.append("✧ **𝗖𝗹𝗲𝗮𝗻 𝗺𝗼𝗱𝗲𝗿𝗮𝘁𝗶𝗼𝗻 𝗵𝗶𝘀𝘁𝗼𝗿𝘆**")
+            signals.append("✧ **𝒞𝓁ℯ𝒶𝓃 𝓂ℴ𝒹ℯ𝓇𝒶𝓉𝒾ℴ𝓃 𝒽𝒾𝓈𝓉ℴ𝓇𝓎**")
         else:
             score -= (infractions * 20)
-            signals.append(f"⟡ **{infractions} recorded automod infractions**")
+            signals.append(f"⟡ **{infractions} 𝓇ℯ𝒸ℴ𝓇𝒹ℯ𝒹 𝒶𝓊𝓉ℴ𝓂ℴ𝒹 𝒾𝓃𝒻𝓇𝒶𝒸𝓉𝒾ℴ𝓃𝓈**")
             
         # 5. Message Velocity Analysis (last 24h)
         message_count = 0
@@ -88,29 +88,29 @@ class TrustEngine(commands.Cog):
         # Message velocity scoring
         if message_count > 200:
             score -= 15
-            signals.append(f"⟡ **𝗛𝗶𝗴𝗵 𝗺𝗲𝘀𝘀𝗮𝗴𝗲 𝘃𝗲𝗹𝗼𝗰𝗶𝘁𝘆: {message_count} messages/24h**")
+            signals.append(f"⟡ **ℋ𝒾𝑔𝒽 𝓂ℯ𝓈𝓈𝒶𝑔ℯ 𝓋ℯ𝓁ℴ𝒸𝒾𝓉𝓎: {message_count} 𝓂𝓈𝑔𝓈/𝟤𝟦𝒽**")
         elif message_count > 50:
             score -= 5
-            signals.append(f"✵ **𝗠𝗼𝗱𝗲𝗿𝗮𝘁𝗲 𝗮𝗰𝘁𝗶𝘃𝗶𝘁𝘆: {message_count} messages/24h**")
+            signals.append(f"✵ **𝒫𝓊𝓁𝓈𝒾𝓃𝑔 𝒶𝒸𝓉𝒾𝓋𝒾𝓉𝓎: {message_count} 𝓂𝓈𝑔𝓈/𝟤𝟦𝒽**")
         else:
             score += 5
-            signals.append(f"✧ **𝗡𝗼𝗿𝗺𝗮𝗹 𝗮𝗰𝘁𝗶𝘃𝗶𝘁𝘆: {message_count} messages/24h**")
+            signals.append(f"✧ **𝒩ℴ𝓇𝓂𝒶𝓁 𝒶𝒸𝓉𝒾𝓋𝒾𝓉𝓎: {message_count} 𝓂𝓈𝑔𝓈/𝟤𝟦𝒽**")
             
         # Mention frequency analysis
         if mention_count > 20:
             score -= 10
-            signals.append(f"⟡ **𝗛𝗶𝗴𝗵 𝗺𝗲𝗻𝘁𝗶𝗼𝗻 𝗳𝗿𝗲𝗾𝘂𝗲𝗻𝗰𝘆: {mention_count} mentions/24h**")
+            signals.append(f"⟡ **ℋ𝒾𝑔𝒽 𝓂ℯ𝓃𝓉𝒾ℴ𝓃 𝒻𝓇ℯ𝓆𝓊ℯ𝓃𝒸𝓎: {mention_count} 𝓅𝒾𝓃𝑔𝓈/𝟤𝟦𝒽**")
         elif mention_count > 5:
-            signals.append(f"✵ **𝗠𝗼𝗱𝗲𝗿𝗮𝘁𝗲 𝗺𝗲𝗻𝘁𝗶𝗼𝗻𝘀: {mention_count}/24h**")
+            signals.append(f"✵ **ℳℴ𝒹ℯ𝓇𝒶𝓉ℯ 𝓂ℯ𝓃𝓉𝒾ℴ𝓃𝓈: {mention_count}/𝟤𝟦𝒽**")
             
         # Channel diversity
         channel_diversity = len(channels_used)
         if channel_diversity > 5:
             score += 5
-            signals.append(f"✧ **𝗛𝗶𝗴𝗵 𝗰𝗵𝗮𝗻𝗻𝗲𝗹 𝗱𝗶𝘃𝗲𝗿𝘀𝗶𝘁𝘆: {channel_diversity} channels**")
+            signals.append(f"✧ **ℋ𝒾𝑔𝒽 𝒸𝒽𝒶𝓃𝓃ℯ𝓁 𝒹𝒾𝓋ℯ𝓇𝓈𝒾𝓉𝓎: {channel_diversity} 𝓈ℯ𝒸𝓉ℴ𝓇𝓈**")
         elif channel_diversity < 2:
             score -= 5
-            signals.append(f"✵ **𝗟𝗼𝘄 𝗰𝗵𝗮𝗻𝗻𝗲𝗹 𝗱𝗶𝘃𝗲𝗿𝘀𝗶𝘁𝘆: {channel_diversity} channels**")
+            signals.append(f"✵ **ℒℴ𝓌 𝒸𝒽𝒶𝓃𝓃ℯ𝓁 𝒹𝒾ℋℯ𝓇𝓈𝒾𝓉𝓎: {channel_diversity} 𝓈ℯ𝒸𝓉ℴ𝓇𝓈**")
         score = max(0, min(100, score))
         
         # Determine Risk Level
@@ -124,7 +124,7 @@ class TrustEngine(commands.Cog):
             risk_level = "High"
             color = 0xE74C3C # Red
             
-        embed = discord.Embed(title=f"❂ 𝗧𝗿𝘂𝘀𝘁 𝗣𝗿𝗼𝗳𝗶𝗹𝗲: {target.display_name}", color=color)
+        embed = discord.Embed(title=f"❂ 𝒯𝓇𝓊𝓈𝓉 𝒫𝓇ℴ𝒻𝒾𝓁ℯ: {target.display_name}", color=color)
         embed.set_thumbnail(url=target.display_avatar.url)
         
         embed.add_field(name="Trust Score", value=f"**{score}/100**", inline=True)
@@ -147,7 +147,6 @@ class TrustEngine(commands.Cog):
             "channel_diversity": channel_diversity
         }
         
-        from redis_utils import rset_json
         await rset_json(self.bot, f"trust:{ctx.guild.id}:{target.id}", trust_data)
         
         embed.set_footer(text="Engine: Hyacine Trust Evaluation | Cached for 24h")

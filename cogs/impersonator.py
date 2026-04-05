@@ -2,14 +2,14 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from datetime import datetime, timezone
+from redis_utils import rget
+import logging
 
 
 class Impersonator(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        # Replace with your actual log channel ID
-        self.LOG_CHANNEL_ID = 981221146110341176
 
 
     @app_commands.command(
@@ -56,17 +56,16 @@ class Impersonator(commands.Cog):
                 wait=True
             )
 
-            # Logging
-            log_channel = self.bot.get_channel(
-                self.LOG_CHANNEL_ID
-            )
+            # Logging (Guild-Specific Telemetry)
+            log_cid = await rget(self.bot, f"log_channel:{interaction.guild.id}")
+            log_channel = self.bot.get_channel(int(log_cid)) if log_cid else None
 
             if log_channel:
 
                 log_embed = discord.Embed(
                     title="Impersonated message sent",
                     color=0x2B2D31,
-                    timestamp=datetime.now(timezone.utc)
+                    timestamp=discord.utils.utcnow()
                 )
 
                 log_embed.add_field(
@@ -129,7 +128,7 @@ class Impersonator(commands.Cog):
 
         except Exception as e:
 
-            print(f"Impersonator Error: {e}")
+            logging.error(f"Impersonator Error: {e}")
 
             await interaction.edit_original_response(
                 content="System error occurred while sending impersonated message."

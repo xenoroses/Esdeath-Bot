@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import json
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from redis_utils import rget_json, rset_json
 
 class WorkflowEngine(commands.Cog):
@@ -18,6 +18,10 @@ class WorkflowEngine(commands.Cog):
     async def on_message(self, message: discord.Message):
         """Process workflow triggers on messages."""
         if message.author.bot or not message.guild:
+            return
+            
+        # Administrator Bypass: Workflows should not interfere with sovereign entities
+        if message.author.guild_permissions.administrator:
             return
             
         await self._process_workflows(message, "message", {
@@ -36,7 +40,7 @@ class WorkflowEngine(commands.Cog):
             "user": member.id,
             "guild": member.guild.id,
             "joined_at": member.joined_at.isoformat() if member.joined_at else None,
-            "account_age_days": (datetime.now() - member.created_at).days
+            "account_age_days": (discord.utils.utcnow() - member.created_at).days
         })
     
     @commands.Cog.listener()
@@ -132,7 +136,7 @@ class WorkflowEngine(commands.Cog):
                     member = guild.get_member(user_id)
                     
                     if member and guild.me.guild_permissions.moderate_members:
-                        duration = discord.utils.utcnow() + datetime.timedelta(minutes=duration_minutes)
+                        duration = discord.utils.utcnow() + timedelta(minutes=duration_minutes)
                         await member.timeout(duration, reason="Workflow automation")
                         
                 elif action_type == "delete_message":
@@ -184,7 +188,7 @@ class WorkflowEngine(commands.Cog):
                     }
                 ],
                 "created_by": ctx.author.id,
-                "created_at": datetime.now().isoformat()
+                "created_at": discord.utils.utcnow().isoformat()
             }
             
             # Get existing workflows
@@ -253,7 +257,7 @@ class WorkflowEngine(commands.Cog):
                     wf["enabled"] = not wf.get("enabled", True)
                     status = "enabled" if wf["enabled"] else "disabled"
                     await rset_json(self.bot, f"workflows:{ctx.guild.id}", workflows)
-                    return await ctx.send(f"✅ Workflow **{name}** {status}")
+                    return await ctx.send(f"✧ **𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 **{name}** {status}**")
                     
             await ctx.send(f"❌ Workflow **{name}** not found")
             

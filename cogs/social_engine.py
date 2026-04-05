@@ -54,7 +54,7 @@ class SocialEngine(commands.Cog):
                 color = 0xE74C3C
                 
             embed = discord.Embed(
-                title=f"❈ 𝒥𝓊𝒹ℊℯ𝓂ℯ𝓃𝓉: {user.display_name}",
+                title=f"❈ 𝒥𝓊𝒹𝑔ℯ𝓂ℯ𝓃𝓉: {user.display_name}",
                 color=color
             )
             embed.set_thumbnail(url=user.display_avatar.url)
@@ -67,7 +67,7 @@ class SocialEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Psychological Profiler")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒥𝓊𝒹ℊℯ𝓂ℯ𝓃𝓉 𝓅𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
+            await ctx.send(f"⌬ ⟡ **𝒥𝓊𝒹𝑔ℯ𝓂ℯ𝓃𝓉 𝓅𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="fealty", description="Measures allegiance to the server.")
     async def fealty(self, ctx: commands.Context, user: discord.Member = None):
@@ -103,7 +103,7 @@ class SocialEngine(commands.Cog):
 
             # Cutesy Hyacine Aesthetic (Double-User Mode)
             embed = discord.Embed(
-                title=f"✾ ℱℯ𝒶𝓁𝓉𝓎 𝒮𝓎𝓃𝒸𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃",
+                title=f"✾ ℱℯ𝒶𝓁𝓉𝓎 𝒮𝓎𝓃𝒸𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾𝄴𝓃",
                 color=0xB19CD9 # Soft Lavender
             )
             embed.set_author(name=f"{ctx.author.display_name} ⟡ {target.display_name}", icon_url=ctx.author.display_avatar.url)
@@ -114,7 +114,7 @@ class SocialEngine(commands.Cog):
                 f"Loyalty Index: **{idx}/100**\n"
                 f"Assigned Stratum: **{align}**\n"
                 f"Betrayal Probability: **{risk}**\n\n"
-                f"*Verified by Hyacine Protocol ⟡*"
+                f"*𝒱ℯ𝓇𝒾𝒻𝒾ℯ𝒹 𝒷𝓎 ℋ𝓎𝒶𝒸i𝓃ℯ 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁 ⟡*"
             )
             embed.description = details
             embed.set_footer(text=f"Joined {tenure_days} cycles ago • Protocol: Synergy")
@@ -155,7 +155,7 @@ class SocialEngine(commands.Cog):
             
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒟ℯ𝒸𝓁𝒶𝓇𝒶𝓉𝒾ℴℰ𝓃 ℱ𝒶𝒾𝓁ℯ𝒹:** {e}")
+            await ctx.send(f"⌬ ⟡ **𝒟ℯ𝒸𝓁𝒶𝓇𝒶𝓉𝒾ℴ𝓃 ℱ𝒶𝒾𝓁ℯ𝒹:** {e}")
 
     @commands.hybrid_command(name="clash", description="Quick skill duel mechanic.")
     @commands.cooldown(1, 300, commands.BucketType.user)
@@ -226,7 +226,7 @@ class SocialEngine(commands.Cog):
         await self._safe_rset(key, {"active": True, "created": datetime.datetime.now(timezone.utc).isoformat()})
         
         embed = discord.Embed(
-            title="✧ 𝒜ℯℊ𝒾𝓈 ℒ𝒾𝓃𝓀 ℰ𝓈𝓉𝒶𝒷𝓁𝒾𝓈𝒽ℯ𝒹",
+            title="✧ 𝒜ℯ𝑔i𝓈 ℒ𝒾𝓃𝓀 ℰ𝓈𝓉𝓁𝒶𝒷𝒾𝓁𝒾𝓈𝒽ℯ𝒹",
             description=f"{ctx.author.mention} has sworn to protect {user.mention}.",
             color=0x3498DB
         )
@@ -239,7 +239,7 @@ class SocialEngine(commands.Cog):
     async def surveillance(self, ctx: commands.Context, user: discord.Member):
         await ctx.defer()
         embed = discord.Embed(
-            title="⌬ 𝒯𝒶𝓇ℊℯ𝓉 ℒℴ𝒸𝓀ℯ𝒹",
+            title="⌬ 𝒯𝒶𝓇𝑔ℯ𝓉 ℒℴ𝒸𝓀ℯ𝒹",
             description=f"**{user.display_name}** has been added to Hyacine's high-priority Watchlist.\n\n*Monitoring escalation patterns...*\n*Behavioral tracking engaged.*",
             color=0xE74C3C
         )

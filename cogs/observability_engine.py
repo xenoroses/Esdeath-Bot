@@ -38,7 +38,7 @@ class ObservabilityEngine(commands.Cog):
             llm_latency = "~410ms (Deferred)"
 
             embed = discord.Embed(
-                title="𖦹 𝗟𝗮𝘁𝗲𝗻𝗰𝘆 ⟡ 𝗧𝗲𝗹𝗲𝗺𝗲𝘁𝗿𝘆 𝗕𝗿𝗲𝗮𝗸𝗱𝗼𝘄𝗻",
+                title="ℒ𝒶𝓉ℯ𝓃𝒸𝓎 𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 ℬ𝓇ℯ𝒶𝓀𝒹ℴ𝓌𝓃",
                 color=0x34495E
             )
             embed.add_field(name="🌐 WSS Gateway", value=f"`{gateway_latency}ms`", inline=True)
@@ -46,13 +46,13 @@ class ObservabilityEngine(commands.Cog):
             embed.add_field(name="🔌 REST API", value=f"`{api_latency}ms`", inline=True)
             embed.add_field(name="🧠 LLM Bridge", value=f"`{llm_latency}`", inline=True)
             
-            health = "✧ **𝗢𝗽𝘁𝗶𝗺𝗮𝗹**" if gateway_latency < 150 and redis_latency < 50 else "✵ **𝗗𝗲𝗴𝗿𝗮𝗱𝗲𝗱**"
+            health = "Optimal" if gateway_latency < 150 and redis_latency < 50 else "Degraded"
             embed.add_field(name="Network Health", value=health, inline=False)
             
             embed.set_footer(text="Engine: Hyacine Telemetry Probe")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Telemetry failed: {e}")
+            await ctx.send(f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
 
     @commands.hybrid_command(name="taskwatch", description="Monitor background Python tasks and daemons.")
     @commands.has_permissions(administrator=True)
@@ -63,28 +63,23 @@ class ObservabilityEngine(commands.Cog):
             
             # Count configured workflows
             key = f"workflows:{ctx.guild.id}"
-            cached = await rget_json(self.bot, key) or {}
-            wf_count = len(cached.get("flows", []))
-            
-            # Raidshield config
-            r_key = f"raid_shield_config"
-            r_cfg = await rget_json(self.bot, r_key) or {}
-            raid_active = "Active ✧" if r_cfg.get("enabled") else "Inactive ⌬"
+            workflows = await rget_json(self.bot, key) or []
+            wf_count = len(workflows)
             
             embed = discord.Embed(
-                title="≛ 𝗛𝘆𝗮𝗰𝗶𝗻𝗲 𝗠𝗶𝘀𝘀𝗶𝗼𝗻 𝗖𝗼𝗻𝘁𝗿𝗼𝗹",
+                title="ℋ𝓎𝒶𝒸𝒾𝓃ℯ ℳ𝒾𝓈𝓈𝒾ℴ𝓃 𝒞ℴ𝓃𝓉𝓇ℴ𝓁",
                 description="Live Daemon Tracking",
                 color=0x2C3E50
             )
             
             embed.add_field(name="🏃 Asyncio Tasks", value=f"`{len(tasks)}` Coroutines", inline=True)
             embed.add_field(name="🕸️ Workflow Hooks", value=f"`{wf_count}` DAGs", inline=True)
-            embed.add_field(name="🛡️ Raid Monitor", value=raid_active, inline=True)
+            embed.add_field(name="🛡️ Security Status", value="Human-Centric ✧", inline=True)
             
             embed.set_footer(text="Engine: Hyacine Process Watchdog")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒫𝓇ℴ𝒸ℯ𝓈𝓈 𝒲𝒶𝓉𝒸𝒽𝒹ℴℊ 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
+            await ctx.send(f"𝒫𝓇ℴℯ𝓈𝓈𝓈 𝒲𝒶𝓉𝒸𝒽𝒹ℴ𝑔 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
 
     @commands.hybrid_command(name="memoryusage", description="System footprint diagnostics.")
     @commands.has_permissions(administrator=True)
@@ -101,7 +96,7 @@ class ObservabilityEngine(commands.Cog):
             est_cache = round((users * 50) / 1024 / 1024, 2) # Rough approximation
             
             embed = discord.Embed(
-                title="Memory Footprint Profile",
+                title="ℳℯ𝓂ℴ𝓇𝓎 ℱℴℴℯ𝓉𝓅𝓇𝒾𝓃𝓉 𝒫𝓇ℴ𝒻𝒾𝓁ℯ",
                 color=0x7F8C8D
             )
             
@@ -117,7 +112,7 @@ class ObservabilityEngine(commands.Cog):
             embed.set_footer(text="Engine: Hyacine Heap Analytics")
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ | Memory analytics failed: {e}")
+            await ctx.send(f"❌ | ℳℯ𝓂ℴ𝓇𝓎 𝒶𝓃𝒶𝓁𝓎𝓉𝒾𝒸𝓈 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
 
 async def setup(bot):
     if "ObservabilityEngine" not in bot.cogs:
