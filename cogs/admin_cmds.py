@@ -168,6 +168,27 @@ class OwnerCmds(commands.Cog):
         embed.set_footer(text=f"Sent by {ctx.author.display_name} | Hyacine Matrix")
         await ctx.send(embed=embed)
 
+    @commands.hybrid_command(name="sync", description="Synchronize the command tree for immediate updates.")
+    @commands.is_owner()
+    async def sync_commands(self, ctx: commands.Context, scope: str = "guild"):
+        """
+        Synchronize the command tree. 
+        Scopes: 'guild' (instant), 'global' (up to 1 hour delay).
+        """
+        await ctx.defer(ephemeral=True)
+        try:
+            if scope.lower() == "global":
+                synced = await self.bot.tree.sync()
+                msg = f"Synced `{len(synced)}` gates across the **Global Nexus** (Propagation: ~1h)."
+            else:
+                self.bot.tree.copy_global_to(guild=ctx.guild)
+                synced = await self.bot.tree.sync(guild=ctx.guild)
+                msg = f"Synced `{len(synced)}` gates to **this Sector** (Propagation: Instant)."
+            
+            await self._send_success(ctx, msg, ephemeral=True)
+        except Exception as e:
+            await self._send_error(ctx, f"Sync Failure: {e}")
+
 
 async def setup(bot):
     if "OwnerCmds" not in bot.cogs:

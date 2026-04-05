@@ -2,6 +2,7 @@ import socket
 import httpx
 import random
 import discord
+from discord import app_commands
 from discord.ext import commands
 import os
 import json
@@ -125,6 +126,7 @@ class HyacineBot(commands.AutoShardedBot):
 
     async def setup_hook(self):
         logging.info("Initializing setup_hook...")
+        self.tree.on_error = self.on_tree_error
         register_bot(self)
         try:
             url = os.getenv("UPSTASH_REDIS_REST_URL")
@@ -196,7 +198,9 @@ class HyacineBot(commands.AutoShardedBot):
         logging.error(f"Stellar Event Error in {event}: {traceback.format_exc()}")
 
     async def on_command_error(self, ctx: commands.Context, error):
-        if ctx.interaction is not None: return
+        if ctx.interaction and not ctx.interaction.response.is_done():
+            try: await ctx.defer(ephemeral=True)
+            except: pass
         if isinstance(error, commands.CommandNotFound): return
         if getattr(ctx, "_error_handled", False): return
         ctx._error_handled = True
@@ -208,6 +212,28 @@ class HyacineBot(commands.AutoShardedBot):
         elif isinstance(error, commands.CommandOnCooldown):
             return await ctx.send(f"⌬ ⟡ **𝒯ℋℛ𝒪𝒯𝒯ℒℐ𝒩𝒢:** `{error.retry_after:.1f}s` remaining.")
         logging.error(f"Command Error: {error}")
+        if not ctx.interaction:
+            await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** `{error}`")
+
+    async def on_tree_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        """Dedicated error handler for the Slash Command Tree."""
+        if isinstance(error, app_commands.CommandOnCooldown):
+            msg = f"⌬ ⟡ **𝒯ℋℛ𝒪𝒯ℯℒℒℐ𝒩𝒢:** `{error.retry_after:.1f}s` remaining."
+        elif isinstance(error, app_commands.MissingPermissions):
+            msg = f"⌬ ⟡ **𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟:** You lack the permissions required for this gateway."
+        elif isinstance(error, app_commands.BotMissingPermissions):
+            msg = f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒫ℛℐ𝒱ℐℒℰ𝒢ℰ ℱ𝒜𝐼𝐿𝒰ℛℰ:** I lack `{', '.join(error.missing_permissions)}`."
+        else:
+            msg = f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** `{error}`"
+            logging.error(f"Tree Error: {error}")
+
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+        except:
+            pass
 
 # --- 4. STARTUP LOGIC ---
 async def main():
