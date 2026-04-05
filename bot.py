@@ -141,10 +141,15 @@ class HyacineBot(commands.AutoShardedBot):
                 # Use a timeout for the ping to prevent indefinite hanging
                 await asyncio.wait_for(self.redis.ping(), timeout=5.0)
                 logging.info("Redis Connection: SUCCESS")
+            else:
+                logging.error("FATAL: Redis Configuration Missing. Hyacine requires a synchronized master state to operate safely. Aborting startup.")
+                sys.exit(1)
         except asyncio.TimeoutError:
-            logging.error("Redis Connection: TIMEOUT (Check URL/Token or Network)")
+            logging.error("FATAL: Redis Connection TIMEOUT. Ensure your Upstash instance is reachable. Aborting startup.")
+            sys.exit(1)
         except Exception as e:
-            logging.warning(f"REDIS CONNECTION FAILURE: {e}")
+            logging.error(f"FATAL REDIS FAILURE: {e}. All logic gates require active synchronization. Aborting startup.")
+            sys.exit(1)
 
         extensions = [
             "cogs.staff_cmds", "cogs.ai_chat", "cogs.impersonator", "cogs.fun_cmds",
@@ -201,6 +206,13 @@ class HyacineBot(commands.AutoShardedBot):
         logging.error(f"Stellar Event Error in {event}: {traceback.format_exc()}")
 
     async def on_command_error(self, ctx: commands.Context, error):
+        # --- IDEMPOTENCY LOCK: Prevent double error responses across bot instances ---
+        if self.redis and not ctx.interaction:
+            lock_key = f"lock:err:{ctx.message.id}"
+            if not await self.redis.set(lock_key, "1", nx=True, ex=2):
+                logging.info(f"Signal Synchronized: Suppressed dual-response for message {ctx.message.id}.")
+                return
+
         if ctx.interaction and not ctx.interaction.response.is_done():
             try: await ctx.defer(ephemeral=True)
             except: pass
@@ -220,6 +232,11 @@ class HyacineBot(commands.AutoShardedBot):
 
     async def on_tree_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         """Dedicated error handler for the Slash Command Tree."""
+        # --- IDEMPOTENCY LOCK: Prevent double error responses across bot instances ---
+        if self.redis:
+            lock_key = f"lock:err:tree:{interaction.id}"
+            if not await self.redis.set(lock_key, "1", nx=True, ex=2):
+                return
         if isinstance(error, app_commands.CommandOnCooldown):
             msg = f"⌬ ⟡ **𝒯ℋℛ𝒪𝒯ℯℒℒℐ𝒩𝒢:** `{error.retry_after:.1f}s` remaining."
         elif isinstance(error, app_commands.MissingPermissions):
@@ -243,7 +260,16 @@ async def main():
     """Main asynchronous entry point for the Hyacine Protocol."""
     global DISCORD_COM_IPS, DISCORD_GG_IPS
     DISCORD_COM_IPS, DISCORD_GG_IPS = await fetch_discord_ips()
-    
+
+    # --- 1. Aggressive Singleton Enforcement ---
+    # We hunt for any other Python processes running 'bot.py' on this machine to kill ghost instances.
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            if proc.info['pid'] != os.getpid() and any('bot.py' in str(arg) for arg in (proc.info['cmdline'] or [])):
+                logging.info(f"❂ Singleton Alert: Terminating stellar ghost process (PID: {proc.info['pid']})...")
+                proc.terminate()
+        except: pass
+
     LOCK_FILE = "bot.lock"
     if os.path.exists(LOCK_FILE):
         try:
