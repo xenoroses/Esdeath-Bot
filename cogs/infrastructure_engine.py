@@ -28,16 +28,21 @@ class InfrastructureEngine(commands.Cog):
         """
         await ctx.defer()
         
-        # Hierarchy Validation
-        if user.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
-            return await ctx.send("⌬ ⟡ **You cannot contain those of equal or higher rank.**", ephemeral=True)
-        if user.top_role >= ctx.me.top_role:
-            return await ctx.send("❌ | Containment failed. Subject's neural shielding (Role Rank) is higher than mine.", ephemeral=True)
+        # Absolute Immunity: The Sovereign cannot be contained
+        if user.id == ctx.guild.owner_id:
+            return await ctx.send("⌬ ⟡ **The Sovereign (Owner) is immune to containment protocols.**", ephemeral=True)
+            
+        # Hierarchy Validation (Only for applying containment)
+        key = f"containment:{ctx.guild.id}:{user.id}"
+        contained = await self._safe_rget(key)
+        
+        if not contained.get("active"):
+            if user.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+                return await ctx.send("⌬ ⟡ **You cannot contain those of equal or higher rank.**", ephemeral=True)
+            if user.top_role >= ctx.me.top_role:
+                return await ctx.send("❌ | Containment failed. Subject's neural shielding (Role Rank) is higher than mine.", ephemeral=True)
 
         try:
-            key = f"containment:{ctx.guild.id}:{user.id}"
-            contained = await self._safe_rget(key)
-            
             if contained.get("active"):
                 await self._safe_rset(key, {"active": False})
                 embed = discord.Embed(
@@ -72,6 +77,10 @@ class InfrastructureEngine(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild:
+            return
+
+        # Absolute Immunity Bypass: The Sovereign is never intercepted
+        if message.author.id == message.guild.owner_id:
             return
 
         key = f"containment:{message.guild.id}:{message.author.id}"
