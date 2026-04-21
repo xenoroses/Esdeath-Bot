@@ -20,29 +20,65 @@ import atexit
 import psutil
 from cache_layer import HyacineCache
 
+import certifi
+os.environ["SSL_CERT_FILE"] = certifi.where()
+
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # --- 1. THE DOH MASTER BYPASS (DNS OVER HTTPS) ---
 async def fetch_discord_ips():
-    """Fetches real terminal IPs via Google's DNS-over-HTTPS API."""
-    print("Fetching live Discord IPs via Google DoH...")
-    async with httpx.AsyncClient() as client:
+    """
+    Fetches real terminal IPs via multiple DoH providers (Google & Cloudflare).
+    This is critical for bypassing DNS blocks in restricted environments like Hugging Face.
+    """
+    logging.info("Initiating Stellar DoH Bypass Sequence...")
+    com_ips, gg_ips = set(), set()
+    
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        # Provider 1: Google DNS
         try:
-            # Run concurrently to save startup time
+            logging.info("Polling Google Logic Gates...")
             responses = await asyncio.gather(
-                client.get("https://dns.google/resolve?name=discord.com&type=A", timeout=3.0),
-                client.get("https://dns.google/resolve?name=gateway.discord.gg&type=A", timeout=3.0)
+                client.get("https://dns.google/resolve?name=discord.com&type=A"),
+                client.get("https://dns.google/resolve?name=gateway.discord.gg&type=A"),
+                return_exceptions=True
             )
-            d_com = responses[0].json()
-            d_gg = responses[1].json()
-            
-            com_ips = [ans['data'] for ans in d_com.get('Answer', []) if ans['type'] == 1]
-            gg_ips = [ans['data'] for ans in d_gg.get('Answer', []) if ans['type'] == 1]
-            return com_ips, gg_ips
+            for i, resp in enumerate(responses):
+                if isinstance(resp, httpx.Response) and resp.status_code == 200:
+                    data = resp.json()
+                    ips = [ans['data'] for ans in data.get('Answer', []) if ans['type'] == 1]
+                    if i == 0: com_ips.update(ips)
+                    else: gg_ips.update(ips)
         except Exception as e:
-            logging.error(f"DoH Bypass Error: {e}")
-            return [], []
+            logging.warning(f"Google DoH failed: {e}")
+
+        # Provider 2: Cloudflare DNS (Secondary Bypass)
+        if not com_ips or not gg_ips:
+            try:
+                logging.info("Primary Gates blocked. Polling Cloudflare Relay...")
+                headers = {"Accept": "application/dns-json"}
+                responses = await asyncio.gather(
+                    client.get("https://cloudflare-dns.com/dns-query?name=discord.com&type=A", headers=headers),
+                    client.get("https://cloudflare-dns.com/dns-query?name=gateway.discord.gg&type=A", headers=headers),
+                    return_exceptions=True
+                )
+                for i, resp in enumerate(responses):
+                    if isinstance(resp, httpx.Response) and resp.status_code == 200:
+                        data = resp.json()
+                        ips = [ans['data'] for ans in data.get('Answer', []) if ans['type'] == 1]
+                        if i == 0: com_ips.update(ips)
+                        else: gg_ips.update(ips)
+            except Exception as e:
+                logging.warning(f"Cloudflare DoH failed: {e}")
+
+    final_com = list(com_ips)
+    final_gg = list(gg_ips)
+    
+    if final_com: logging.info(f"Resolved discord.com -> {final_com}")
+    if final_gg: logging.info(f"Resolved gateway.discord.gg -> {final_gg}")
+    
+    return final_com, final_gg
 
 # Socket-Level Patching
 DISCORD_COM_IPS, DISCORD_GG_IPS = [], []
@@ -50,9 +86,10 @@ original_getaddrinfo = socket.getaddrinfo
 
 def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     safe_host = host.decode('utf-8') if isinstance(host, bytes) else host
-    if safe_host == "discord.com" and DISCORD_COM_IPS:
+    # Case-insensitive matching and handling bytes
+    if safe_host and safe_host.lower() == "discord.com" and DISCORD_COM_IPS:
         return original_getaddrinfo(random.choice(DISCORD_COM_IPS), port, family, type, proto, flags)
-    elif safe_host == "gateway.discord.gg" and DISCORD_GG_IPS:
+    elif safe_host and safe_host.lower() == "gateway.discord.gg" and DISCORD_GG_IPS:
         return original_getaddrinfo(random.choice(DISCORD_GG_IPS), port, family, type, proto, flags)
     return original_getaddrinfo(host, port, family, type, proto, flags)
 

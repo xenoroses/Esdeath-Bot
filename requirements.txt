@@ -7,3 +7,5 @@ httpx
 fastapi
 numexpr
 psutil
+certifi
+PyNaCl
