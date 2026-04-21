@@ -13,6 +13,19 @@ class AIUtilityCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     @commands.hybrid_command(name="summarize", description="AI Channel Digest: Summarize the last N messages.")
     @commands.has_permissions(manage_messages=True)
     async def summarize(self, ctx: commands.Context, limit: int = 50):
@@ -40,7 +53,7 @@ class AIUtilityCommands(commands.Cog):
         embed.add_field(name="Auto-Generated Summary", value="> Multiple short conversations occurring.\n> No severe spikes in hostility detected.\n> Routine channel traffic.", inline=False)
         
         embed.set_footer(text="Engine: Hyacine LLM Bridge (Mock Phase)")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒞𝒽𝒶𝓃ℐℯ𝓁 𝒟𝒾𝑔ℯ𝓈𝓉 of #{ctx.channel.name} Complete.")
 
     @commands.hybrid_command(name="policy", description="Display context-aware server rules.")
     async def policy(self, ctx: commands.Context):
@@ -55,7 +68,7 @@ class AIUtilityCommands(commands.Cog):
         elif "help" in c_name or "support" in c_name:
             channel_rules = "• Format code properly\n• One query per thread\n• Do not ping staff arbitrarily"
             
-        embed = discord.Embed(title="❂ 𝒞ℴ𝓃𝓉ℯ𝓍𝓉-𝒜𝓌ℯ 𝒫ℴ𝓁𝒾𝒸𝓎", color=0x34495E)
+        embed = discord.Embed(title="❂ 𝒞ℴ𝓃ℯ𝓍𝓉-𝒜𝓌ℯ 𝒫ℴ𝓁𝒾𝒸𝓎", color=0x34495E)
         
         if channel_rules:
             embed.description = f"**Relevant Rules for <#{ctx.channel.id}>**\n{channel_rules}\n\n**Global Defaults**\n{general_rules}"
@@ -63,14 +76,14 @@ class AIUtilityCommands(commands.Cog):
             embed.description = f"**Global Rules**\n{general_rules}"
             
         embed.set_footer(text="Standardized by Stellar Decree")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text="❂ 𝒞ℴ𝓃ℯ𝓍𝓉-𝒜𝓌ℯ 𝒫ℴ𝓁𝒾𝒸𝓎 Retrieval Complete.")
 
     # --- USER BEHAVIOR MEMORY ---
     @commands.hybrid_command(name="memory", description="AI-powered user behavior analysis.")
     @commands.has_permissions(manage_messages=True)
     async def memory(self, ctx: commands.Context, user: discord.Member, days: int = 7):
         if days > 30:
-            return await ctx.send("⌬ ⟡ **ℳ𝒶𝓍𝒾𝓂𝓊𝓂 𝟥𝟢 𝒹𝒶𝓎𝓈 𝒻ℴ𝓇 𝓅ℯ𝓇𝒻ℴ𝓇𝓂𝒶𝓃𝒸ℯ 𝓈𝒸𝒶𝓁𝒾𝓃ℊ.**")
+            return await ctx.send("⌬ ⟡ **ℳ𝒶𝓍𝒾𝓂𝓊𝓂 𝟥𝟢 𝒹𝒶𝓎𝓈 𝒻ℴ𝓇 𝓅ℯ𝓇𝒻ℴ𝓇𝓂𝒶𝓃𝒸ℯ 𝓈𝒸𝒶𝓁i𝓃𝑔.**")
             
         await ctx.defer()
         try:
@@ -94,7 +107,7 @@ class AIUtilityCommands(commands.Cog):
                 except: continue
             
             if not user_messages:
-                return await ctx.send(f"⌬ ⟡ **𝒩ℴ 𝓇ℯℴℯ𝓃𝓉 𝒷ℯ𝒽𝒶𝓋𝒾ℴ𝓇𝒶𝓁 𝓈𝒾𝑔𝓃𝒶𝓉𝓊𝓇ℯ 𝒻ℴ𝓊𝓃𝒹 𝒻ℴ𝓇 {user.mention}.**")
+                return await ctx.send(f"⌬ ⟡ **𝒩ℴ 𝓇ℯℴℯ𝓃𝓉 𝒷ℯ𝒽𝒶𝓋iℴ𝓇𝒶𝓁 𝓈i𝑔𝓃𝒶𝓉𝓊𝓇ℯ 𝒻ℴ𝓊𝓃𝒹 𝒻ℴ𝓇 {user.mention}.**")
             
             total_messages = len(user_messages)
             avg_daily = total_messages / days
@@ -104,7 +117,7 @@ class AIUtilityCommands(commands.Cog):
             current_trust = trust_scores.get(str(user.id), 5.0)
             
             embed = discord.Embed(
-                title=f"⌬ 𝒰𝓈ℯ𝓇 ℳℯ𝓂ℴ𝓇𝒾ℯ𝓈: {user.display_name}",
+                title=f"⌬ 𝒰𝓈ℯ𝓇 ℳℯ𝓂ℴ𝓇iℯ𝓈: {user.display_name}",
                 description=f"Behavior analysis for last **{days}** days across primary sectors.",
                 color=0xE67E22
             )
@@ -122,10 +135,10 @@ class AIUtilityCommands(commands.Cog):
             embed.add_field(name="📍 Sector Preferences", value=channels_text, inline=True)
             
             embed.set_footer(text=f"Engine: Hyacine Memory Core | {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"⌬ 𝒰𝓈ℯ𝓇 ℳℯ𝓂ℴ𝓇iℯ𝓈 for {user.display_name} Reconstruction Complete.")
             
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **ℳℯ𝓂ℴ𝓇𝓎 𝒶𝓃𝒶𝓁𝓎𝓈𝒾𝓈 𝒹𝒾𝓈𝓇𝓊𝓅𝓉ℯ𝒹:** {e}")
+            await ctx.send(f"⌬ ⟡ **ℳℯ𝓂ℴ𝓇𝓎 𝒶𝓃𝒶𝓁𝓎𝓈i𝓈 𝒹i𝓈𝓇𝓊𝓅𝓉ℯ𝒹:** {e}")
 
 async def setup(bot):
     if "AIUtilityCommands" not in bot.cogs:

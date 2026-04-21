@@ -12,14 +12,37 @@ class SecurityCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
+    async def _check_hierarchy(self, ctx, member):
+        """Unified rank check to prevent raw Forbidden errors."""
+        if not isinstance(member, discord.Member): return True
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            await ctx.send("⌬ ⟡ **𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟:** Subject ranks equal to or above your authority.", ephemeral=True)
+            return False
+        if member.id == ctx.guild.owner_id:
+            await ctx.send("⌬ ⟡ **𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩 ℐℳℳ𝒰𝒩ℐ𝒯𝒴:** Owner cannot be processed.", ephemeral=True)
+            return False
+        if member.top_role >= ctx.me.top_role:
+            await ctx.send("⌬ ⟡ **𝒮ℋℐℰℒ𝒟 𝒟ℰ𝒯ℰ𝒞𝒯ℰ𝒟:** Target's rank exceeds my system permissions.", ephemeral=True)
+            return False
+        return True
+
     @commands.hybrid_command(name="shadowban", description="Invisible moderation: Auto-deletes all messages from a user silently.")
     @commands.has_permissions(ban_members=True)
     async def shadowban(self, ctx: commands.Context, user: discord.Member):
-        # Hierarchy Validation
-        if user.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
-            return await ctx.send("⌬ ⟡ **𝒴ℴ𝓊 𝒸𝒶𝓃𝓃ℴ𝓉 𝓈𝒽𝒶𝒹ℴ𝓌ℬ𝒶𝓃 𝓉𝒽ℴ𝓈ℯ ℴ𝒻 ℯ𝓆𝓊𝒶𝓁 ℴ𝓇 𝒽𝒾ℊ𝒽ℯ𝓇 𝓇𝒶𝓃𝓀.**", ephemeral=True)
-        if user.top_role >= ctx.me.top_role:
-            return await ctx.send("⌬ ⟡ **𝒮𝒽𝒶𝒹ℴ𝓌ℬ𝒶𝓃 𝒻𝒶𝒾𝓁ℯ𝒹. 𝒮𝓊𝒷𝒿ℯ𝒸𝓉'𝓈 𝓃ℯ𝓊𝓇𝒶𝓁 𝓈𝒽𝒾ℯ𝓁𝒹𝒾𝓃ℊ (ℛℴ𝓁ℯ ℛ𝒶𝓃𝓀) 𝒾𝓈 𝒽𝒾ℊ𝒽ℯ𝓇 𝓉𝒽𝒶𝓃 𝓂𝒾𝓃ℯ.**", ephemeral=True)
+        if not await self._check_hierarchy(ctx, user): return
 
         key = f"shadowban:{ctx.guild.id}:{user.id}"
         
@@ -54,7 +77,7 @@ class SecurityCommands(commands.Cog):
             embed.add_field(name="Protections Loaded", value="• Account age (< 3 days) filter\n• Message velocity tracking\n• Link block on mass joins", inline=False)
         
         embed.set_footer(text="Engine: Hyacine Sentinel Array")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 Logic Status: **{status}**")
 
     @commands.hybrid_group(name="intel", description="Server analytics snapshot.")
     @commands.has_permissions(view_audit_log=True)
@@ -89,7 +112,7 @@ class SecurityCommands(commands.Cog):
         embed.add_field(name="Security Triggers", value="Active ❂" if raid_active else "None ⌬", inline=True)
         embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
         embed.set_footer(text="Verified by Hyacine Intelligence Layer")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒜𝓈𝓉𝓇𝒶𝓁 𝒮ℯ𝓇𝓋ℯ𝓇 ℐ𝓃𝓉ℯ𝓁 Analysis Complete.")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

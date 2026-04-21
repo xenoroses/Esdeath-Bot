@@ -26,20 +26,32 @@ class OwnerCmds(commands.Cog):
         self.bot = bot
 
     # --- INTERNAL HELPERS ---
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
 
     async def _send_error(self, ctx, text):
         embed = discord.Embed(
             description=f"⌬ ⟡ **{text}**",
             color=0x2B2D31
         )
-        await ctx.send(embed=embed, ephemeral=True)
+        await self._send_embed(ctx, embed, ephemeral=True, fallback_text=f"𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇: {text}")
 
     async def _send_success(self, ctx, text, ephemeral=False):
         embed = discord.Embed(
             description=f"✧ ✦ **{text}**",
             color=0x9B59B6
         )
-        await ctx.send(embed=embed, ephemeral=ephemeral)
+        await self._send_embed(ctx, embed, ephemeral=ephemeral, fallback_text=f"𝒮𝓊𝒸𝒸ℯ𝓈𝓈: {text}")
 
     # --- BOT ADMIN MANAGEMENT ---
 
@@ -49,6 +61,7 @@ class OwnerCmds(commands.Cog):
     )
     @commands.is_owner()
     async def addadmin(self, ctx: commands.Context, user: discord.User):
+        await ctx.defer(ephemeral=True)
 
         if not self.bot.redis:
             return await self._send_error(
@@ -90,6 +103,7 @@ class OwnerCmds(commands.Cog):
     )
     @commands.is_owner()
     async def removeadmin(self, ctx: commands.Context, user: discord.User):
+        await ctx.defer(ephemeral=True)
 
         if not self.bot.redis:
             return await self._send_error(
@@ -128,6 +142,7 @@ class OwnerCmds(commands.Cog):
     @commands.hybrid_command(name="health", description="Check bot health status.")
     @commands.check(is_bot_admin)
     async def health(self, ctx: commands.Context):
+        await ctx.defer()
 
         # Redis status
         redis_status = "⌬ **𝒟𝒾𝓈𝒸ℴ𝓃𝓃ℯ𝒸𝓉ℯ𝒹**"
@@ -159,11 +174,18 @@ class OwnerCmds(commands.Cog):
         embed.add_field(name="Python", value=platform.python_version(), inline=True)
         embed.add_field(name="Discord.py", value=discord.__version__, inline=True)
 
-        await ctx.send(embed=embed)
+        try:
+        await self._send_embed(ctx, embed, fallback_text=f"**𖦹 ℋ𝓎𝒶𝒸𝒾𝓃ℯ ℋℯ𝒶𝓁𝓉𝒽:** {uptime_str} | Latency: {latency}ms | Redis: {redis_status}")
+        except discord.Forbidden as e:
+            if e.code == 50013:
+                await ctx.send(f"**𖦹 ℋ𝓎𝒶𝒸𝒾𝓃ℯ ℋℯ𝒶𝓁𝓉𝒽:** {uptime_str} | Latency: {latency}ms | Redis: {redis_status}")
+            else:
+                raise e
 
     @commands.hybrid_command(name="embed", description="Send a custom high-density matrix embed.")
     @commands.has_permissions(manage_messages=True)
     async def send_embed(self, ctx: commands.Context, title: str, *, description: str):
+        await ctx.defer(ephemeral=True)
         embed = discord.Embed(title=f"⌬ {title}", description=description, color=0x9B59B6)
         embed.set_footer(text=f"Sent by {ctx.author.display_name} | Hyacine Matrix")
         await ctx.send(embed=embed)

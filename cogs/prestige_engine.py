@@ -18,6 +18,34 @@ class PrestigeEngine(commands.Cog):
 
     async def _safe_rset(self, key, val):
         await rset_json(self.bot, key, val)
+
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
+    async def _check_hierarchy(self, ctx, member):
+        """Unified rank check to prevent raw Forbidden errors."""
+        if not isinstance(member, discord.Member): return True
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            await ctx.send("⌬ ⟡ **𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟:** Subject ranks equal to or above your authority.", ephemeral=True)
+            return False
+        if member.id == ctx.guild.owner_id:
+            await ctx.send("⌬ ⟡ **𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩 ℐℳℳ𝒰𝓝ℐ𝒯𝒴:** Owner cannot be processed.", ephemeral=True)
+            return False
+        if member.top_role >= ctx.me.top_role:
+            await ctx.send("⌬ ⟡ **𝒮ℋℐℰℒ𝒟 𝒟ℰ𝒯ℰ𝒞⒯ℰ𝒟:** Target's rank exceeds my system permissions.", ephemeral=True)
+            return False
+        return True
+
     @commands.hybrid_command(name="bestow", description="Hyacine grants a dynamic prestige title to a user.")
     @commands.has_permissions(manage_roles=True)
     async def bestow(self, ctx: commands.Context, user: discord.Member, *, title: str):
@@ -39,8 +67,9 @@ class PrestigeEngine(commands.Cog):
                 color=0xF1C40F
             )
             embed.set_thumbnail(url=user.display_avatar.url)
+            if not await self._check_hierarchy(ctx, user): return
             embed.set_footer(text="Engine: Hyacine Hierarchy Ledger")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒫𝓇ℯ𝓈𝓉𝒾ℊℯ Bestowed: {user.mention} is now known as **{title}**")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **ℬℯ𝓈𝓉ℴ𝓌𝒶𝓁 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -68,8 +97,9 @@ class PrestigeEngine(commands.Cog):
             )
             embed.add_field(name="Eternal Legacy", value=f"*{legacy}*")
             embed.set_thumbnail(url=user.display_avatar.url)
+            if not await self._check_hierarchy(ctx, user): return
             embed.set_footer(text="Engine: Hyacine Archival Core")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"ℒℯℊℯ𝓃𝒹 Canonized: {user.mention} immortalized.")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒞𝒶𝓃ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -82,9 +112,9 @@ class PrestigeEngine(commands.Cog):
             
             legends = data.get("legends", {})
             if not legends:
-                return await ctx.send("⌬ ⟡ **𝒯𝒽ℯ 𝒫𝒶𝓃𝓉𝒽ℯℴ𝓃 𝓇ℯ𝓂𝒶𝒾𝓃𝓈 ℯ𝓂𝓅𝓉𝓎. 𝒩ℴ 𝓁ℯ𝑔ℯ𝓃𝒹𝓈 𝒽𝒶𝓋ℯ 𝒷ℯℯ𝓃 𝒸𝒶𝓃ℴ𝓃𝒾𝓏ℯ𝒹.**")
+                return await ctx.send("⌬ ⟡ **𝒯𝒽ℯ 𝒫𝒶𝓃ℴ𝒽ℯℴ𝓃 𝓇ℯ𝓂𝒶𝒾𝓃𝓈 ℯ𝓂𝓅𝓉𝓎. 𝒩ℴ 𝓁ℯ𝑔ℯ𝓃𝒹𝓈 𝒽𝒶𝓋ℯ 𝒷ℯℯ𝓃 𝒸𝒶𝓃ℴ𝓃𝒾𝓏ℯ𝒹.**")
                 
-            embed = discord.Embed(title="❂ ℋ𝒶𝓁𝓁 ℴ𝒻 ℐ𝓃𝒻𝓁𝓊ℯ𝓃𝒸ℯ", color=0x8E44AD)
+            embed = discord.Embed(title="❂ ℋ𝒶𝓁𝓁 ℴ𝒻 ℐℳ𝓁𝓊ℯ𝓃𝒸ℯ", color=0x8E44AD)
             # SCALE GUARD: Limit to top 20 legends to prevent overflow
             for uid, info in list(legends.items())[:20]:
                 embed.add_field(
@@ -93,7 +123,7 @@ class PrestigeEngine(commands.Cog):
                     inline=False
                 )
             embed.set_footer(text="Engine: Hyacine Archival Core")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒫𝒶𝓃𝓉ℯ𝓁𝓁 of Influence Retrieval Complete.")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **ℛℯ𝓉𝓇𝒾ℯ𝓋𝒶𝓁 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -108,18 +138,20 @@ class PrestigeEngine(commands.Cog):
             members = [member1.id, member2.id]
             if member3: members.append(member3.id)
             
+            if not await self._check_hierarchy(ctx, member1) or not await self._check_hierarchy(ctx, member2): return
+            if member3 and not await self._check_hierarchy(ctx, member3): return
             data[name.upper()] = members
             await self._safe_rset(key, data)
             
             mentions = " ".join([f"<@{m}>" for m in members])
             
             embed = discord.Embed(
-                title="❈ 𝒮𝓎𝓃𝒹𝒾𝒸𝒶𝓉ℯ ℱℴ𝓇𝓂ℯ𝒹",
+                title="❈ 𝒮𝓎𝓃𝒹𝒾𝒸𝒶𝓉ℯ ℱℴℛ𝓂ℯ𝒹",
                 description=f"A new bloodline has been carved into the server hierarchy.\n\n**Syndicate: {name.upper()}**\nMembers: {mentions}",
                 color=0xE74C3C
             )
             embed.set_footer(text="Engine: Hyacine Alliance Matrix")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓎𝓃𝒹𝒾𝒸𝒶𝓉ℯ {name.upper()} Formed with {len(members)} assets.")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓃𝒹𝒾𝒸𝒶𝓉ℯ 𝒻ℴ𝓇𝓂𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -146,7 +178,7 @@ class PrestigeEngine(commands.Cog):
             embed.add_field(name="Standing", value=f"**{standing}**", inline=True)
             embed.set_thumbnail(url=target.display_avatar.url)
             embed.set_footer(text="Engine: Hyacine Prestige Layer")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"ℛℯ𝓃ℴ𝓌𝓃 Score: **{renown_score}** | Standing: {standing}")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **ℛℯ𝓃ℴ𝓌𝓃 𝒸𝒽ℯ𝒸𝓀 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -185,7 +217,7 @@ class PrestigeEngine(commands.Cog):
                 
             # Cutesy Hyacine Aesthetic
             embed = discord.Embed(
-                title=f"⟡ ℬ𝒾ℴ𝓁ℴ𝑔𝒾𝒸𝒶𝓁 𝒮𝓉𝓇𝒶𝓉𝓊𝓂: {ctx.author.display_name}", 
+                title=f"⟡ ℬ𝒾ℴ𝓁ℴ𝑔𝒾𝒸𝒶𝓁 𝒮𝓉𝓇𝒶ℯ𝓁𝓁𝓊𝓂: {ctx.author.display_name}", 
                 color=0xB19CD9 # Hyacine Lavender
             )
             embed.set_author(name="Stellar Evolution Archive", icon_url=ctx.author.display_avatar.url)
@@ -205,8 +237,7 @@ class PrestigeEngine(commands.Cog):
             )
             embed.description = details
             embed.set_footer(text="© Hyacine Protocol | Evolutionary Data Map", icon_url=self.bot.user.display_avatar.url)
-            
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"ℬ𝒾ℴ𝓁ℴ𝑔𝒾𝒸𝒶𝓁 𝒮𝓉𝓇𝒶𝓉𝓊𝓂: Tier = {tier} | Sync = {points}")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒮𝓉𝓇𝒶𝓉𝓊𝓂 𝒶𝓃𝒶𝓁𝓎𝓈𝒾𝓈 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -233,7 +264,7 @@ class PrestigeEngine(commands.Cog):
             )
             embed.set_thumbnail(url=ctx.author.display_avatar.url)
             embed.set_footer(text="Engine: Hyacine Evolutionary Matrix")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒜𝓈𝒸ℯ𝓃𝓈𝒾ℴ𝓃 Triggered: Evolution Complete.")
         except Exception as e:
             self.awaken.reset_cooldown(ctx)
             await ctx.send(f"⌬ ⟡ **𝒜𝓈𝒸ℯ𝓃𝓈𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")

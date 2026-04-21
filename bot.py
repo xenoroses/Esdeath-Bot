@@ -29,8 +29,13 @@ async def fetch_discord_ips():
     print("Fetching live Discord IPs via Google DoH...")
     async with httpx.AsyncClient() as client:
         try:
-            d_com = (await client.get("https://dns.google/resolve?name=discord.com&type=A", timeout=5.0)).json()
-            d_gg = (await client.get("https://dns.google/resolve?name=gateway.discord.gg&type=A", timeout=5.0)).json()
+            # Run concurrently to save startup time
+            responses = await asyncio.gather(
+                client.get("https://dns.google/resolve?name=discord.com&type=A", timeout=3.0),
+                client.get("https://dns.google/resolve?name=gateway.discord.gg&type=A", timeout=3.0)
+            )
+            d_com = responses[0].json()
+            d_gg = responses[1].json()
             
             com_ips = [ans['data'] for ans in d_com.get('Answer', []) if ans['type'] == 1]
             gg_ips = [ans['data'] for ans in d_gg.get('Answer', []) if ans['type'] == 1]
@@ -220,15 +225,27 @@ class HyacineBot(commands.AutoShardedBot):
         if getattr(ctx, "_error_handled", False): return
         ctx._error_handled = True
 
+        header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+        footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+
         if isinstance(error, (commands.MissingRequiredArgument, commands.BadArgument)):
-            return await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℛℯ𝓆𝓊𝒾𝓈𝒾𝓉𝒾ℴ𝓃 ℱ𝒶𝒾𝓁𝓊𝓇ℯ:**\n```\nUsage: {ctx.clean_prefix}{ctx.command.qualified_name} {ctx.command.signature}\n```")
+            usage = f"Usage: {ctx.clean_prefix}{ctx.command.qualified_name} {ctx.command.signature}"
+            return await ctx.send(f"{header}```fix\n𝒮𝓎𝓈𝓉ℯ𝓂 ℛℯ𝓆𝓊𝒾𝓈𝒾𝓉𝒾ℴ𝓃 ℱ𝒶𝒾𝓁𝓊𝓇ℯ\n{usage}\n``` {footer}")
         elif isinstance(error, commands.MissingPermissions):
-            return await ctx.send(f"⌬ ⟡ **𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟:** Missing `{', '.join(error.missing_permissions)}`.")
+            perms = ", ".join(error.missing_permissions)
+            return await ctx.send(f"{header}```fix\n𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ\nMissing: {perms}\n``` {footer}")
         elif isinstance(error, commands.CommandOnCooldown):
-            return await ctx.send(f"⌬ ⟡ **𝒯ℋℛ𝒪𝒯𝒯ℒℐ𝒩𝒢:** `{error.retry_after:.1f}s` remaining.")
+            return await ctx.send(f"{header}```fix\n𝒯ℋℛ𝒪𝒯𝒯ℒℐ𝒩𝒢\nRetry in {error.retry_after:.1f}s\n``` {footer}")
+        
+        if isinstance(error, commands.CommandInvokeError) and isinstance(error.original, discord.Forbidden):
+            forbidden = error.original
+            if forbidden.code == 50013:
+                msg = "𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟: I lack required permissions in this sector (likely `Embed Links` or `Read Message History`)."
+                return await ctx.send(f"{header}```fix\n{msg}\n``` {footer}")
+
         logging.error(f"Command Error: {error}")
         if not ctx.interaction:
-            await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** `{error}`")
+            await ctx.send(f"{header}```fix\n𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇\n{error}\n``` {footer}")
 
     async def on_tree_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         """Dedicated error handler for the Slash Command Tree."""
@@ -248,12 +265,12 @@ class HyacineBot(commands.AutoShardedBot):
             logging.error(f"Tree Error: {error}")
 
         try:
-            if interaction.response.is_done():
-                await interaction.followup.send(msg, ephemeral=True)
-            else:
+            if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
-        except:
-            pass
+            else:
+                await interaction.followup.send(msg, ephemeral=True)
+        except Exception as e:
+            logging.error(f"Failed to send tree error response: {e}")
 
 # --- 4. STARTUP LOGIC ---
 async def main():

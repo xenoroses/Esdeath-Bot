@@ -13,6 +13,19 @@ class AutomodEngine(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     async def _safe_regex_match(self, pattern, content):
         """Executes regex in a thread with a strict timeout to prevent ReDoS."""
         try:
@@ -120,7 +133,7 @@ class AutomodEngine(commands.Cog):
             embed.add_field(name=f"Rule #{r.get('id', '?')} | {r.get('action').upper()}", value=f"Pattern: `{r.get('pattern')}`", inline=False)
         
         embed.set_footer(text="Engine: Hyacine Recursive Logic Array")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓉ℯ𝓁𝓁𝒶𝓇 𝒜𝓊𝓉ℴ𝓂ℴ𝒹 Guarding Protocals: {len(rules)} active rules.")
 
     @automod.command(name="remove", description="Remove an automod rule by ID.")
     async def remove_rule(self, ctx: commands.Context, rule_id: int):

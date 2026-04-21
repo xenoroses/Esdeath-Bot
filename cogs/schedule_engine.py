@@ -15,6 +15,19 @@ class ScheduleEngine(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.schedule_check.start()
+
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
         
     def cog_unload(self):
         self.schedule_check.cancel()
@@ -105,7 +118,9 @@ class ScheduleEngine(commands.Cog):
                                 type=discord.ChannelType.public_thread
                             )
                             if message_content:
-                                await thread.send(message_content)
+                                try:
+                                    await thread.send(message_content)
+                                except: pass
                                 
                 elif action_type == "cleanup_threads":
                     # Close old inactive threads
@@ -146,6 +161,7 @@ class ScheduleEngine(commands.Cog):
         /schedule delete daily_announce - Remove a schedule
         /schedule toggle daily_announce - Enable/disable schedule
         """
+        await ctx.defer()
         if not self.bot.redis:
             return await ctx.send("⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒪𝒻𝒻𝓁𝒾𝓃ℯ.**")
             
@@ -184,7 +200,7 @@ class ScheduleEngine(commands.Cog):
             embed.add_field(name="Time", value="9:00 AM", inline=True)
             embed.add_field(name="Actions", value="Send announcement message", inline=True)
             
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ **{name}** Created successfully.")
             
         elif action == "list":
             schedules = await rget_json(self.bot, f"schedules:{ctx.guild.id}") or []
@@ -216,7 +232,7 @@ class ScheduleEngine(commands.Cog):
                     inline=True
                 )
                 
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒜𝒸t𝒾𝓋ℯ 𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ𝓈: {len(schedules)} recurring tasks found.")
             
         elif action == "delete":
             if not name:

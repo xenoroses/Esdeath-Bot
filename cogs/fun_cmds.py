@@ -9,6 +9,19 @@ class FunCmds(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
 
     @commands.hybrid_command(
         name="match",
@@ -75,7 +88,7 @@ class FunCmds(commands.Cog):
         embed.description = details
         embed.set_footer(text="© Hyacine Matchmaking | Orbital Synergy Data", icon_url=self.bot.user.display_avatar.url)
 
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓎𝓃𝒶Ⓟ𝓉𝒾𝒸 ℳ𝒶𝓉ℿ𝒽: {user1.display_name} + {user2.display_name} = **{score}%** Harmony.")
 
     @commands.hybrid_command(name="urban", description="Search the Urban Dictionary (Stellar slang audit).")
     async def urban(self, ctx: commands.Context, *, term: str):
@@ -93,14 +106,20 @@ class FunCmds(commands.Cog):
         top = data['list'][0]
         embed = discord.Embed(title=f"✧ 𝒰𝓇𝒷𝒶𝓃 𝒜𝓊𝒹𝒾𝓉: {term}", description=top['definition'].replace("[", "").replace("]", ""), color=0x9B59B6)
         embed.add_field(name="Example", value=top['example'].replace("[", "").replace("]", "") or "No example.")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒰𝓇𝒷𝒶𝓃 𝒜𝓊𝒹𝒾𝓉 ({term}): {top['definition'][:200]}...")
 
     @commands.hybrid_command(name="poll", description="Create a simple demographic sync (poll).")
     async def poll(self, ctx: commands.Context, question: str, opt1: str, opt2: str):
         embed = discord.Embed(title="❂ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 𝒟ℯ𝓂ℴℊ𝓇𝒶𝓅ℋ𝒾𝒸 𝒮𝓎𝓃𝒸", description=f"**{question}**\n\n1️⃣ {opt1}\n2️⃣ {opt2}", color=0xB19CD9)
-        msg = await ctx.send(embed=embed)
-        await msg.add_reaction("1️⃣")
-        await msg.add_reaction("2️⃣")
+        try:
+            msg = await ctx.send(embed=embed)
+            await msg.add_reaction("1️⃣")
+            await msg.add_reaction("2️⃣")
+        except discord.Forbidden as e:
+            if e.code == 50013:
+                await ctx.send(f"❂ **𝒫ℴ𝓁𝓁:** {question}\n1. {opt1}\n2. {opt2}\n(Reactions/Embeds disabled)")
+            else:
+                raise e
 
     @commands.hybrid_command(name="remind", description="Set a temporal resonance alert.")
     async def remind(self, ctx: commands.Context, minutes: int, *, task: str):

@@ -13,6 +13,22 @@ class RaidShield(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            # Handle both ctx (Command Context) and channel objects
+            target = ctx.send if hasattr(ctx, "send") else ctx
+            await target(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                target = ctx.send if hasattr(ctx, "send") else ctx
+                await target(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
         self.join_tracker = defaultdict(lambda: deque(maxlen=100))
         self.message_tracker = defaultdict(lambda: defaultdict(lambda: deque(maxlen=50)))
         self.mention_tracker = defaultdict(lambda: deque(maxlen=100))
@@ -175,7 +191,7 @@ class RaidShield(commands.Cog):
                     embed.add_field(name="Automation Gates", value="\n".join(actions_taken[:5]), inline=False)
                 
                 embed.set_footer(text=f"Shield will reset in {self.slowmode_duration//60} minutes")
-                await alert_channel.send(embed=embed)
+                await self._send_embed(alert_channel, embed, fallback_text=f"ℛ𝒜ℐ𝒟 𝒮ℋℐℰℒ𝒟 𝒜𝒞𝒯ℐ𝒱𝒜𝒯ℰ𝒟: {raid_type.replace('_', ' ').title()}")
                 
         except Exception as e:
             print(f"RaidShield error: {e}")
@@ -250,7 +266,7 @@ class RaidShield(commands.Cog):
                 inline=False
             )
             
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text="ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 𝒮𝓉𝒶𝓉𝓊𝓈 Analysis Complete.")
             
         else:
             await ctx.send("❓ Usage: `/raidshield enable/disable/status`")

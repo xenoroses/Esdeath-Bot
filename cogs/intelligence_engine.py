@@ -31,6 +31,19 @@ class IntelligenceEngine(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     async def _safe_rget(self, key):
         return await rget_json(self.bot, key) or {}
 
@@ -113,7 +126,7 @@ class IntelligenceEngine(commands.Cog):
             stats += f"• Sentinel Trust Score: {trust:.1f}/10"
             embed.add_field(name="Behavioral Metadata", value=stats, inline=False)
             embed.set_footer(text="Engine: Hyacine Predictive Scrape API")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"ℛ𝒾𝓈𝓀 𝒫𝓇ℴ𝒿ℯ𝒸𝓉𝒾ℴ𝓃 ({user.display_name}): {action}")
         except Exception as e:
             await ctx.send(f"❌ | Prediction Engine Fault: {e}", ephemeral=True)
 
@@ -152,7 +165,7 @@ class IntelligenceEngine(commands.Cog):
             elif sum(buckets[-4:]) < sum(buckets[:4]): status = "Cooling Down 📉"
             embed.add_field(name="Current Momentum", value=status, inline=True)
             embed.set_footer(text="Engine: Hyacine Chrono-Scrape API")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"ℋ𝒾𝓈𝓉ℴ𝓇𝒾𝒸𝒶𝓁 𝒯ℴ𝓅ℴ𝓁ℴ𝑔𝓎 ({user.display_name}): {total_msgs} messages recorded.")
         except Exception as e:
             await ctx.send(f"❌ | Graph indexing failed: {e}", ephemeral=True)
 
@@ -198,7 +211,7 @@ class IntelligenceEngine(commands.Cog):
                 color=0x3498DB
             )
             embed.set_footer(text="Engine: Hyacine Early Warning System")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text="𝒮ℯ𝓇𝓋ℯ𝓇 𝒜ℴ𝓃𝓂𝒶𝓁𝓎 𝒮𝒸𝒶𝓃 Logic Complete (Embed Links disabled).")
         except Exception as e:
             await ctx.send(f"❌ | Scan failure: {e}", ephemeral=True)
 
@@ -248,7 +261,7 @@ class IntelligenceEngine(commands.Cog):
                     )
             
             embed.set_footer(text="Engine: Hyacine RAID Intelligence")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text="Infraction Clustered Mapping Complete.")
         except Exception as e:
             await ctx.send(f"❌ | Cluster mapping failed: {e}")
 
@@ -283,7 +296,7 @@ class IntelligenceEngine(commands.Cog):
             embed.add_field(name="Top Priorities Today", value="\n".join(advice), inline=False)
             embed.set_thumbnail(url=self.bot.user.display_avatar.url)
             embed.set_footer(text="Engine: Hyacine Executive Intelligence")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text="𝒮ℯ𝓇𝓋ℯℛ 𝒟𝒶𝒾𝓁𝓎 𝒟𝒾𝑔ℯ𝓈𝓉 Prepared.")
         except Exception as e:
             await ctx.send(f"❌ | Advisor down: {e}")
 
@@ -325,7 +338,7 @@ class IntelligenceEngine(commands.Cog):
             
             embed.set_thumbnail(url=user.display_avatar.url)
             embed.set_footer(text="Engine: Hyacine Absolutism Core")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒱ℯ𝓇𝒹𝒾𝒸𝓉 for {user.mention}: **{decision}** (Confidence: {conf}%)")
         except Exception as e:
             await ctx.send(f"✧ **𝒜𝒸𝓉𝒾𝓋ℯ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒟ℯ𝓅𝓁ℴ𝓎ℯ𝒹:** {user.mention}", ephemeral=True)
 
@@ -358,7 +371,7 @@ class IntelligenceEngine(commands.Cog):
             
             embed.description = desc
             embed.set_footer(text="Engine: Hyacine Topography Intel")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text="𝒢𝓁ℴ𝒷𝒶𝓁 𝒯𝒽𝓇ℯ𝒶𝓉 ℳ𝒶𝓅 Logic Complete.")
         except Exception as e:
             await ctx.send(f"❌ | Topography failed: {e}")
 
@@ -406,8 +419,7 @@ class IntelligenceEngine(commands.Cog):
             policy = get_policy()
             # Just show a snippet or title to be high production
             embed.set_footer(text="Verified against Hyacine Stellar Protocol")
-            
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text="𝒟𝒾𝓈𝒸𝓊𝓈𝓈𝒾ℴ𝓃 𝒯ℴ𝓅ℴ𝓁ℴ𝑔𝓎 Analysis Complete.")
         except Exception as e:
             await ctx.send(f"**𝒯ℴ𝓅ℴ𝓁ℴℊ𝓎 𝒮𝓎𝓃𝒸ℴ𝓇ℴ𝓃𝒾𝓏𝒶𝓉ℴ𝓃 ℱ𝒶𝒾𝓁ℯ𝒹:** {e} 🝮 𝒰𝓌𝒰 ⟡")
 

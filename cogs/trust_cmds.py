@@ -12,6 +12,19 @@ class TrustEngine(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     async def get_infraction_count(self, user_id, guild_id):
         key = f"infractions:{guild_id}:{user_id}"
         data = await rget_json(self.bot, key)
@@ -24,6 +37,7 @@ class TrustEngine(commands.Cog):
 
     @commands.hybrid_command(name="trustscore", description="Calculates behavioral trust dynamically.")
     async def trustscore(self, ctx: commands.Context, user: discord.Member = None):
+        await ctx.defer()
         target = user or ctx.author
         
         now = discord.utils.utcnow()
@@ -150,7 +164,7 @@ class TrustEngine(commands.Cog):
         await rset_json(self.bot, f"trust:{ctx.guild.id}:{target.id}", trust_data)
         
         embed.set_footer(text="Engine: Hyacine Trust Evaluation | Cached for 24h")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒯𝓇𝓊𝓈𝓉 Score: **{score}/100** | Risk: {risk_level}")
 
 async def setup(bot):
     if "TrustEngine" not in bot.cogs:

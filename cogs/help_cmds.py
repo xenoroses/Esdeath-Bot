@@ -98,8 +98,23 @@ class HelpCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, view=None, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, view=view)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Digital Matrix Synchronized."
+                # Billion-Dollar Fallback Aesthetics
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n\n*Note: Enable 'Embed Links' permission for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}")
+            else:
+                raise e
+
     @commands.hybrid_command(name="help", description="Discover everything Hyacine can do.")
     async def help_command(self, ctx: commands.Context):
+        await ctx.defer()
         cogs_dict = {}
         total_commands = 0
         
@@ -160,7 +175,15 @@ class HelpCommands(commands.Cog):
         view = View(timeout=120)
         view.add_item(HelpDropdown(cogs_dict))
         
-        await ctx.send(embed=embed, view=view)
+        # Billion-Dollar Grid for plain text
+        grid = ""
+        for i in range(0, len(categories), 2):
+            pair = categories[i:i+2]
+            grid += f"• {pair[0]:<20} "
+            if len(pair) > 1: grid += f"• {pair[1]:<20}"
+            grid += "\n"
+
+        await self._send_embed(ctx, embed, view=view, fallback_text=f"ℋ𝓎𝒶Ⓟ𝒾𝓃ℯ ℋℯ𝓁𝓅 𝒸𝒶𝓉ℯ𝑔ℴ𝓇𝒾ℯ𝓈:\n{grid}")
 
 async def setup(bot):
     # Aggressive cleanup of any existing help command

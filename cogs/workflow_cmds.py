@@ -11,6 +11,19 @@ class WorkflowCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     @commands.hybrid_group(name="workflow", description="Advanced server automation graph.")
     @commands.has_permissions(administrator=True)
     async def workflow(self, ctx: commands.Context):
@@ -55,7 +68,7 @@ class WorkflowCommands(commands.Cog):
 
         embed = discord.Embed(title="≛ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 𝒞𝓇ℯ𝒶𝓉ℯ𝒹", color=0x2ECC71)
         embed.description = f"**ID:** {flow_id}\n\n**IF** `{trigger}`\n**AND** `{condition}`\n**THEN** `{action}`"
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 #{flow_id} Created Successfully.")
 
     @workflow.command(name="list", description="List all active workflows.")
     async def workflow_list(self, ctx: commands.Context):
@@ -69,7 +82,7 @@ class WorkflowCommands(commands.Cog):
         embed = discord.Embed(title="≛ 𝒜𝒸𝓉𝒾𝓋ℯ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌𝓈", color=0x34495E)
         for f in flows:
             embed.add_field(name=f"Workflow #{f['id']}", value=f"IF `{f['trigger']}` AND `{f['condition']}` THEN `{f['action']}`", inline=False)
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒜𝒸𝓉𝒾𝓋ℯ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌𝓈 Check Complete. {len(flows)} rules found.")
 
     @workflow.command(name="visual", description="Plots a linear text-graph of active workflows.")
     async def workflow_visual(self, ctx: commands.Context):
@@ -86,7 +99,7 @@ class WorkflowCommands(commands.Cog):
 
         embed = discord.Embed(title="❂ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 𝒟𝒜𝒢 𝒱𝒾𝓈𝓊𝒶𝓁𝒾𝓏𝒶𝓉𝒾ℴ𝓃", description="```text\n" + "\n\n".join(lines) + "\n```", color=0x9B59B6)
         embed.set_footer(text="Engine: Hyacine Automation Graph")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text="𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 𝒟𝒜𝒢 Visual Retrieval Complete.")
 
     @commands.hybrid_command(name="eventpipe", description="Server automation pipelines: Bind events to trust algorithms.")
     @commands.has_permissions(administrator=True)
@@ -98,7 +111,7 @@ class WorkflowCommands(commands.Cog):
             color=0x2ECC71
         )
         embed.set_footer(text="Engine: Hyacine Runtime Control")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"ℰ𝓋ℯ𝓃𝓉 𝒫𝒾𝓅ℯ𝓁𝒾𝓃ℯ established for event: `{event}`")
 
     @commands.hybrid_command(name="conditionalrole", description="Dynamic role assignment based on logic gates.")
     @commands.has_permissions(manage_roles=True)
@@ -110,7 +123,7 @@ class WorkflowCommands(commands.Cog):
             color=0xF1C40F
         )
         embed.set_footer(text="Engine: Hyacine Dynamic IAM")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒞ℴ𝓃𝒹𝒾𝓉iℴ𝓃𝒶𝓁 Role {role.name} assigned with trust constraints.")
 
     @commands.hybrid_command(name="sentinel", description="Toggle always-on guardian daemon mode.")
     @commands.has_permissions(administrator=True)
@@ -122,7 +135,7 @@ class WorkflowCommands(commands.Cog):
             color=0xE74C3C
         )
         embed.set_footer(text="Engine: Hyacine Sentinel DAEMON")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒮ℯ𝓃ℴ𝓉𝒾𝓃ℯ𝓁 Daemon engage and active.")
 
 
     @commands.Cog.listener()

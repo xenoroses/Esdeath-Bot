@@ -14,6 +14,21 @@ class SynapticSocial(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            target = ctx.send if isinstance(ctx, (commands.Context, discord.Interaction)) else ctx
+            await target(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                target = ctx.send if isinstance(ctx, (commands.Context, discord.Interaction)) else ctx
+                await target(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     async def _safe_rget(self, key):
         return await rget_json(self.bot, key) or {}
 
@@ -60,7 +75,7 @@ class SynapticSocial(commands.Cog):
                 f"Mystery Rank: **{mystery_rank}**\n\n*Verified by Hyacine Identity Layer.*"
             )
             embed.set_footer(text="© Hyacine Protocol | Synaptic Intelligence Array")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓎𝓃𝒶Ⓟ𝓉𝒾𝒸 ℰ𝓈𝓈ℯ𝓃𝒸ℯ ({target.display_name}): Trust {trust:.2f}")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **ℰ𝓈𝓈ℯ𝓃𝒸ℯ 𝓇ℯ𝓉𝓇𝒾ℯ𝓋𝒶𝓁 𝒹𝒾𝓈𝓇𝓊𝓅𝓉ℯ𝒹:** {e}")
 
@@ -76,7 +91,8 @@ class SynapticSocial(commands.Cog):
             bonds[str(ctx.author.id)] = str(target.id)
             bonds[str(target.id)] = str(ctx.author.id)
             await self._safe_rset(b_key, bonds)
-            await ctx.send(embed=discord.Embed(title="✧ ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ 𝒮ℴ𝓁𝒾𝒹𝒾𝒻𝒾ℯ𝒹", description=f"Bond established between **{ctx.author.display_name}** and **{target.display_name}**.", color=0xB19CD9))
+            embed = discord.Embed(title="✧ ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ 𝒮ℴ𝓁𝒾𝒹𝒾𝒻𝒾ℯ𝒹", description=f"Bond established between **{ctx.author.display_name}** and **{target.display_name}**.", color=0xB19CD9)
+            await self._send_embed(ctx, embed, fallback_text=f"ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ 𝒮ℴ𝓁𝒾𝒹𝒾𝒻𝒾ℯ𝒹 between {ctx.author.display_name} and {target.display_name}.")
         except: await ctx.send("⌬ ⟡ **ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ 𝒻𝒶𝒹ℯ𝒹.**")
 
     @synapse_group.command(name="gaze", description="Leave a silent, anonymous fixation trace.")
@@ -102,7 +118,7 @@ class SynapticSocial(commands.Cog):
             
         total = int(await rget(self.bot, f"social:obsess:{ctx.author.id}") or 0)
         embed = discord.Embed(title="❂ ℱ𝒾𝓍𝒶𝓉iℴ𝓃 𝒯𝓇𝒶𝒸ℯ", description=f"**{count}** entities fixated.\nHistorical cycles: **{total}**", color=0xB19CD9)
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"❂ ℱ𝒾𝓍𝒶𝓉iℴℿ 𝒯ℯ𝓃𝓈iℴℿ: {count} entities fixated.")
 
     @synapse_group.command(name="mark", description="Leave a persistent, anonymous soul-sign.")
     async def signature(self, ctx: commands.Context, target: discord.Member):
@@ -130,7 +146,8 @@ class SynapticSocial(commands.Cog):
         check_key = f"social:sync:{ctx.guild.id}:{target.id}:{ctx.author.id}"
         check_val = await rget(self.bot, check_key)
         if check_val:
-            await ctx.send(embed=discord.Embed(title="Resonance Breach!", description=f"ℳ𝓊𝓉𝓊𝒶𝓁 𝓈y𝓃𝒸𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃 between **{ctx.author.mention}** and **{target.mention}**!", color=0xE74C3C))
+            embed = discord.Embed(title="Resonance Breach!", description=f"ℳ𝓊𝓉𝓊𝒶𝓁 𝓈y𝓃𝒸𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃 between **{ctx.author.mention}** and **{target.mention}**!", color=0xE74C3C)
+            await self._send_embed(ctx, embed, fallback_text=f"ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ ℬ𝓇ℯ𝒶𝒸𝒽! {ctx.author.mention} and {target.mention} are synced!")
             if self.bot.redis:
                 await self.bot.redis.delete(check_key)
         else:
@@ -155,17 +172,21 @@ class SynapticSocial(commands.Cog):
         intensity = min(100, int((mentions * 5) + (reactions * 2)))
         temp = "Supernova ❂" if intensity > 80 else ("Solar Flare ✧" if intensity > 50 else "Cold Void ⌬")
         embed = discord.Embed(title="🌡️ 𝒮ℴ𝒸𝒾𝒶𝓁 ℳℯ𝓇𝒾𝒹𝒾𝒶𝓃", description=f"Intensity Pulse: **{intensity}%**\nThermal Phase: **{temp}**", color=0xB19CD9)
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒮ℴ𝒸i𝒶𝓁 ℳℯ𝓇i𝒹i𝒶ℿ: {temp} ({intensity}%)")
 
     @synapse_group.command(name="void", description="Open a high-security aether loop.")
     @commands.has_permissions(manage_threads=True)
     async def void(self, ctx: commands.Context, partner: discord.Member):
         if partner.id == ctx.author.id or partner.bot: return
         await ctx.defer(ephemeral=True)
-        thread = await ctx.channel.create_thread(name=f"Void Loop: {ctx.author.display_name} ⟡ {partner.display_name}", auto_archive_duration=60, type=discord.ChannelType.private_thread)
-        await thread.add_user(ctx.author); await thread.add_user(partner)
-        await thread.send(embed=discord.Embed(title="⌬ 𝒜ℯ𝓉𝒽ℯ𝓇 𝒱ℴ𝒾𝒹", description=f"Isolated loop established between **{ctx.author.display_name}** and **{partner.display_name}**.", color=0x2B2D31))
-        await ctx.send(f"✧ 𝒱ℴ𝒾𝒹 ℒℴℴ𝓅 ℯ𝓈𝓉𝒶𝒷𝓁𝒾𝓈𝒽ℯ𝒹: {thread.jump_url}", ephemeral=True)
+        try:
+            thread = await ctx.channel.create_thread(name=f"Void Loop: {ctx.author.display_name} ⟡ {partner.display_name}", auto_archive_duration=60, type=discord.ChannelType.private_thread)
+            await thread.add_user(ctx.author); await thread.add_user(partner)
+            embed = discord.Embed(title="⌬ 𝒜ℯ𝓉ℋℯ𝓇 𝒱ℴ𝒾𝒹", description=f"Isolated loop established between **{ctx.author.display_name}** and **{partner.display_name}**.", color=0x2B2D31)
+            await self._send_embed(thread, embed, fallback_text="Void Loop established.")
+            await ctx.send(f"✧ 𝒱ℴ𝒾𝒹 ℒℴℴ𝓅 ℯ𝓈𝓉𝒶𝒷𝓁𝒾𝓈𝒽ℯ𝒹: {thread.jump_url}", ephemeral=True)
+        except discord.Forbidden as e:
+            await ctx.send(f"⌬ ⟡ **𝒜𝓊𝓉𝒽ℴ𝓇𝒾𝓉𝓎 𝒟ℯ𝓃𝒾ℯ𝒹:** I cannot create private threads here.", ephemeral=True)
 
     @synapse_group.command(name="pulse", description="Server social velocity scan.")
     async def pulse(self, ctx: commands.Context):
@@ -180,7 +201,7 @@ class SynapticSocial(commands.Cog):
         tension_pct = (tensions / max(total, 1)) * 100
         prog = "✧" * int(tension_pct / 10) + "◈" * (10 - int(tension_pct / 10))
         embed = discord.Embed(title="𖦹 𝒢𝓁ℴ𝒷𝒶𝓁 𝒮ℯ𝓃𝓈ℴ𝓇y 𝒫𝓊𝓁𝓈ℯ", description=f"Tension Level: **{tension_pct:.1f}%**\nSync Status: `[{prog}]`", color=0xB19CD9)
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒢𝓁ℴ𝒷𝒶𝓁 𝒮ℯℿ𝓈ℴ𝓇y 𝒫𝓊𝓁𝓈ℯ: Tension {tension_pct:.1f}%")
 
 async def setup(bot):
     if "SynapticSocial" not in bot.cogs:

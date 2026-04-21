@@ -16,6 +16,19 @@ class ObservabilityEngine(commands.Cog):
         self.bot = bot
         self.start_time = datetime.datetime.now(timezone.utc)
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     @commands.hybrid_command(name="latencybreakdown", description="Advanced latency and network speed decomposition.")
     @commands.has_permissions(manage_guild=True)
     async def latencybreakdown(self, ctx: commands.Context):
@@ -50,7 +63,7 @@ class ObservabilityEngine(commands.Cog):
             embed.add_field(name="Network Health", value=health, inline=False)
             
             embed.set_footer(text="Engine: Hyacine Telemetry Probe")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"ℒ𝒶𝓉ℯ𝓃𝒸𝓎 Analysis Complete. Health: {health}")
         except Exception as e:
             await ctx.send(f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
 
@@ -77,7 +90,7 @@ class ObservabilityEngine(commands.Cog):
             embed.add_field(name="🛡️ Security Status", value="Human-Centric ✧", inline=True)
             
             embed.set_footer(text="Engine: Hyacine Process Watchdog")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"ℋ𝓎𝒶𝒸𝒾𝓃ℯ Mission Control: {len(tasks)} tasks active.")
         except Exception as e:
             await ctx.send(f"𝒫𝓇ℴℯ𝓈𝓈𝓈 𝒲𝒶𝓉𝒸𝒽𝒹ℴ𝑔 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
 
@@ -110,7 +123,7 @@ class ObservabilityEngine(commands.Cog):
             embed.add_field(name="Container Uptime", value=f"`{uptime_str}`", inline=False)
             
             embed.set_footer(text="Engine: Hyacine Heap Analytics")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"ℳℯ𝓂ℴ𝓇𝓎 Footprint Profile Retrieval Complete.")
         except Exception as e:
             await ctx.send(f"❌ | ℳℯ𝓂ℴ𝓇𝓎 𝒶𝓃𝒶𝓁𝓎𝓉𝒾𝒸𝓈 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
 

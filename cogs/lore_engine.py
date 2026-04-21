@@ -13,6 +13,19 @@ class LoreEngine(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     async def _safe_rget(self, key):
         return await rget_json(self.bot, key) or {}
 
@@ -56,8 +69,7 @@ class LoreEngine(commands.Cog):
             )
             embed.description = details
             embed.set_footer(text="© Hyacine Lore Engine | Metaphysical Data Map", icon_url=self.bot.user.display_avatar.url)
-            
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒜𝓊𝓇𝒶 Resonance: **{resonance}%** | Sig: {hex_code}")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒜𝓊𝓇𝒶 𝓈𝓎𝓃ℴ𝒽𝓇ℴ𝓃𝒾𝓏𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -96,7 +108,7 @@ class LoreEngine(commands.Cog):
                 color=0x2E4053
             )
             embed.set_footer(text="Engine: Hyacine Lore Cartographer")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒞𝒽𝓇ℴ𝓃𝒾𝒸𝓁ℯ of #{ctx.channel.name} Analysis Complete.")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒞𝒽𝓇ℴ𝓃𝒾𝒸𝓁ℯ 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -118,7 +130,7 @@ class LoreEngine(commands.Cog):
             color=0xE74C3C
         )
         embed.set_footer(text="Engine: Hyacine Tactical Predictor")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒲𝒶𝓇ℊ𝒶𝓂ℯ Projection Active.")
 
     @commands.hybrid_command(name="dossier", description="Constructs a fictionalized historical timeline for a user.")
     async def dossier(self, ctx: commands.Context, user: discord.Member = None):
@@ -155,7 +167,7 @@ class LoreEngine(commands.Cog):
             embed.add_field(name="[ Phase 3: Current State ]", value=f"_{end_phase}_", inline=False)
             
             embed.set_footer(text="Engine: Hyacine Historical Architect")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒟ℴ𝓈𝓈𝒾ℯ𝓇 of {target.display_name} Reconstruction Complete.")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒟ℴ𝓈𝓈𝒾ℯ𝓇 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -186,8 +198,7 @@ class LoreEngine(commands.Cog):
             )
             embed.description = details
             embed.set_footer(text="© Hyacine Lore Engine | Cognitive Archetype Analysis", icon_url=self.bot.user.display_avatar.url)
-            
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒫𝓈𝓎𝒸𝒽ℴ𝓁ℴ𝓁ℴ𝑔𝒾𝒸𝒶𝓁 Matrix: Core = {m_val}")
         except Exception as e:
              await ctx.send(f"⌬ ⟡ **𝒫𝓈𝓎𝒸𝒽ℴ𝒶𝓃𝒶𝓁𝓎𝓈𝒾𝓈 𝒹𝒾𝓈𝓇𝓊𝓅𝓉ℯ𝒹:** {e}")
 
@@ -210,7 +221,7 @@ class LoreEngine(commands.Cog):
             color=0x9B59B6
         )
         embed.set_footer(text="Engine: Hyacine Prescience Array")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒪𝓇𝒶𝒸𝓁ℯ'𝓈 𝒪ℳℯ𝓃 Predicted for this sector.")
 
 async def setup(bot):
     if "LoreEngine" not in bot.cogs:

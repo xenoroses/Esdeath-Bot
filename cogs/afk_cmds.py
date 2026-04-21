@@ -12,6 +12,19 @@ class AFKCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     async def get_afk_data(self, user_id, guild_id):
         key = f"afk:{guild_id}:{user_id}"
         return await rget_json(self.bot, key)
@@ -26,6 +39,7 @@ class AFKCommands(commands.Cog):
 
     @commands.hybrid_command(name="afk", description="Set yourself as AFK.")
     async def afk(self, ctx: commands.Context, *, reason: str = "AFK"):
+        await ctx.defer()
         # Handle manual mention parsing (e.g. `es afk <@!123> sleeping`)
         target = ctx.author
         parsed_reason = reason.strip()
@@ -65,7 +79,7 @@ class AFKCommands(commands.Cog):
         if target.id != ctx.author.id:
             embed.set_footer(text=f"Index forced by {ctx.author.display_name}")
 
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒟ℴ𝓇𝓂𝒶𝓃𝒸𝓎 ℰ𝓃ℊ𝒶ℊℯ𝒹: {target.display_name} is AFK.")
 
 
     @commands.Cog.listener()
@@ -123,6 +137,12 @@ class AFKCommands(commands.Cog):
                     try:
                         warn_msg = await message.reply(embed=embed, mention_author=False)
                         await warn_msg.delete(delay=10)
+                    except discord.Forbidden as e:
+                        if e.code == 50013:
+                            header = "⌬ ⟡ **𝒜ℱ𝒦 𝒩ℴ𝓉𝒾𝒸ℯ (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉)**\n"
+                            fallback = f"{mentioned_user.display_name} drifting since {time_str}.\nReason: {afk_data['reason']}"
+                            warn_msg = await message.channel.send(f"{header}```fix\n{fallback}\n```")
+                            await warn_msg.delete(delay=10)
                     except: pass
 
 async def setup(bot):

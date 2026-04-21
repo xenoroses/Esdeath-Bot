@@ -19,6 +19,36 @@ class InfrastructureEngine(commands.Cog):
     async def _safe_rset(self, key, val):
         await rset_json(self.bot, key, val)
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            # Handle both ctx (Command Context) and channel objects
+            target = ctx.send if hasattr(ctx, "send") else ctx
+            await target(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                target = ctx.send if hasattr(ctx, "send") else ctx
+                await target(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
+    async def _check_hierarchy(self, ctx, member):
+        """Unified rank check to prevent raw Forbidden errors."""
+        if not isinstance(member, discord.Member): return True
+        if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
+            await ctx.send("⌬ ⟡ **𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟:** Subject ranks equal to or above your authority.", ephemeral=True)
+            return False
+        if member.id == ctx.guild.owner_id:
+            await ctx.send("⌬ ⟡ **𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩 ℐℳℳℰ𝓊𝓃𝒾𝓉𝓎:** Owner cannot be processed.", ephemeral=True)
+            return False
+        if member.top_role >= ctx.me.top_role:
+            await ctx.send("⌬ ⟡ **𝒮ℋℐℰℒ𝒟 𝒟ℰ𝒯ℰ𝒞𝒯ℰ𝒟:** Target's rank exceeds my system permissions.", ephemeral=True)
+            return False
+        return True
+
     @commands.hybrid_command(name="contain", description="Soft containment mode: Limit user capabilities aggressively.")
     @commands.has_permissions(manage_messages=True)
     async def contain(self, ctx: commands.Context, user: discord.Member):
@@ -32,21 +62,17 @@ class InfrastructureEngine(commands.Cog):
         if user.id == ctx.guild.owner_id:
             return await ctx.send("⌬ ⟡ **The Sovereign (Owner) is immune to containment protocols.**", ephemeral=True)
             
-        # Hierarchy Validation (Only for applying containment)
+        # Hierarchy Validation
+        if not await self._check_hierarchy(ctx, user): return
+
         key = f"containment:{ctx.guild.id}:{user.id}"
         contained = await self._safe_rget(key)
-        
-        if not contained.get("active"):
-            if user.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
-                return await ctx.send("⌬ ⟡ **You cannot contain those of equal or higher rank.**", ephemeral=True)
-            if user.top_role >= ctx.me.top_role:
-                return await ctx.send("❌ | Containment failed. Subject's neural shielding (Role Rank) is higher than mine.", ephemeral=True)
 
         try:
             if contained.get("active"):
                 await self._safe_rset(key, {"active": False})
                 embed = discord.Embed(
-                    title=f"🔓 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 ℒ𝒾𝒻𝓉ℯ𝒹: {user.display_name}",
+                    title=f"🔓 𝒞ℴ𝓃𝓉ℯ𝒾𝓃𝓂ℯ𝓃𝓉 ℒ𝒾𝒻𝓉ℯ𝒹: {user.display_name}",
                     description=f"{user.mention} has been restored to standard permissions.",
                     color=0x2ECC71
                 )
@@ -58,7 +84,7 @@ class InfrastructureEngine(commands.Cog):
                 
                 embed = discord.Embed(
                     title=f"❖ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒞ℴ𝓇ℯ: {user.display_name}",
-                    description=f"{user.mention} is now under **𝒮ℴ𝒻𝓉-𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁**.",
+                    description=f"{user.mention} is now under **𝒮ℴ𝒻ℯ-𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫ℴ𝓉ℴ𝒸ℴ𝓁**.",
                     color=0xE67E22
                 )
                 restrictions = [
@@ -70,7 +96,7 @@ class InfrastructureEngine(commands.Cog):
                 embed.set_thumbnail(url=user.display_avatar.url)
                 
             embed.set_footer(text="Engine: Hyacine Soft-Lock System")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 Protocol Updated for {user.display_name}.")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -119,7 +145,7 @@ class InfrastructureEngine(commands.Cog):
                     color=0xE67E22
                 )
                 report.set_footer(text="Hyacine Sentinel Enforcement | Restricted Status")
-                await message.channel.send(embed=report, delete_after=10)
+                await self._send_embed(message.channel, report, fallback_text=f"⚠️ {message.author.mention}, action intercepted: **{violation}**")
             except:
                 pass
 
@@ -158,7 +184,7 @@ class InfrastructureEngine(commands.Cog):
             embed.add_field(name="Channel Hopping", value=f"**{channel_hop}** ({len(channels_used)} channels)", inline=True)
             
             embed.set_footer(text="Engine: Hyacine Forensic Scrape API")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 Archive Analysis for {user.display_name} Complete.")
         except Exception as e:
             await ctx.send(f"❌ | ℱℴ𝓇ℯ𝓃𝓈𝒾𝒸𝓈 𝒸ℴ𝓂𝓅𝓇ℴ𝓂𝒾𝓈ℯ𝒹: {e}")
 
@@ -210,7 +236,7 @@ class InfrastructureEngine(commands.Cog):
             )
             embed.description = details
             embed.set_footer(text="Engine: Hyacine Pulse Analytics | © Stellar Infrastructure")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒱𝒾𝓉𝒶𝓁𝒾𝓉𝓎 Scan of #{target.name} Complete. Engagement: {engagement}")
         except Exception as e:
             await ctx.send(f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
 
@@ -246,7 +272,7 @@ class InfrastructureEngine(commands.Cog):
                 color=0x3498DB
             )
             embed.set_footer(text="Engine: Hyacine Rollup Core")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓉ℯ𝓁𝓁𝒶𝓇 ℛℴ𝓁𝓁𝓊𝓅 Retrieval Complete: {total_msgs} messages analyzed.")
         except Exception as e:
             await ctx.send(f"❌ | 𝒟𝒾𝑔ℯ𝓈𝓉 𝓇ℴ𝓁𝓁𝓊𝓅 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
 

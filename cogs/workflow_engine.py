@@ -13,6 +13,19 @@ class WorkflowEngine(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
         
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -153,6 +166,7 @@ class WorkflowEngine(commands.Cog):
     @commands.hybrid_command(name="workflow", description="Manage automation workflows.")
     @commands.has_permissions(administrator=True)
     async def workflow(self, ctx: commands.Context, action: str, name: str = None):
+        await ctx.defer()
         """
         Manage automation workflows:
         /workflow create welcome - Create a new workflow
@@ -206,7 +220,7 @@ class WorkflowEngine(commands.Cog):
             embed.add_field(name="Condition", value="Account < 30 days old", inline=True)
             embed.add_field(name="Actions", value="Send welcome message\nAdd role", inline=True)
             
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 **{name}** Created successfully.")
             
         elif action == "list":
             workflows = await rget_json(self.bot, f"workflows:{ctx.guild.id}") or []
@@ -229,7 +243,7 @@ class WorkflowEngine(commands.Cog):
                     inline=True
                 )
                 
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒜𝒸𝓉𝒾𝓋ℯ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌𝓈: {len(workflows)} rules found.")
             
         elif action == "delete":
             if not name:

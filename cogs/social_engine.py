@@ -13,6 +13,19 @@ class SocialEngine(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
+        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+        try:
+            await ctx.send(embed=embed, ephemeral=ephemeral)
+        except discord.Forbidden as e:
+            if e.code == 50013: # Missing Permissions
+                content = fallback_text or embed.description or "Action Successful."
+                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            else:
+                raise e
+
     async def _safe_rget(self, key):
         return await rget_json(self.bot, key) or {}
 
@@ -65,7 +78,7 @@ class SocialEngine(commands.Cog):
             embed.add_field(name="Recommendation", value=f"*{rec}*", inline=False)
             
             embed.set_footer(text="Engine: Hyacine Psychological Profiler")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒥𝓊𝒹𝑔ℯ𝓂ℯ𝓃𝓉 Result: **{verdict}** (Threat: {threat})")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒥𝓊𝒹𝑔ℯ𝓂ℯ𝓃𝓉 𝓅𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -118,8 +131,7 @@ class SocialEngine(commands.Cog):
             )
             embed.description = details
             embed.set_footer(text=f"Joined {tenure_days} cycles ago • Protocol: Synergy")
-            
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"ℱℯ𝒶𝓁𝓉𝓎 Index: **{idx}/100** | Stratum: {align}")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **ℱℯ𝒶𝓁𝓉𝓎 𝒸𝒶𝓁𝒸𝓊𝓁𝒶𝓉𝒾ℴ𝓃 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -152,8 +164,7 @@ class SocialEngine(commands.Cog):
             embed.add_field(name="Objective", value="First to send **25** organic messages wins influence.", inline=False)
             embed.add_field(name="Time Limit", value="2 Hours", inline=False)
             embed.set_footer(text="Engine: Hyacine Social Tension Matrix")
-            
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒱ℯ𝓃ℯ𝓃𝒹ℯ𝓉𝓉𝒶 Declared against {target.mention}.")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒟ℯ𝒸𝓁𝒶𝓇𝒶𝓉𝒾ℴ𝓃 ℱ𝒶𝒾𝓁ℯ𝒹:** {e}")
 
@@ -191,7 +202,7 @@ class SocialEngine(commands.Cog):
                 color=0x2ECC71
             )
             embed.set_footer(text="Engine: Hyacine Combat Simulator")
-            await ctx.send(embed=embed)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒞𝓁𝒶𝓈𝒽 Concluded: **{winner.mention}** won.")
         except:
             await ctx.send("Neither side struck in time. The clash results in a draw.")
 
@@ -215,7 +226,7 @@ class SocialEngine(commands.Cog):
             embed.color = 0xE74C3C
             
         embed.set_footer(text="Engine: Hyacine Subterfuge Logic")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓊𝒷𝓋ℯ𝓇𝓈𝒾ℴ𝓃 Outcome: {embed.description}")
 
     @commands.hybrid_command(name="aegis", description="Declares a protection pact.")
     async def aegis(self, ctx: commands.Context, user: discord.Member):
@@ -232,7 +243,7 @@ class SocialEngine(commands.Cog):
         )
         embed.add_field(name="Contract", value="If the protected user is penalized, you will share 25% of their penalty weight.", inline=False)
         embed.set_footer(text="Engine: Hyacine Alliance Protocol")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒜ℯ𝑔i𝓈 Link Established: {ctx.author.mention} ⟡ {user.mention}")
 
     @commands.hybrid_command(name="surveillance", description="Adds someone to Hyacine surveillance.")
     @commands.has_permissions(manage_messages=True)
@@ -245,7 +256,7 @@ class SocialEngine(commands.Cog):
         )
         embed.set_thumbnail(url=user.display_avatar.url)
         embed.set_footer(text="Engine: Hyacine Omniscience DAEMON")
-        await ctx.send(embed=embed)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒯𝒶𝓇𝑔ℯ𝓉 ℒℴ𝒸𝓀ℯ𝒹: {user.display_name} is under Surveillance.")
 
 async def setup(bot):
     if "SocialEngine" not in bot.cogs:
