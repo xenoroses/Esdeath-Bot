@@ -84,10 +84,12 @@ class StellarResolver(aiohttp.ThreadedResolver):
         self.gg_ips = gg_ips
 
     async def resolve(self, host, port=0, family=socket.AF_INET):
-        if host.lower() == "discord.com" and self.com_ips:
-            return [{"hostname": host, "host": random.choice(self.com_ips), "port": port, "family": family, "proto": 0, "flags": 0}]
-        elif host.lower() == "gateway.discord.gg" and self.gg_ips:
-            return [{"hostname": host, "host": random.choice(self.gg_ips), "port": port, "family": family, "proto": 0, "flags": 0}]
+        # Force AF_INET (IPv4) for Discord to avoid routing issues
+        target_host = host.lower()
+        if target_host == "discord.com" and self.com_ips:
+            return [{"hostname": host, "host": random.choice(self.com_ips), "port": port, "family": socket.AF_INET, "proto": 0, "flags": 0}]
+        elif target_host == "gateway.discord.gg" and self.gg_ips:
+            return [{"hostname": host, "host": random.choice(self.gg_ips), "port": port, "family": socket.AF_INET, "proto": 0, "flags": 0}]
         return await super().resolve(host, port, family)
 
 # Global Storage for IPs
@@ -121,6 +123,7 @@ def keep_alive():
 # --- 3. BOT INITIALIZATION ---
 load_dotenv()
 TOKEN = os.getenv("dc_token")
+PROXY = os.getenv("proxy") # Optional: HTTP proxy for total blocks
 
 HYACINE_DEFAULT_PREFIXES = ["!", ","]
 
@@ -162,6 +165,7 @@ class HyacineBot(commands.AutoShardedBot):
             command_prefix=get_server_prefixes,
             intents=intents,
             connector=connector,
+            proxy=PROXY, # Apply proxy if provided in .env
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸ℴ𝒽ℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
@@ -361,16 +365,23 @@ async def main():
         # Diagnostic: Try a raw TCP probe to a resolved IP
         if DISCORD_COM_IPS:
             target_ip = random.choice(DISCORD_COM_IPS)
-            logging.info(f"Probing Logic Gate at {target_ip}:443...")
+            logging.info(f"Probing Logic Gate (TCP) at {target_ip}:443...")
             try:
-                # Use a small timeout to avoid hanging
                 conn = asyncio.open_connection(target_ip, 443)
                 reader, writer = await asyncio.wait_for(conn, timeout=3.0)
                 writer.close()
                 await writer.wait_closed()
                 logging.info(f"✧ TCP Probe SUCCESS: {target_ip} is reachable.")
+                
+                # Now try a TLS probe via httpx to see if DPI is blocking the SNI
+                logging.info(f"Probing Stellar Handshake (TLS) for discord.com...")
+                async with httpx.AsyncClient(verify=False) as client:
+                    # We use verify=False just to see if we can get ANY response (like a 403 or 200)
+                    # to determine if the connection is dropped or rejected.
+                    resp = await client.get(f"https://{target_ip}", headers={"Host": "discord.com"}, timeout=5.0)
+                    logging.info(f"✧ TLS Probe SUCCESS: Status {resp.status_code}")
             except Exception as probe_err:
-                logging.error(f"⌬ TCP Probe FAILED: {target_ip} unreachable ({probe_err}). This indicates a total network block by the host.")
+                logging.error(f"⌬ Handshake FAILED: {probe_err}. This suggests Deep Packet Inspection (DPI) or a TLS-level block by the host.")
 
         bot = HyacineBot()
         try:
