@@ -86,11 +86,13 @@ original_getaddrinfo = socket.getaddrinfo
 
 def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     safe_host = host.decode('utf-8') if isinstance(host, bytes) else host
-    # Case-insensitive matching and handling bytes
+    # Force AF_INET (IPv4) to bypass potential IPv6 routing blocks
+    use_family = socket.AF_INET if family == socket.AF_UNSPEC else family
+    
     if safe_host and safe_host.lower() == "discord.com" and DISCORD_COM_IPS:
-        return original_getaddrinfo(random.choice(DISCORD_COM_IPS), port, family, type, proto, flags)
+        return original_getaddrinfo(random.choice(DISCORD_COM_IPS), port, use_family, type, proto, flags)
     elif safe_host and safe_host.lower() == "gateway.discord.gg" and DISCORD_GG_IPS:
-        return original_getaddrinfo(random.choice(DISCORD_GG_IPS), port, family, type, proto, flags)
+        return original_getaddrinfo(random.choice(DISCORD_GG_IPS), port, use_family, type, proto, flags)
     return original_getaddrinfo(host, port, family, type, proto, flags)
 
 socket.getaddrinfo = patched_getaddrinfo
@@ -354,19 +356,42 @@ async def main():
 
     max_retries = 5
     for attempt in range(max_retries):
+        logging.info(f"Stellar Connection Attempt #{attempt + 1}...")
+        
+        # Diagnostic: Try a raw TCP probe to a resolved IP
+        if DISCORD_COM_IPS:
+            target_ip = random.choice(DISCORD_COM_IPS)
+            logging.info(f"Probing Logic Gate at {target_ip}:443...")
+            try:
+                # Use a small timeout to avoid hanging
+                conn = asyncio.open_connection(target_ip, 443)
+                reader, writer = await asyncio.wait_for(conn, timeout=3.0)
+                writer.close()
+                await writer.wait_closed()
+                logging.info(f"✧ TCP Probe SUCCESS: {target_ip} is reachable.")
+            except Exception as probe_err:
+                logging.error(f"⌬ TCP Probe FAILED: {target_ip} unreachable ({probe_err}). This indicates a total network block by the host.")
+
         bot = HyacineBot()
         try:
             async with bot:
                 await bot.start(TOKEN)
             break
         except Exception as e:
+            import traceback
+            logging.error(f"Stellar Link Failure: {e}")
+            logging.debug(traceback.format_exc())
+            
             if "429" in str(e) or "1015" in str(e):
                 wait_time = 60 * (attempt + 1)
                 logging.warning(f"Throttled. Reconnection in {wait_time}s...")
                 await asyncio.sleep(wait_time)
             else:
-                logging.error(f"Fatal Error: {e}")
-                sys.exit(1)
+                # If it's not a rate limit, wait a bit anyway before retrying
+                await asyncio.sleep(5)
+                if attempt == max_retries - 1:
+                    logging.error("FATAL: All connection attempts exhausted. System hibernating.")
+                    sys.exit(1)
 
 if __name__ == "__main__":
     try:
