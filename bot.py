@@ -28,17 +28,17 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 import aiohttp
 
-# --- 1. THE STELLAR RESOLVER (DNS OVER HTTPS) ---
+import ssl
+
+# --- 1. THE DEEP STELLAR PATCH (DOH HIJACK) ---
 async def fetch_discord_ips():
     """
-    Fetches real terminal IPs via multiple DoH providers (Google & Cloudflare).
+    Fetches real terminal IPs via multiple DoH providers.
     Critical for bypassing DNS blocks in restricted environments like Hugging Face.
     """
     logging.info("Initiating Stellar DoH Bypass Sequence...")
     com_ips, gg_ips = set(), set()
-    
     async with httpx.AsyncClient(timeout=5.0) as client:
-        # Provider 1: Google DNS
         try:
             responses = await asyncio.gather(
                 client.get("https://dns.google/resolve?name=discord.com&type=A"),
@@ -52,8 +52,6 @@ async def fetch_discord_ips():
                     if i == 0: com_ips.update(ips)
                     else: gg_ips.update(ips)
         except: pass
-
-        # Provider 2: Cloudflare DNS (Secondary Bypass)
         if not com_ips or not gg_ips:
             try:
                 headers = {"Accept": "application/dns-json"}
@@ -69,31 +67,26 @@ async def fetch_discord_ips():
                         if i == 0: com_ips.update(ips)
                         else: gg_ips.update(ips)
             except: pass
-
     final_com = list(com_ips)
     final_gg = list(gg_ips)
     if final_com: logging.info(f"Resolved discord.com -> {final_com}")
     if final_gg: logging.info(f"Resolved gateway.discord.gg -> {final_gg}")
     return final_com, final_gg
 
-class StellarResolver(aiohttp.ThreadedResolver):
-    """Custom resolver to inject DoH-fetched IPs into aiohttp sessions."""
-    def __init__(self, com_ips, gg_ips):
-        super().__init__()
-        self.com_ips = com_ips
-        self.gg_ips = gg_ips
-
-    async def resolve(self, host, port=0, family=socket.AF_INET):
-        # Force AF_INET (IPv4) for Discord to avoid routing issues
-        target_host = host.lower()
-        if target_host == "discord.com" and self.com_ips:
-            return [{"hostname": host, "host": random.choice(self.com_ips), "port": port, "family": socket.AF_INET, "proto": 0, "flags": 0}]
-        elif target_host == "gateway.discord.gg" and self.gg_ips:
-            return [{"hostname": host, "host": random.choice(self.gg_ips), "port": port, "family": socket.AF_INET, "proto": 0, "flags": 0}]
-        return await super().resolve(host, port, family)
-
-# Global Storage for IPs
 DISCORD_COM_IPS, DISCORD_GG_IPS = [], []
+
+# --- MONKEYPATCH: AIOHTTP DEEP RESOLUTION ---
+original_resolve_host = aiohttp.TCPConnector._resolve_host
+
+async def patched_resolve_host(self, host, port, traces=None):
+    h_lower = host.lower()
+    if h_lower == "discord.com" and DISCORD_COM_IPS:
+        return [{"hostname": host, "host": random.choice(DISCORD_COM_IPS), "port": port, "family": socket.AF_INET, "proto": 0, "flags": 0}]
+    elif h_lower == "gateway.discord.gg" and DISCORD_GG_IPS:
+        return [{"hostname": host, "host": random.choice(DISCORD_GG_IPS), "port": port, "family": socket.AF_INET, "proto": 0, "flags": 0}]
+    return await original_resolve_host(self, host, port, traces)
+
+aiohttp.TCPConnector._resolve_host = patched_resolve_host
 
 # --- 2. WEB SERVER SETUP ---
 app = Flask(__name__)
@@ -123,7 +116,7 @@ def keep_alive():
 # --- 3. BOT INITIALIZATION ---
 load_dotenv()
 TOKEN = os.getenv("dc_token")
-PROXY = os.getenv("proxy") # Optional: HTTP proxy for total blocks
+PROXY = os.getenv("proxy")
 
 HYACINE_DEFAULT_PREFIXES = ["!", ","]
 
@@ -148,24 +141,22 @@ async def get_server_prefixes(bot, message):
     return commands.when_mentioned_or(*HYACINE_DEFAULT_PREFIXES)(bot, message)
 
 class HyacineBot(commands.AutoShardedBot):
-    """Tier S Architecture: Automatically handles sharding and custom DNS resolution."""
+    """Tier S Architecture: Automatically handles sharding and deep DNS resolution."""
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
         
-        # Permanent Fix: Use custom connector with StellarResolver to bypass DNS blocks reliably
-        connector = aiohttp.TCPConnector(
-            resolver=StellarResolver(DISCORD_COM_IPS, DISCORD_GG_IPS),
-            family=socket.AF_INET, # Force IPv4
-            ssl=True
-        )
+        # Stellar SSL Context with fallback
+        try:
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+        except:
+            ssl_context = True
         
         super().__init__(
             command_prefix=get_server_prefixes,
             intents=intents,
-            connector=connector,
-            proxy=PROXY, # Apply proxy if provided in .env
+            proxy=PROXY,
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸ℴ𝒽ℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
