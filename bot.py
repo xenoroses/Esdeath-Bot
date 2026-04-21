@@ -26,11 +26,13 @@ os.environ["SSL_CERT_FILE"] = certifi.where()
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-# --- 1. THE DOH MASTER BYPASS (DNS OVER HTTPS) ---
+import aiohttp
+
+# --- 1. THE STELLAR RESOLVER (DNS OVER HTTPS) ---
 async def fetch_discord_ips():
     """
     Fetches real terminal IPs via multiple DoH providers (Google & Cloudflare).
-    This is critical for bypassing DNS blocks in restricted environments like Hugging Face.
+    Critical for bypassing DNS blocks in restricted environments like Hugging Face.
     """
     logging.info("Initiating Stellar DoH Bypass Sequence...")
     com_ips, gg_ips = set(), set()
@@ -38,7 +40,6 @@ async def fetch_discord_ips():
     async with httpx.AsyncClient(timeout=5.0) as client:
         # Provider 1: Google DNS
         try:
-            logging.info("Polling Google Logic Gates...")
             responses = await asyncio.gather(
                 client.get("https://dns.google/resolve?name=discord.com&type=A"),
                 client.get("https://dns.google/resolve?name=gateway.discord.gg&type=A"),
@@ -50,13 +51,11 @@ async def fetch_discord_ips():
                     ips = [ans['data'] for ans in data.get('Answer', []) if ans['type'] == 1]
                     if i == 0: com_ips.update(ips)
                     else: gg_ips.update(ips)
-        except Exception as e:
-            logging.warning(f"Google DoH failed: {e}")
+        except: pass
 
         # Provider 2: Cloudflare DNS (Secondary Bypass)
         if not com_ips or not gg_ips:
             try:
-                logging.info("Primary Gates blocked. Polling Cloudflare Relay...")
                 headers = {"Accept": "application/dns-json"}
                 responses = await asyncio.gather(
                     client.get("https://cloudflare-dns.com/dns-query?name=discord.com&type=A", headers=headers),
@@ -69,33 +68,30 @@ async def fetch_discord_ips():
                         ips = [ans['data'] for ans in data.get('Answer', []) if ans['type'] == 1]
                         if i == 0: com_ips.update(ips)
                         else: gg_ips.update(ips)
-            except Exception as e:
-                logging.warning(f"Cloudflare DoH failed: {e}")
+            except: pass
 
     final_com = list(com_ips)
     final_gg = list(gg_ips)
-    
     if final_com: logging.info(f"Resolved discord.com -> {final_com}")
     if final_gg: logging.info(f"Resolved gateway.discord.gg -> {final_gg}")
-    
     return final_com, final_gg
 
-# Socket-Level Patching
+class StellarResolver(aiohttp.ThreadedResolver):
+    """Custom resolver to inject DoH-fetched IPs into aiohttp sessions."""
+    def __init__(self, com_ips, gg_ips):
+        super().__init__()
+        self.com_ips = com_ips
+        self.gg_ips = gg_ips
+
+    async def resolve(self, host, port=0, family=socket.AF_INET):
+        if host.lower() == "discord.com" and self.com_ips:
+            return [{"hostname": host, "host": random.choice(self.com_ips), "port": port, "family": family, "proto": 0, "flags": 0}]
+        elif host.lower() == "gateway.discord.gg" and self.gg_ips:
+            return [{"hostname": host, "host": random.choice(self.gg_ips), "port": port, "family": family, "proto": 0, "flags": 0}]
+        return await super().resolve(host, port, family)
+
+# Global Storage for IPs
 DISCORD_COM_IPS, DISCORD_GG_IPS = [], []
-original_getaddrinfo = socket.getaddrinfo
-
-def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    safe_host = host.decode('utf-8') if isinstance(host, bytes) else host
-    # Force AF_INET (IPv4) to bypass potential IPv6 routing blocks
-    use_family = socket.AF_INET if family == socket.AF_UNSPEC else family
-    
-    if safe_host and safe_host.lower() == "discord.com" and DISCORD_COM_IPS:
-        return original_getaddrinfo(random.choice(DISCORD_COM_IPS), port, use_family, type, proto, flags)
-    elif safe_host and safe_host.lower() == "gateway.discord.gg" and DISCORD_GG_IPS:
-        return original_getaddrinfo(random.choice(DISCORD_GG_IPS), port, use_family, type, proto, flags)
-    return original_getaddrinfo(host, port, family, type, proto, flags)
-
-socket.getaddrinfo = patched_getaddrinfo
 
 # --- 2. WEB SERVER SETUP ---
 app = Flask(__name__)
@@ -140,12 +136,8 @@ async def get_server_prefixes(bot, message):
                 expanded = []
                 for p in custom_prefixes:
                     expanded.append(p)
-                    # For alphanumeric prefixes (like hya, hyacine, chaos), 
-                    # we implicitly support a following space to ensure commands match.
                     if p.replace(" ", "").isalnum() and not p.endswith(" "):
                         expanded.append(p + " ")
-                
-                # Critical Fix: Sort by length (descending) so 'hya ' is matched before 'hya'
                 final_prefixes = sorted(list(set(expanded + HYACINE_DEFAULT_PREFIXES)), key=len, reverse=True)
                 return commands.when_mentioned_or(*final_prefixes)(bot, message)
     except Exception as e:
@@ -153,20 +145,28 @@ async def get_server_prefixes(bot, message):
     return commands.when_mentioned_or(*HYACINE_DEFAULT_PREFIXES)(bot, message)
 
 class HyacineBot(commands.AutoShardedBot):
-    """Tier S Architecture: Automatically handles sharding for massive server scales."""
+    """Tier S Architecture: Automatically handles sharding and custom DNS resolution."""
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
         
+        # Permanent Fix: Use custom connector with StellarResolver to bypass DNS blocks reliably
+        connector = aiohttp.TCPConnector(
+            resolver=StellarResolver(DISCORD_COM_IPS, DISCORD_GG_IPS),
+            family=socket.AF_INET, # Force IPv4
+            ssl=True
+        )
+        
         super().__init__(
             command_prefix=get_server_prefixes,
             intents=intents,
+            connector=connector,
             status=discord.Status.idle,
-            activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸𝒽ℴℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
+            activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸ℴ𝒽ℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
             case_insensitive=True,
-            shard_count=None # Auto-detect
+            shard_count=None 
         )
         self.redis = None
         self.cache = None
