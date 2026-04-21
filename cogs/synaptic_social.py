@@ -10,7 +10,7 @@ from typing import Union, Optional
 class SynapticSocial(commands.Cog):
     """
     Tier 7: The Synaptic Identity Layer - Billion-Dollar Social Engineering.
-    Hardened for multi-permission environments.
+    Hardened for multi-permission environments and premium aesthetics.
     """
     def __init__(self, bot):
         self.bot = bot
@@ -47,43 +47,42 @@ class SynapticSocial(commands.Cog):
     async def synapse_group(self, ctx: commands.Context):
         await ctx.send_help(ctx.command)
 
-    @synapse_group.command(name="essence", description="View a user's unified social identity profile.")
+    @synapse_group.command(name="essence", description="View a unified social identity profile.")
     async def essence(self, ctx: commands.Context, user: discord.Member = None):
         await ctx.defer()
         try:
             target = user or ctx.author
             trust_scores = await self._safe_rget("trust_scores")
             trust = trust_scores.get(str(target.id), 5.0)
-            
             embed = discord.Embed(title=f"✧ 𝒮𝓎𝓃𝒶𝓅𝓉𝒾𝒸 ℰ𝓈𝓈ℯ𝓃𝒸ℯ: {target.display_name}", color=0xB19CD9)
             embed.description = f"**Trust Index:** {trust:.2f}\n*Verified by Hyacine Identity Layer.*"
             if target.display_avatar: embed.set_thumbnail(url=target.display_avatar.url)
-            await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓎𝓃𝒶Ⓟ𝓉𝒾𝒸 ℰ𝓈𝓈ℯℿ𝒸ℯ ({target.display_name}): Trust {trust:.2f}")
+            await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓎𝓃𝒶𝓅𝓉𝒾𝒸 ℰ𝓈𝓈ℯ𝓃𝒸ℯ ({target.display_name}): Trust {trust:.2f}")
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **ℰ𝓈𝓈ℯ𝓃𝒸ℯ 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
+            await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** Essence reconstruction failure: {e}")
 
     @synapse_group.command(name="resonance", description="Propose a social resonance bond.")
     async def resonance(self, ctx: commands.Context, target: discord.Member):
         if target.bot or target.id == ctx.author.id: return
-        await ctx.send(f"✾ {target.mention}, **{ctx.author.display_name}** requests a bond. Type `synchronize` in 30s.")
+        await ctx.send(f"✧ {target.mention}, **{ctx.author.display_name}** requests a resonance bond. Type `synchronize` in 30s.")
         def check(m): return m.author == target and m.channel == ctx.channel and m.content.lower() == "synchronize"
         try:
             await self.bot.wait_for('message', timeout=30.0, check=check)
-            embed = discord.Embed(title="✧ ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ 𝒮ℴ𝓁𝒾𝒹𝒾𝒻𝒾ℯ𝒹", description=f"Bond established.", color=0xB19CD9)
-            await self._send_embed(ctx, embed, fallback_text="ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ 𝒮ℴ𝓁𝒾𝒹𝒾𝒻iℯ𝒹.")
+            embed = discord.Embed(title="✧ ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ 𝒮ℴ𝓁𝒾𝒹𝒾𝒻𝒾ℯ𝒹", description=f"Synergy established.", color=0xB19CD9)
+            await self._send_embed(ctx, embed, fallback_text="ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ 𝒮ℴ𝓁𝒾𝒹𝒾𝒻𝒾ℯ𝒹.")
         except: await ctx.send("⌬ ⟡ **ℛℯ𝓈ℴ𝓃𝒶𝓃𝒸ℯ 𝒻𝒶𝒹ℯ𝒹.**")
 
     @synapse_group.command(name="meridian", description="Server social temperature scan.")
     async def meridian(self, ctx: commands.Context):
         await ctx.defer()
-        embed = discord.Embed(title="🌡️ 𝒮ℴ𝒸𝒾𝒶𝓁 ℳℯ𝓇𝒾𝒹𝒾𝒶𝓃", description="Intensity Pulse: **42%**\nThermal Phase: **Solar Flare ✧**", color=0xB19CD9)
-        await self._send_embed(ctx, embed, fallback_text="𝒮ℴ𝒸i𝒶𝓁 ℳℯ𝓇i𝒹i𝒶ℿ: Solar Flare (42%)")
+        embed = discord.Embed(title="✧ 𝒮ℴ𝒸𝒾𝒶𝓁 ℳℯ𝓇𝒾𝒹𝒾𝒶𝓃", description="Intensity Pulse: **42%**\nThermal Phase: **Solar Flare ✧**", color=0xB19CD9)
+        await self._send_embed(ctx, embed, fallback_text="𝒮ℴ𝒸𝒾𝒶𝓁 ℳℯ𝓇𝒾𝒹𝒾𝒶𝓃 Analysis Complete.")
 
     @synapse_group.command(name="pulse", description="Server social velocity scan.")
     async def pulse(self, ctx: commands.Context):
         await ctx.defer()
-        embed = discord.Embed(title="𖦹 𝒢𝓁ℴ𝒷𝒶𝓁 𝒮ℯ𝓃𝓈ℴ𝓇y 𝒫𝓊𝓁𝓈ℯ", description="Tension Level: **12.4%**\nSync Status: `[✧✧◈◈◈◈◈◈◈◈]`", color=0xB19CD9)
-        await self._send_embed(ctx, embed, fallback_text="𝒢𝓁ℴ𝒷𝒶𝓁 𝒮ℯℿ𝓈ℴ𝓇y 𝒫𝓊𝓁𝓈ℯ Analysis Complete.")
+        embed = discord.Embed(title="✵ 𝒢𝓁ℴ𝒷𝒶𝓁 𝒮ℯ𝓃𝓈ℴ𝓇𝓎 𝒫𝓊𝓁𝓈ℯ", description="Tension Level: **12.4%**\nSync Status: `[✧✧◈◈◈◈◈◈◈◈]`", color=0xB19CD9)
+        await self._send_embed(ctx, embed, fallback_text="𝒢𝓁ℴ𝒷𝒶𝓁 𝒮ℯ𝓃𝓈ℴ𝓇𝓎 𝒫𝓊𝓁𝓈ℯ Analysis Complete.")
 
 async def setup(bot):
     if "SynapticSocial" not in bot.cogs:

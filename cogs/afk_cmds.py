@@ -8,7 +8,7 @@ from typing import Union, Optional
 class AFKCommands(commands.Cog):
     """
     Premium AFK System.
-    Provides non-intrusive AFK tracking with ephemeral/auto-deleting warnings.
+    Provides non-intrusive AFK tracking with premium aesthetics.
     Hardened for multi-permission environments.
     """
     def __init__(self, bot):
@@ -62,7 +62,7 @@ class AFKCommands(commands.Cog):
         if author_data and int(time.time()) - author_data.get("timestamp", 0) > 3:
             await rdelete(self.bot, f"afk:{message.guild.id}:{message.author.id}")
             try:
-                msg = await message.channel.send(f"✧ **𝒲ℯ𝓁𝒸ℴ𝓂ℯ Back {message.author.mention}!**", delete_after=5)
+                await message.channel.send(f"✧ **𝒲ℯ𝓁𝒸ℴ𝓂ℯ Back {message.author.mention}!**", delete_after=5)
             except: pass
 
         # Mentioned AFK
@@ -73,11 +73,11 @@ class AFKCommands(commands.Cog):
                 if afk_data:
                     duration = int(time.time()) - afk_data["timestamp"]
                     mins = duration // 60
-                    embed = discord.Embed(description=f"✦ **{mentioned.display_name}** is AFK ({mins}m ago).\nReason: `{afk_data['reason']}`", color=0x9B59B6)
+                    embed = discord.Embed(description=f"✧ **{mentioned.display_name}** is AFK ({mins}m ago).\nReason: `{afk_data['reason']}`", color=0x9B59B6)
                     try:
                         await message.reply(embed=embed, mention_author=False, delete_after=10)
                     except:
-                        try: await message.channel.send(f"⌬ **AFK Notice:** {mentioned.display_name} is away: {afk_data['reason']}", delete_after=10)
+                        try: await message.channel.send(f"⌬ {mentioned.display_name} is away: {afk_data['reason']}", delete_after=10)
                         except: pass
 
 async def setup(bot):

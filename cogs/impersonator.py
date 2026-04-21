@@ -9,7 +9,7 @@ from typing import Union, Optional
 class Impersonator(commands.Cog):
     """
     Tier 3 Impersonation Engine.
-    Hardened for multi-permission environments and webhook resilience.
+    Hardened for multi-permission environments and premium aesthetics.
     """
     def __init__(self, bot):
         self.bot = bot
@@ -29,7 +29,7 @@ class Impersonator(commands.Cog):
             await send_method(**kwargs)
         except discord.Forbidden:
             content = fallback_text or embed.description or "Action Processing..."
-            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹ℐ𝓉 (𝒫𝓁𝒶ℐ𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
             footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
             fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
             try:
@@ -47,15 +47,13 @@ class Impersonator(commands.Cog):
         try:
             webhooks = await interaction.channel.webhooks()
             webhook = discord.utils.get(webhooks, name="Hyacine-Impersonator") or await interaction.channel.create_webhook(name="Hyacine-Impersonator")
-            
             await webhook.send(content=message, username=user.display_name, avatar_url=user.display_avatar.url)
-            
-            embed = discord.Embed(description=f"Message sent to {interaction.channel.mention}", color=0x5865F2)
-            await self._send_embed(interaction, embed, ephemeral=True, fallback_text=f"Impersonated message sent to {interaction.channel.name}")
+            embed = discord.Embed(description=f"✧ Message sent to {interaction.channel.mention}", color=0x5865F2)
+            await self._send_embed(interaction, embed, ephemeral=True, fallback_text=f"Impersonated message sent to #{interaction.channel.name}")
         except discord.Forbidden:
-            await interaction.followup.send("Error: Missing permissions to manage webhooks.", ephemeral=True)
+            await interaction.followup.send("⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** Missing permissions to manage webhooks.", ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"System error: {e}", ephemeral=True)
+            await interaction.followup.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** {e}", ephemeral=True)
 
 async def setup(bot):
     if "Impersonator" not in bot.cogs:
