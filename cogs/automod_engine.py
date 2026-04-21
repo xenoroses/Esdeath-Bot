@@ -4,39 +4,51 @@ import asyncio
 import json
 import re
 from redis_utils import rget_json, rset_json, rappend
+from typing import Union, Optional
 
 class AutomodEngine(commands.Cog):
     """
     Declarative Automod Engine.
     Evaluates messages against rules fetched securely from the Cache Layer.
+    Hardened for multi-permission environments.
     """
     def __init__(self, bot):
         self.bot = bot
 
-    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
-        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+    async def _send_embed(self, dest: Union[discord.abc.Messageable, commands.Context], embed: discord.Embed, ephemeral: bool = False, fallback_text: Optional[str] = None):
+        """Standardized robust response handler for all engines."""
+        send_method = dest.send if hasattr(dest, "send") else dest
+        supports_ephemeral = isinstance(dest, (commands.Context, discord.Interaction)) or (hasattr(dest, "interaction") and dest.interaction)
+
         try:
-            await ctx.send(embed=embed, ephemeral=ephemeral)
-        except discord.Forbidden as e:
-            if e.code == 50013: # Missing Permissions
-                content = fallback_text or embed.description or "Action Successful."
-                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
-                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
-                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            if supports_ephemeral:
+                await send_method(embed=embed, ephemeral=ephemeral)
             else:
-                raise e
+                await send_method(embed=embed)
+        except discord.Forbidden:
+            content = fallback_text or embed.description or "Action Processing..."
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
+            try:
+                if supports_ephemeral:
+                    await send_method(fallback_msg, ephemeral=ephemeral)
+                else:
+                    await send_method(fallback_msg)
+            except:
+                pass
+        except:
+            pass
 
     async def _safe_regex_match(self, pattern, content):
         """Executes regex in a thread with a strict timeout to prevent ReDoS."""
         try:
-            # Using a thread for re.search to avoid blocking the event loop
             match = await asyncio.wait_for(
                 asyncio.to_thread(re.search, pattern, content),
-                timeout=0.1 # 100ms budget per rule
+                timeout=0.1 
             )
             return bool(match)
         except asyncio.TimeoutError:
-            print(f"CRITICAL: Regex timeout on pattern '{pattern}'")
             return False
         except Exception:
             return False
@@ -45,8 +57,7 @@ class AutomodEngine(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild: return
         if message.author.guild_permissions.administrator: return
-        if not getattr(self.bot, "cache", None): return
-
+        
         key = f"automod_rules:{message.guild.id}"
         data = await rget_json(self.bot, key)
         if not data: return
@@ -71,11 +82,11 @@ class AutomodEngine(commands.Cog):
                 await message.delete()
             elif action == "warn":
                 try:
-                    await message.channel.send(f"⚠️ {message.author.mention}, 𝓎ℴ𝓊𝓇 𝓂ℯ𝓈𝓈𝒶𝑔ℯ 𝓉𝓇𝒾𝑔𝑔ℯ𝓇ℯ𝒹 𝒶𝓃 𝒶𝓊𝓉ℴ𝓂ℴ𝒹 𝓇𝓊𝓁ℯ 𝒶𝓃𝒹 𝓌𝒶𝓈 𝓇ℯ𝓂ℴ𝓋ℯ𝒹.", delete_after=10)
+                    await message.channel.send(f"⚠️ {message.author.mention}, 𝓎ℴ𝓊𝓇 𝓂ℯ𝓈𝓈𝒶𝑔ℯ 𝒷𝓇ℯ𝒶𝒸𝒽ℯ𝒹 𝒶𝓃 𝒶𝓊𝓉ℴ𝓂ℴ𝒹 𝓅𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒶𝓃𝒹 𝓌𝒶𝓈 𝓋𝒶𝓅ℴ𝓇𝒾𝓏ℯ𝒹.", delete_after=10)
                 except: pass
                 await message.delete()
 
-            # --- ATOMIC LOGGING (Scale-Ready) ---
+            # --- ATOMIC LOGGING ---
             infraction_key = f"infractions:{message.guild.id}:{message.author.id}"
             entry = {
                 "action": action,
@@ -83,21 +94,17 @@ class AutomodEngine(commands.Cog):
                 "timestamp": int(discord.utils.utcnow().timestamp()),
                 "trigger": "automod"
             }
-            # Use atomic append to prevent race conditions during spam bursts
             await rappend(self.bot, infraction_key, json.dumps(entry))
             
         except discord.Forbidden: pass
         except discord.NotFound: pass
-        except Exception as e:
-            print(f"Automod Action Error: {e}")
-
-    # --- PRODUCTION CONFIGURATOR ---
+        except Exception: pass
 
     @commands.hybrid_group(name="automod", description="Configure server automod rules.")
     @commands.has_permissions(administrator=True)
     async def automod(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
-            await ctx.send(f"✧ ✦ **𝒞ℴ𝓃𝒻𝒾𝓇𝓂ℯ𝒹:** 𝒰𝓈ℯ `/automod add-rule`, `/automod list`, ℴ𝓇 `/automod remove`.", ephemeral=True)
+             await ctx.send_help(ctx.command)
 
     @automod.command(name="add-rule", description="Add a new pattern matching rule.")
     async def add_rule(self, ctx: commands.Context, action: str, *, regex_pattern: str):
@@ -133,7 +140,7 @@ class AutomodEngine(commands.Cog):
             embed.add_field(name=f"Rule #{r.get('id', '?')} | {r.get('action').upper()}", value=f"Pattern: `{r.get('pattern')}`", inline=False)
         
         embed.set_footer(text="Engine: Hyacine Recursive Logic Array")
-        await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓉ℯ𝓁𝓁𝒶𝓇 𝒜𝓊𝓉ℴ𝓂ℴ𝒹 Guarding Protocals: {len(rules)} active rules.")
+        await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓉ℯ𝓁𝓁𝒶𝓇 𝒜𝓊𝓉ℴ𝓂ℴ𝒹 Guardian Protocols: {len(rules)} active rules.")
 
     @automod.command(name="remove", description="Remove an automod rule by ID.")
     async def remove_rule(self, ctx: commands.Context, rule_id: int):
@@ -151,7 +158,7 @@ class AutomodEngine(commands.Cog):
             return await ctx.send(f"❌ | Rule #{rule_id} not found.", ephemeral=True)
 
         await rset_json(self.bot, key, data)
-        await ctx.send(f"✧ ✦ **ℛ𝓊𝓁ℯ 𝒱𝒶𝓅ℴ𝓇𝒾𝓏ℯ𝒹:** Removed rule **#{rule_id}** from the protocol.")
+        await ctx.send(f"✧ ✦ **ℛ𝓊𝓁ℯ 𝒱𝒶𝓅ℴ𝓇𝒾𝓏ℯ𝒹:** Removed rule **#{rule_id}**.")
 
 async def setup(bot):
     if "AutomodEngine" not in bot.cogs:

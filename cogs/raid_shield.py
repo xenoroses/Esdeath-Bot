@@ -4,6 +4,7 @@ import time
 from collections import deque, defaultdict
 from datetime import datetime, timedelta, timezone
 from redis_utils import rget_json, rset_json
+from typing import Union, Optional
 
 class RaidShield(commands.Cog):
     """
@@ -13,38 +14,47 @@ class RaidShield(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
-
-    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
-        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
-        try:
-            # Handle both ctx (Command Context) and channel objects
-            target = ctx.send if hasattr(ctx, "send") else ctx
-            await target(embed=embed, ephemeral=ephemeral)
-        except discord.Forbidden as e:
-            if e.code == 50013: # Missing Permissions
-                content = fallback_text or embed.description or "Action Successful."
-                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
-                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
-                target = ctx.send if hasattr(ctx, "send") else ctx
-                await target(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
-            else:
-                raise e
         self.join_tracker = defaultdict(lambda: deque(maxlen=100))
         self.message_tracker = defaultdict(lambda: defaultdict(lambda: deque(maxlen=50)))
         self.mention_tracker = defaultdict(lambda: deque(maxlen=100))
         self.role_change_tracker = defaultdict(lambda: deque(maxlen=50))
         
-        # Start maintenance loop to prevent memory leaks in large scales
-        self.prune_trackers.start()
-        
         # Raid detection thresholds
         self.JOIN_BURST_THRESHOLD = 5
         self.MESSAGE_BURST_THRESHOLD = 10
         self.MENTION_BURST_THRESHOLD = 15
-        self.ROLE_SPAM_THRESHOLD = 3
+        self.ROLE_SPAM_THRESHOLD = 5
         
         self.slowmode_duration = 300
         self.channel_lock_duration = 600
+        
+        # Start maintenance loop
+        self.prune_trackers.start()
+
+    async def _send_embed(self, dest: Union[discord.abc.Messageable, commands.Context], embed: discord.Embed, ephemeral: bool = False, fallback_text: Optional[str] = None):
+        """Standardized robust response handler for all engines."""
+        send_method = dest.send if hasattr(dest, "send") else dest
+        supports_ephemeral = isinstance(dest, (commands.Context, discord.Interaction)) or (hasattr(dest, "interaction") and dest.interaction)
+
+        try:
+            if supports_ephemeral:
+                await send_method(embed=embed, ephemeral=ephemeral)
+            else:
+                await send_method(embed=embed)
+        except discord.Forbidden:
+            content = fallback_text or embed.description or "Action Processing..."
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
+            try:
+                if supports_ephemeral:
+                    await send_method(fallback_msg, ephemeral=ephemeral)
+                else:
+                    await send_method(fallback_msg)
+            except:
+                pass
+        except:
+            pass
 
     def cog_unload(self):
         self.prune_trackers.cancel()
@@ -62,7 +72,6 @@ class RaidShield(commands.Cog):
             if gid not in current_guild_ids:
                 del self.message_tracker[gid]
             else:
-                # Scale-Hardening: Prune empty user tracks
                 for uid in list(self.message_tracker[gid].keys()):
                     if not self.message_tracker[gid][uid]:
                         del self.message_tracker[gid][uid]
@@ -81,12 +90,8 @@ class RaidShield(commands.Cog):
         now = time.time()
         self.join_tracker[member.guild.id].append(now)
         
-        # Check for join burst (Efficient count)
         cutoff = now - 60
-        raid_triggers = 0
-        for t in reversed(self.join_tracker[member.guild.id]):
-            if t < cutoff: break
-            raid_triggers += 1
+        raid_triggers = sum(1 for t in self.join_tracker[member.guild.id] if t > cutoff)
             
         if raid_triggers >= self.JOIN_BURST_THRESHOLD:
             await self._trigger_raid_response(member.guild, "join_burst", 
@@ -102,29 +107,25 @@ class RaidShield(commands.Cog):
         user_id = message.author.id
         guild_id = message.guild.id
         
-        # Track messages per user (handled by nested defaultdict)
+        # Track messages
         self.message_tracker[guild_id][user_id].append(now)
         
-        # Check for message burst per user
-        recent_messages = [t for t in self.message_tracker[guild_id][user_id] if now - t < 60]
-        if len(recent_messages) >= self.MESSAGE_BURST_THRESHOLD:
+        # Check for message burst
+        recent_messages = sum(1 for t in self.message_tracker[guild_id][user_id] if now - t < 60)
+        if recent_messages >= self.MESSAGE_BURST_THRESHOLD:
             await self._trigger_raid_response(message.guild, "message_burst", 
-                                           f"Message spam: {message.author.mention} sent {len(recent_messages)} messages/minute")
+                                           f"Message spam: {message.author.mention} sent {recent_messages} messages/minute")
         
         # Track mentions
         mention_count = len(message.mentions)
         if mention_count > 0:
-            if guild_id not in self.mention_tracker:
-                self.mention_tracker[guild_id] = deque(maxlen=100)
-            
             for _ in range(mention_count):
                 self.mention_tracker[guild_id].append(now)
             
-            # Check for mention burst
-            recent_mentions = [t for t in self.mention_tracker[guild_id] if now - t < 60]
-            if len(recent_mentions) >= self.MENTION_BURST_THRESHOLD:
+            recent_mentions = sum(1 for t in self.mention_tracker[guild_id] if now - t < 60)
+            if recent_mentions >= self.MENTION_BURST_THRESHOLD:
                 await self._trigger_raid_response(message.guild, "mention_burst", 
-                                               f"Mention spam detected: {len(recent_mentions)} mentions/minute")
+                                               f"Mention spam detected: {recent_mentions} mentions/minute")
     
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
@@ -135,142 +136,86 @@ class RaidShield(commands.Cog):
         now = time.time()
         self.role_change_tracker[after.guild.id].append(now)
         
-        # Check for role spam
-        recent_changes = [t for t in self.role_change_tracker[after.guild.id] if now - t < 60]
-        if len(recent_changes) >= self.ROLE_SPAM_THRESHOLD:
+        recent_changes = sum(1 for t in self.role_change_tracker[after.guild.id] if now - t < 60)
+        if recent_changes >= self.ROLE_SPAM_THRESHOLD:
             await self._trigger_raid_response(after.guild, "role_spam", 
-                                           f"Role spam detected: {len(recent_changes)} changes/minute")
+                                           f"Role spam detected: {recent_changes} changes/minute")
     
     async def _trigger_raid_response(self, guild: discord.Guild, raid_type: str, reason: str):
         """Execute auto-response to detected raid behavior."""
-        # Check if auto-shield is enabled for this guild
         shield_enabled = await rget_json(self.bot, f"raidshield:{guild.id}")
         if not shield_enabled or not shield_enabled.get("enabled", False):
             return
             
-        # Prevent duplicate responses within 5 minutes
         last_response = await rget_json(self.bot, f"raidshield_last:{guild.id}")
         if last_response:
             last_time = datetime.fromisoformat(last_response.get("timestamp", "2000-01-01"))
-            if datetime.now() - last_time < timedelta(minutes=5):
+            if datetime.now(timezone.utc) - last_time < timedelta(minutes=5):
                 return
         
-        # Execute auto-responses
         actions_taken = []
-        
         try:
-            # Enable slowmode
             if shield_enabled.get("slowmode", True):
                 for channel in guild.text_channels:
                     if channel.permissions_for(guild.me).manage_channels:
                         await channel.edit(slowmode_delay=self.slowmode_duration)
                         actions_taken.append(f"Enabled {self.slowmode_duration}s slowmode in {channel.name}")
-                        break  # Just the first channel
+                        break
             
-            # Lock channels (restrict new user posting)
             if shield_enabled.get("channel_lock", False):
                 verified_role = discord.utils.get(guild.roles, name="Verified")
                 if verified_role:
-                    for channel in guild.text_channels[:3]:  # Lock first 3 channels
+                    for channel in guild.text_channels[:3]:
                         if channel.permissions_for(guild.me).manage_roles:
                             await channel.set_permissions(verified_role, send_messages=True)
-                            actions_taken.append(f"Locked {channel.name} to verified users only")
+                            actions_taken.append(f"Locked {channel.name}")
             
-            # Send alert to moderators
             mod_channels = [ch for ch in guild.text_channels if "mod" in ch.name.lower() or "admin" in ch.name.lower()]
             alert_channel = mod_channels[0] if mod_channels else guild.system_channel
             
-            if alert_channel and alert_channel.permissions_for(guild.me).send_messages:
+            if alert_channel:
                 embed = discord.Embed(
                     title="⌬ ℛ𝒜ℐ𝒟 𝒮ℋℐℰℒ𝒟 𝒜𝒞𝒯ℐ𝒱𝒜𝒯ℰ𝒟",
                     description=f"**Type:** {raid_type.replace('_', ' ').title()}\n**Reason:** {reason}",
                     color=0xE74C3C
                 )
-                
                 if actions_taken:
                     embed.add_field(name="Automation Gates", value="\n".join(actions_taken[:5]), inline=False)
                 
-                embed.set_footer(text=f"Shield will reset in {self.slowmode_duration//60} minutes")
+                embed.set_footer(text=f"Shield active | Reset in {self.slowmode_duration//60}m")
                 await self._send_embed(alert_channel, embed, fallback_text=f"ℛ𝒜ℐ𝒟 𝒮ℋℐℰℒ𝒟 𝒜𝒞𝒯ℐ𝒱𝒜𝒯ℰ𝒟: {raid_type.replace('_', ' ').title()}")
                 
         except Exception as e:
             print(f"RaidShield error: {e}")
             
-        # Record response timestamp
         await rset_json(self.bot, f"raidshield_last:{guild.id}", {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "raid_type": raid_type,
             "reason": reason
         })
     
-    @commands.hybrid_command(name="raidshield", description="Configure automatic raid protection.")
+    @commands.hybrid_command(name="raidshield_cfg", description="Configure automatic raid protection parameters.")
     @commands.has_permissions(administrator=True)
-    async def raidshield(self, ctx: commands.Context, action: str = "status"):
-        """
-        Configure raid shield auto-protection:
-        /raidshield enable - Enable auto-protection
-        /raidshield disable - Disable auto-protection  
-        /raidshield status - Show current settings
-        /raidshield config slowmode:true channel_lock:false - Configure responses
-        """
+    async def raidshield_cfg(self, ctx: commands.Context, action: str = "status"):
         if not self.bot.redis:
             return await ctx.send("⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒪𝒻𝒻𝓁𝒾𝓃ℯ.**")
             
+        key = f"raidshield:{ctx.guild.id}"
         if action.lower() == "enable":
-            await rset_json(self.bot, f"raidshield:{ctx.guild.id}", {
-                "enabled": True,
-                "slowmode": True,
-                "channel_lock": False
-            })
-            await ctx.send("✧ **ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 ℰ𝓃𝒶𝒷𝓁ℯ𝒹!**")
-            
+            await rset_json(self.bot, key, {"enabled": True, "slowmode": True, "channel_lock": False})
+            await ctx.send("✧ **ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 ℰ𝓃𝒶𝒷𝓁ℯ𝒹.**")
         elif action.lower() == "disable":
-            await rset_json(self.bot, f"raidshield:{ctx.guild.id}", {
-                "enabled": False,
-                "slowmode": False,
-                "channel_lock": False
-            })
+            await rset_json(self.bot, key, {"enabled": False, "slowmode": False, "channel_lock": False})
             await ctx.send("⌬ **ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 𝒟𝒾𝓈𝒶𝒷𝓁ℯ𝒹.**")
-            
         elif action.lower() == "status":
-            config = await rget_json(self.bot, f"raidshield:{ctx.guild.id}")
-            if not config:
-                config = {"enabled": False, "slowmode": False, "channel_lock": False}
-                
-            embed = discord.Embed(
-                title="✧ ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 𝒮𝓉𝒶𝓉𝓊𝓈",
-                color=0x9B59B6 if config["enabled"] else 0x95A5A6
-            )
-            
-            embed.add_field(
-                name="Status", 
-                value="✧ ℰ𝓃𝒶𝒷𝓁ℯ𝒹" if config["enabled"] else "⌬ 𝒟𝒾𝓈𝒶𝒷𝓁ℯ𝒹", 
-                inline=True
-            )
-            
-            embed.add_field(
-                name="Auto Slowmode", 
-                value="✧ ℰ𝓃𝒶𝒷𝓁ℯ𝒹" if config["slowmode"] else "⌬ 𝒟i𝓈𝒶𝒷𝓁ℯ𝒹", 
-                inline=True
-            )
-            
-            embed.add_field(
-                name="Channel Lock", 
-                value="✧ ℰ𝓃𝒶𝒷𝓁ℯ𝒹" if config["channel_lock"] else "⌬ 𝒟𝒾𝓈𝒶𝒷𝓁ℯ𝒹", 
-                inline=True
-            )
-            
-            embed.add_field(
-                name="Monitored Events",
-                value="• Join bursts\n• Message spam\n• Mention floods\n• Role changes",
-                inline=False
-            )
-            
+            config = await rget_json(self.bot, key) or {"enabled": False, "slowmode": False, "channel_lock": False}
+            embed = discord.Embed(title="✧ ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 𝒮𝓉ℯ𝓉𝓊𝓈", color=0x9B59B6 if config["enabled"] else 0x2B2D31)
+            embed.add_field(name="Status", value="✧ ℰ𝓃𝒶𝒷𝓁ℯ𝒹" if config["enabled"] else "⌬ 𝒟𝒾𝓈𝒶𝒷𝓁ℯ𝒹", inline=True)
+            embed.add_field(name="Slowmode", value="❂ 𝒜𝓊𝓉ℴ" if config["slowmode"] else "⌬ ℳ𝒶𝓃𝓊𝒶𝓁", inline=True)
+            embed.add_field(name="Channel Lock", value="🔒 𝒜𝓊𝓉ℴ" if config["channel_lock"] else "⌬ ℳ𝒶𝓃𝓊𝒶𝓁", inline=True)
             await self._send_embed(ctx, embed, fallback_text="ℛ𝒶𝒾𝒹 𝒮𝒽𝒾ℯ𝓁𝒹 𝒮𝓉𝒶𝓉𝓊𝓈 Analysis Complete.")
-            
         else:
-            await ctx.send("❓ Usage: `/raidshield enable/disable/status`")
-
+            await ctx.send("❓ Usage: `/raidshield_cfg enable/disable/status`", ephemeral=True)
 
 async def setup(bot):
     if "RaidShield" not in bot.cogs:

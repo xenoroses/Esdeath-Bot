@@ -3,7 +3,7 @@ from discord.ext import commands
 import json
 import datetime
 from redis_utils import rget, rset, rget_json, rset_json, rdelete
-
+from typing import Union, Optional
 
 class StaffCommands(commands.Cog):
     """
@@ -13,30 +13,44 @@ class StaffCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
-        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+    async def _send_embed(self, dest: Union[discord.abc.Messageable, commands.Context], embed: discord.Embed, ephemeral: bool = False, fallback_text: Optional[str] = None):
+        """Standardized robust response handler for all engines."""
+        send_method = dest.send if hasattr(dest, "send") else dest
+        supports_ephemeral = isinstance(dest, (commands.Context, discord.Interaction)) or (hasattr(dest, "interaction") and dest.interaction)
+
         try:
-            await ctx.send(embed=embed, ephemeral=ephemeral)
-        except discord.Forbidden as e:
-            if e.code == 50013: # Missing Permissions
-                content = fallback_text or embed.description or "Action Successful."
-                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
-                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
-                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            if supports_ephemeral:
+                await send_method(embed=embed, ephemeral=ephemeral)
             else:
-                raise e
+                await send_method(embed=embed)
+        except discord.Forbidden:
+            content = fallback_text or embed.description or "Action Processing..."
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
+            try:
+                if supports_ephemeral:
+                    await send_method(fallback_msg, ephemeral=ephemeral)
+                else:
+                    await send_method(fallback_msg)
+            except:
+                pass
+        except:
+            pass
 
     async def _send_error(self, ctx, text, ephemeral=True):
-        await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** {text}", ephemeral=ephemeral)
+        embed = discord.Embed(description=f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** {text}", color=0x2B2D31)
+        await self._send_embed(ctx, embed, ephemeral=ephemeral, fallback_text=f"𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇: {text}")
 
     async def _send_success(self, ctx, text, ephemeral=False):
-        await ctx.send(f"✧ {text}", ephemeral=ephemeral)
+        embed = discord.Embed(description=f"✧ {text}", color=0x9B59B6)
+        await self._send_embed(ctx, embed, ephemeral=ephemeral, fallback_text=f"𝒮𝓊𝒸𝒸ℯ𝓈𝓈: {text}")
 
     async def _check_hierarchy(self, ctx, member):
         """Unified rank check to prevent raw Forbidden errors."""
         if not isinstance(member, discord.Member): return True
         if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
-            await self._send_error(ctx, "𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟: Subject ranks equal to or above your authority.")
+            await self._send_error(ctx, "𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ℩ℰ𝒟: Subject ranks equal to or above your authority.")
             return False
         if member.id == ctx.guild.owner_id:
             await self._send_error(ctx, "𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩 ℐℳℳ𝒰𝓝ℐ𝒯𝒴: Owner cannot be processed.")
@@ -53,7 +67,7 @@ class StaffCommands(commands.Cog):
         await ctx.defer(ephemeral=False)
         default_prefixes = ["!", ","]
         if not self.bot.redis:
-            return await ctx.send(f"Memory offline. Currently using defaults: `{', '.join(default_prefixes)}`", ephemeral=True)
+            return await ctx.send(f"Memory offline. Currently using defaults: `{', '.join(default_prefixes)}`")
             
         try:
             current_prefixes = await rget_json(self.bot, f"prefixes:{ctx.guild.id}") or default_prefixes
@@ -113,7 +127,6 @@ class StaffCommands(commands.Cog):
         bots = sum(1 for m in g.members if m.bot)
         humans = g.member_count - bots
         
-        # Scaling Guard: 5k+ member servers get simplified stats to avoid latency spikes
         if g.member_count > 5000:
             bots_str = "Scale Optimized ⌬"
             humans_str = "Scale Optimized ⌬"
@@ -136,7 +149,8 @@ class StaffCommands(commands.Cog):
         roles = [role.mention for role in user.roles if role.name != "@everyone"]
         bio = await rget(self.bot, f"bio:{user.id}") or "No bio set."
         embed = discord.Embed(title=f"𝒰𝓈ℯ𝓇: {user.display_name}", description=f"*{bio}*", color=0xe74c3c)
-        embed.set_thumbnail(url=user.display_avatar.url)
+        if user.display_avatar:
+             embed.set_thumbnail(url=user.display_avatar.url)
         embed.add_field(name="Roles", value=" ".join(roles) if roles else "None", inline=False)
         embed.add_field(name="Joined Discord", value=user.created_at.strftime("%B %d, %Y"), inline=True)
         embed.add_field(name="Joined Server", value=user.joined_at.strftime("%B %d, %Y") if user.joined_at else "N/A", inline=True)
@@ -154,13 +168,13 @@ class StaffCommands(commands.Cog):
     async def avatar_info(self, ctx: commands.Context, member: discord.Member = None):
         user = member or ctx.author
         embed = discord.Embed(title=f"𝒜𝓋𝒶𝓉ℯ𝓇 𝒻ℴ𝓇 {user.display_name}", color=discord.Color.blue())
-        embed.set_image(url=user.display_avatar.url)
-        await self._send_embed(ctx, embed, fallback_text=f"𝒜𝓋𝒶𝓉ℯ𝓇 for {user.display_name}: {user.display_avatar.url}")
+        if user.display_avatar:
+            embed.set_image(url=user.display_avatar.url)
+        await self._send_embed(ctx, embed, fallback_text=f"𝒜𝓋𝒶𝓉ℯ𝓇 for {user.display_name}: {user.display_avatar.url if user.display_avatar else 'No Avatar'}")
 
     @info_group.command(name="members", description="See the breakdown of members.")
     async def members_info(self, ctx: commands.Context):
         g = ctx.guild
-        
         if g.member_count > 5000:
             bots_str = "Scale Optimized ⌬"
             humans_str = "Scale Optimized ⌬"
@@ -177,8 +191,11 @@ class StaffCommands(commands.Cog):
         await self._send_embed(ctx, embed, fallback_text=f"ℳℯ𝓂𝒷ℯ𝓇 𝒞ℴ𝓊𝓃𝓉 for {g.name}: {g.member_count}")
 
     # --- CASE GROUP ---
-    @case_group_command = commands.hybrid_group(name="case", description="Manage administrative case logs.", invoke_without_command=True)
-    @case_group_command.command(name="view", description="View a user's entire case history.")
+    @commands.hybrid_group(name="case", description="Manage administrative case logs.", invoke_without_command=True)
+    async def case_group(self, ctx: commands.Context):
+        await ctx.send_help(ctx.command)
+
+    @case_group.command(name="view", description="View a user's entire case history.")
     @commands.has_permissions(moderate_members=True)
     async def modlogs_view(self, ctx: commands.Context, user: discord.User):
         await ctx.defer()
@@ -197,17 +214,23 @@ class StaffCommands(commands.Cog):
         embed.set_footer(text=f"{len(case_ids)} total logs")
         await self._send_embed(ctx, embed, fallback_text=f"ℳℴ𝒹𝓁ℴℊ𝓈 for {user.display_name}: {len(case_ids)} total logs.")
 
-    @commands.hybrid_group(name="case", description="Manage administrative case logs.", invoke_without_command=True)
-    async def case_group(self, ctx: commands.Context):
-        await ctx.send_help(ctx.command)
-
-    @case_group.command(name="view", description="View a user's entire case history.")
+    @case_group.command(name="edit", description="Change the reason for a specific case.")
     @commands.has_permissions(moderate_members=True)
-    async def modlogs_view_impl(self, ctx: commands.Context, user: discord.User):
-        # Implementation moved inside case_group subcommands below
-        pass
+    async def modlogs_edit(self, ctx: commands.Context, case_id: int, *, new_reason: str):
+        case_key = f"case:{ctx.guild.id}:{case_id}"
+        case_data = await rget_json(self.bot, case_key)
+        if not case_data:
+            return await self._send_error(ctx, f"𝒞𝒶𝓈ℯ #{case_id} 𝒹ℴℯ𝓈 𝓃ℴ𝓉 ℯ𝓍𝒾𝓈𝓉.")
+        old_reason = case_data["reason"]
+        case_data["reason"] = new_reason
+        await rset_json(self.bot, case_key, case_data)
+        await self._send_success(ctx, f"𝒰𝓅𝒹𝒶𝓉ℯ𝒹 𝒞𝒶𝓈ℯ #{case_id}\nOld: {old_reason}\nNew: {new_reason}")
 
-    # Note: Subcommands redefined below to ensure correct registration with the hybrid group
+    @case_group.command(name="clear", description="Wipe a user's entire case history.")
+    @commands.has_permissions(administrator=True)
+    async def modlogs_clear(self, ctx: commands.Context, user: discord.User):
+        await rdelete(self.bot, f"userlogs:{ctx.guild.id}:{user.id}")
+        await self._send_success(ctx, f"𝒞𝓁ℯ𝒶𝓇ℯ𝒹 𝓁ℴ𝑔𝓈 𝒻ℴ𝓇 **{user.display_name}**.")
 
     # --- ROLE GROUP ---
     @commands.hybrid_group(name="role", description="Manage member roles.", invoke_without_command=True)
@@ -261,7 +284,7 @@ class StaffCommands(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def ai_unlock(self, ctx: commands.Context):
         await self.bot.redis.delete(f"chat_channel:{ctx.guild.id}")
-        await self._send_success(ctx, "𝒞𝒽𝒶𝓃𝓃ℯ𝓁 𝓁ℴ𝒸𝓀 𝓇ℯ𝓂ℴ𝓋ℯ𝒹.")
+        await self._send_success(ctx, "𝒞𝒽𝒶𝓃ℯ𝓁 𝓁ℴ𝒸𝓀 𝓇ℯ𝓂ℴ𝓋ℯ𝒹.")
 
 async def setup(bot):
     if "StaffCommands" not in bot.cogs:

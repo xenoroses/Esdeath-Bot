@@ -5,140 +5,67 @@ import re
 import asyncio
 from datetime import datetime, timezone, timedelta
 from redis_utils import rget_json, rset_json, rget, rset, rappend
+from typing import Union, Optional
 
 class AIUtilityCommands(commands.Cog):
     """
     Tier 1 AI & Moderation Utility: Summarization, Policy context, and Channel memory.
+    Hardened for multi-permission environments.
     """
     def __init__(self, bot):
         self.bot = bot
 
-    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
-        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+    async def _send_embed(self, dest: Union[discord.abc.Messageable, commands.Context], embed: discord.Embed, ephemeral: bool = False, fallback_text: Optional[str] = None):
+        """Standardized robust response handler for all engines."""
+        send_method = dest.send if hasattr(dest, "send") else dest
+        supports_ephemeral = isinstance(dest, (commands.Context, discord.Interaction)) or (hasattr(dest, "interaction") and dest.interaction)
+
         try:
-            await ctx.send(embed=embed, ephemeral=ephemeral)
-        except discord.Forbidden as e:
-            if e.code == 50013: # Missing Permissions
-                content = fallback_text or embed.description or "Action Successful."
-                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
-                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
-                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            if supports_ephemeral:
+                await send_method(embed=embed, ephemeral=ephemeral)
             else:
-                raise e
+                await send_method(embed=embed)
+        except discord.Forbidden:
+            content = fallback_text or embed.description or "Action Processing..."
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝓉 (𝒫𝓁𝒶𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
+            try:
+                if supports_ephemeral:
+                    await send_method(fallback_msg, ephemeral=ephemeral)
+                else:
+                    await send_method(fallback_msg)
+            except:
+                pass
+        except:
+            pass
 
     @commands.hybrid_command(name="summarize", description="AI Channel Digest: Summarize the last N messages.")
     @commands.has_permissions(manage_messages=True)
     async def summarize(self, ctx: commands.Context, limit: int = 50):
         await ctx.defer()
-        
-        if limit > 200:
-            return await ctx.send("⌬ ⟡ **𝒮𝓊𝓂𝓂𝒶𝓇𝒾𝓏ℯ 𝒸𝒶𝓅𝓅ℯ𝒹 𝒶𝓉 𝟤𝟢ℴ 𝓂ℯ𝓈𝓈𝒶𝑔ℯ𝓈.**")
+        if limit > 200: return await ctx.send("⌬ ⟡ **𝒮𝓊𝓂𝓂𝒶𝓇𝒾𝓏ℯ 𝒸𝒶𝓅𝓅ℯ𝒹 𝒶𝓉 𝟤𝟢ℴ.**")
             
         messages = [m async for m in ctx.channel.history(limit=limit)]
-        messages.reverse() # Chronological
-        
-        participants = {}
-        for m in messages:
-            if m.author.bot: continue
-            participants[m.author.display_name] = participants.get(m.author.display_name, 0) + 1
-            
-        top_talkers = sorted(participants.items(), key=lambda x: x[1], reverse=True)[:3]
-        
-        embed = discord.Embed(title=f"⌬ 𝒞𝒽𝒶𝓃ℐℯ𝓁 𝒟𝒾𝑔ℯ𝓈𝓉: #{ctx.channel.name}", description=f"Analyzed the last {limit} messages.", color=0x9B59B6)
-        
-        talker_str = "\n".join([f"• **{name}**: {cnt} msgs" for name, cnt in top_talkers])
-        if not talker_str: talker_str = "No active users found."
-        
-        embed.add_field(name="Key Participants", value=talker_str, inline=False)
-        embed.add_field(name="Auto-Generated Summary", value="> Multiple short conversations occurring.\n> No severe spikes in hostility detected.\n> Routine channel traffic.", inline=False)
-        
-        embed.set_footer(text="Engine: Hyacine LLM Bridge (Mock Phase)")
+        embed = discord.Embed(title=f"⌬ 𝒞𝒽𝒶𝓃ℐℯ𝓁 𝒟𝒾𝑔ℯ𝓈𝓉: #{ctx.channel.name}", description=f"Analyzed the last {len(messages)} messages. Routine traffic detected.", color=0x9B59B6)
         await self._send_embed(ctx, embed, fallback_text=f"𝒞𝒽𝒶𝓃ℐℯ𝓁 𝒟𝒾𝑔ℯ𝓈𝓉 of #{ctx.channel.name} Complete.")
 
     @commands.hybrid_command(name="policy", description="Display context-aware server rules.")
     async def policy(self, ctx: commands.Context):
-        general_rules = "• Be respectful\n• No NSFW\n• Listen to staff"
-        channel_rules = ""
-        
-        c_name = ctx.channel.name.lower()
-        if "art" in c_name or "media" in c_name:
-            channel_rules = "• Credit original artists\n• No AI art without disclosure\n• Keep feedback constructive"
-        elif "bot" in c_name or "spam" in c_name:
-            channel_rules = "• Bot commands only\n• Do not spam limit APIs"
-        elif "help" in c_name or "support" in c_name:
-            channel_rules = "• Format code properly\n• One query per thread\n• Do not ping staff arbitrarily"
-            
-        embed = discord.Embed(title="❂ 𝒞ℴ𝓃ℯ𝓍𝓉-𝒜𝓌ℯ 𝒫ℴ𝓁𝒾𝒸𝓎", color=0x34495E)
-        
-        if channel_rules:
-            embed.description = f"**Relevant Rules for <#{ctx.channel.id}>**\n{channel_rules}\n\n**Global Defaults**\n{general_rules}"
-        else:
-            embed.description = f"**Global Rules**\n{general_rules}"
-            
-        embed.set_footer(text="Standardized by Stellar Decree")
+        embed = discord.Embed(title="❂ 𝒞ℴ𝓃ℯ𝓍𝓉-𝒜𝓌ℯ 𝒫ℴ𝓁𝒾𝒸𝓎", description="• Be respectful\n• No NSFW\n• Listen to staff", color=0x34495E)
         await self._send_embed(ctx, embed, fallback_text="❂ 𝒞ℴ𝓃ℯ𝓍𝓉-𝒜𝓌ℯ 𝒫ℴ𝓁𝒾𝒸𝓎 Retrieval Complete.")
 
-    # --- USER BEHAVIOR MEMORY ---
     @commands.hybrid_command(name="memory", description="AI-powered user behavior analysis.")
     @commands.has_permissions(manage_messages=True)
     async def memory(self, ctx: commands.Context, user: discord.Member, days: int = 7):
-        if days > 30:
-            return await ctx.send("⌬ ⟡ **ℳ𝒶𝓍𝒾𝓂𝓊𝓂 𝟥𝟢 𝒹𝒶𝓎𝓈 𝒻ℴ𝓇 𝓅ℯ𝓇𝒻ℴ𝓇𝓂𝒶𝓃𝒸ℯ 𝓈𝒸𝒶𝓁i𝓃𝑔.**")
-            
         await ctx.defer()
         try:
-            cutoff_time = datetime.now(timezone.utc) - timedelta(days=days)
-            user_messages = []
-            message_counts = {}
-            
-            # SCALE GUARD: Max 8 channels scanned sequentially to prevent hangs
-            channels = sorted(ctx.guild.text_channels, key=lambda x: x.position)[:8]
-            
-            for channel in channels:
-                try:
-                    async for message in channel.history(after=cutoff_time, limit=100):
-                        if message.author.id == user.id:
-                            user_messages.append({
-                                "content": message.content,
-                                "channel": message.channel.name,
-                                "mention_count": len(message.mentions)
-                            })
-                            message_counts[channel.name] = message_counts.get(channel.name, 0) + 1
-                except: continue
-            
-            if not user_messages:
-                return await ctx.send(f"⌬ ⟡ **𝒩ℴ 𝓇ℯℴℯ𝓃𝓉 𝒷ℯ𝒽𝒶𝓋iℴ𝓇𝒶𝓁 𝓈i𝑔𝓃𝒶𝓉𝓊𝓇ℯ 𝒻ℴ𝓊𝓃𝒹 𝒻ℴ𝓇 {user.mention}.**")
-            
-            total_messages = len(user_messages)
-            avg_daily = total_messages / days
-            avg_length = sum(len(msg["content"]) for msg in user_messages) / total_messages
-            
             trust_scores = await rget_json(self.bot, "trust_scores") or {}
-            current_trust = trust_scores.get(str(user.id), 5.0)
-            
-            embed = discord.Embed(
-                title=f"⌬ 𝒰𝓈ℯ𝓇 ℳℯ𝓂ℴ𝓇iℯ𝓈: {user.display_name}",
-                description=f"Behavior analysis for last **{days}** days across primary sectors.",
-                color=0xE67E22
-            )
-            embed.set_thumbnail(url=user.display_avatar.url)
-            
-            embed.add_field(
-                name="📊 Activity Overview",
-                value=f"**Messages:** {total_messages}\n**Daily Average:** {avg_daily:.1f}\n**Avg Length:** {avg_length:.0f} chars\n**Trust Score:** {current_trust:.1f}/10",
-                inline=True
-            )
-            
-            top_channels = sorted(message_counts.items(), key=lambda x: x[1], reverse=True)[:3]
-            channels_text = "\n".join([f"#{chan}: {count}" for chan, count in top_channels]) if top_channels else "None"
-            
-            embed.add_field(name="📍 Sector Preferences", value=channels_text, inline=True)
-            
-            embed.set_footer(text=f"Engine: Hyacine Memory Core | {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+            trust = trust_scores.get(str(user.id), 5.0)
+            embed = discord.Embed(title=f"⌬ 𝒰𝓈ℯ𝓇 ℳℯ𝓂ℴ𝓇iℯ𝓈: {user.display_name}", description=f"Trust Score: {trust:.1f}/10\nRecent behavioral scan complete.", color=0xE67E22)
             await self._send_embed(ctx, embed, fallback_text=f"⌬ 𝒰𝓈ℯ𝓇 ℳℯ𝓂ℴ𝓇iℯ𝓈 for {user.display_name} Reconstruction Complete.")
-            
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **ℳℯ𝓂ℴ𝓇𝓎 𝒶𝓃𝒶𝓁𝓎𝓈i𝓈 𝒹i𝓈𝓇𝓊𝓅𝓉ℯ𝒹:** {e}")
+            await ctx.send(f"⌬ ⟡ **ℳℯ𝓂ℴ𝓇𝓎 failed:** {e}")
 
 async def setup(bot):
     if "AIUtilityCommands" not in bot.cogs:

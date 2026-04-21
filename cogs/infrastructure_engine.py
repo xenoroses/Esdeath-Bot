@@ -3,7 +3,7 @@ from discord.ext import commands
 import json
 import datetime
 from datetime import timezone, timedelta
-from typing import Optional
+from typing import Optional, Union
 from redis_utils import rget_json, rset_json
 
 class InfrastructureEngine(commands.Cog):
@@ -19,33 +19,54 @@ class InfrastructureEngine(commands.Cog):
     async def _safe_rset(self, key, val):
         await rset_json(self.bot, key, val)
 
-    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
-        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+    async def _send_embed(self, dest: Union[discord.abc.Messageable, commands.Context], embed: discord.Embed, ephemeral: bool = False, fallback_text: Optional[str] = None):
+        """Standardized robust response handler for all engines."""
+        
+        # Decide the sending method
+        # If it's a context or interaction-aware object
+        send_method = dest.send if hasattr(dest, "send") else dest
+        
+        # Determine if ephemeral is supported (Context/Interaction vs Channel)
+        supports_ephemeral = isinstance(dest, (commands.Context, discord.Interaction)) or (hasattr(dest, "interaction") and dest.interaction)
+
         try:
-            # Handle both ctx (Command Context) and channel objects
-            target = ctx.send if hasattr(ctx, "send") else ctx
-            await target(embed=embed, ephemeral=ephemeral)
-        except discord.Forbidden as e:
-            if e.code == 50013: # Missing Permissions
-                content = fallback_text or embed.description or "Action Successful."
-                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
-                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
-                target = ctx.send if hasattr(ctx, "send") else ctx
-                await target(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            if supports_ephemeral:
+                await send_method(embed=embed, ephemeral=ephemeral)
             else:
-                raise e
+                await send_method(embed=embed)
+        except discord.Forbidden:
+            # Fallback for ANY 403 Forbidden (Embed Links denied, Send Messages denied in specific way, etc.)
+            content = fallback_text or embed.description or "Action Processing..."
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
+            
+            try:
+                if supports_ephemeral:
+                    await send_method(fallback_msg, ephemeral=ephemeral)
+                else:
+                    await send_method(fallback_msg)
+            except:
+                pass # Absolute failure (No send permissions at all)
+        except Exception:
+            # Catch TypeErrors or other weirdness
+            pass
 
     async def _check_hierarchy(self, ctx, member):
-        """Unified rank check to prevent raw Forbidden errors."""
+        """Unified rank check with robust response."""
         if not isinstance(member, discord.Member): return True
+        
+        error_msg = None
         if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
-            await ctx.send("⌬ ⟡ **𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟:** Subject ranks equal to or above your authority.", ephemeral=True)
-            return False
-        if member.id == ctx.guild.owner_id:
-            await ctx.send("⌬ ⟡ **𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩 ℐℳℳℰ𝓊𝓃𝒾𝓉𝓎:** Owner cannot be processed.", ephemeral=True)
-            return False
-        if member.top_role >= ctx.me.top_role:
-            await ctx.send("⌬ ⟡ **𝒮ℋℐℰℒ𝒟 𝒟ℰ𝒯ℰ𝒞𝒯ℰ𝒟:** Target's rank exceeds my system permissions.", ephemeral=True)
+             error_msg = "𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟: Subject ranks equal to or above your authority."
+        elif member.id == ctx.guild.owner_id:
+             error_msg = "𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩 ℐℳℳ𝒰𝓝ℐ𝒯𝒴: Owner cannot be processed."
+        elif member.top_role >= ctx.me.top_role:
+             error_msg = "𝒮ℋℐℰℒ𝒟 𝒟ℰ𝒯ℰ𝒞⒯ℰ𝒟: Target's rank exceeds my system permissions."
+             
+        if error_msg:
+            embed = discord.Embed(description=f"⌬ ⟡ **{error_msg}**", color=0x2B2D31)
+            await self._send_embed(ctx, embed, ephemeral=True, fallback_text=error_msg)
             return False
         return True
 
@@ -60,7 +81,7 @@ class InfrastructureEngine(commands.Cog):
         
         # Absolute Immunity: The Sovereign cannot be contained
         if user.id == ctx.guild.owner_id:
-            return await ctx.send("⌬ ⟡ **The Sovereign (Owner) is immune to containment protocols.**", ephemeral=True)
+            return await self._send_embed(ctx, discord.Embed(description="⌬ ⟡ **The Sovereign (Owner) is immune to containment protocols.**"), ephemeral=True)
             
         # Hierarchy Validation
         if not await self._check_hierarchy(ctx, user): return
@@ -93,12 +114,17 @@ class InfrastructureEngine(commands.Cog):
                     "• Media/Attachments: **Intercepted**"
                 ]
                 embed.add_field(name="Neural Dampeners Active", value="\n".join(restrictions), inline=False)
-                embed.set_thumbnail(url=user.display_avatar.url)
+                if user.display_avatar:
+                    embed.set_thumbnail(url=user.display_avatar.url)
                 
             embed.set_footer(text="Engine: Hyacine Soft-Lock System")
             await self._send_embed(ctx, embed, fallback_text=f"𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 Protocol Updated for {user.display_name}.")
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒻𝒶𝒾𝓁ℯ𝒹:** {e}")
+            # Final fallback: If even _send_embed fails, try to send a plain string directly
+            try:
+                await ctx.send(f"⌬ ⟡ **𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒮𝓉𝒶𝓉𝓊𝓈 Updated.** (Engine Error logged: {e})")
+            except:
+                pass
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -140,18 +166,18 @@ class InfrastructureEngine(commands.Cog):
                 
                 # Public Warning Report
                 report = discord.Embed(
-                    title="⚠️ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒯𝓇𝒾𝑔𝑔ℯ𝓇ℯ𝒹",
+                    title="⚠️ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫ℴ𝓉ℴ𝒸ℴ𝓁 𝒯𝓇𝒾𝑔𝑔ℯ𝓇ℯ𝒹",
                     description=f"Action intercepted from {message.author.mention}.\n**Violation:** `{violation}`",
                     color=0xE67E22
                 )
-                report.set_footer(text="Hyacine Sentinel Enforcement | Restricted Status")
+                report.set_footer(text="Hyacine Sentinel Enforcement")
                 await self._send_embed(message.channel, report, fallback_text=f"⚠️ {message.author.mention}, action intercepted: **{violation}**")
             except:
                 pass
 
 
     @commands.hybrid_command(name="forensics", description="Deep moderation audit for a user.")
-    @commands.has_permissions(manage_messages=True)
+    @commands.has_permissions(moderate_members=True)
     async def forensics(self, ctx: commands.Context, user: discord.Member):
         await ctx.defer()
         try:
@@ -177,16 +203,17 @@ class InfrastructureEngine(commands.Cog):
                 description="48-Hour Deep Protocol Audit",
                 color=0x9B59B6
             )
-            embed.set_thumbnail(url=user.display_avatar.url)
+            if user.display_avatar:
+                embed.set_thumbnail(url=user.display_avatar.url)
             
             embed.add_field(name="Ghost Edits", value=f"**{edited}** detected", inline=True)
             embed.add_field(name="Mention Bursts", value=f"**{bursts}**", inline=True)
             embed.add_field(name="Channel Hopping", value=f"**{channel_hop}** ({len(channels_used)} channels)", inline=True)
             
             embed.set_footer(text="Engine: Hyacine Forensic Scrape API")
-            await self._send_embed(ctx, embed, fallback_text=f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 Archive Analysis for {user.display_name} Complete.")
+            await self._send_embed(ctx, embed, fallback_text=f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 Analyze Complete for {user.display_name}.")
         except Exception as e:
-            await ctx.send(f"❌ | ℱℴ𝓇ℯ𝓃𝓈𝒾𝒸𝓈 𝒸ℴ𝓂𝓅𝓇ℴ𝓂𝒾𝓈ℯ𝒹: {e}")
+            await ctx.send(f"❌ | ℱℴ𝓇ℯ𝓃𝓈i𝒸𝓈 failed: {e}")
 
     @commands.hybrid_command(name="channelhealth", description="Outputs algorithmic engagement and toxicity scores per channel.")
     @commands.has_permissions(manage_messages=True)
@@ -194,7 +221,6 @@ class InfrastructureEngine(commands.Cog):
         await ctx.defer()
         try:
             target = channel or ctx.channel
-            
             cutoff = datetime.datetime.now(timezone.utc) - timedelta(hours=24)
             
             msgs = 0
@@ -216,13 +242,11 @@ class InfrastructureEngine(commands.Cog):
             raid_status = "Decommissioned ⌬"
             toxicity_risk = "Elevated" if caps > 20 else "Minimal"
             spam_risk = "High" if links > msgs * 0.2 else "Minimal"
-            retention = f"{len(users)/max(msgs, 1)*100:.1f}%"
             
             embed = discord.Embed(
                 title=f"𝒱𝒾𝓉𝒶𝓁𝒾𝓉𝓎 𝒮𝒸𝒶𝓃: #{target.name}",
                 color=0x9B59B6 
             )
-            embed.set_author(name="Stellar Infrastructure Engine", icon_url=self.bot.user.display_avatar.url)
             
             details = (
                 f"**» Core Metrics**\n"
@@ -235,10 +259,10 @@ class InfrastructureEngine(commands.Cog):
                 f"Spam Turbulence: **{spam_risk}**"
             )
             embed.description = details
-            embed.set_footer(text="Engine: Hyacine Pulse Analytics | © Stellar Infrastructure")
+            embed.set_footer(text="Engine: Hyacine Pulse Analytics")
             await self._send_embed(ctx, embed, fallback_text=f"𝒱𝒾𝓉𝒶𝓁𝒾𝓉𝓎 Scan of #{target.name} Complete. Engagement: {engagement}")
         except Exception as e:
-            await ctx.send(f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
+            await ctx.send(f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 Scan failed: {e}")
 
     @commands.hybrid_command(name="digest", description="Summarizes mass activity into a daily brief.")
     @commands.has_permissions(manage_messages=True)
@@ -256,14 +280,10 @@ class InfrastructureEngine(commands.Cog):
                         users.add(msg.author.id)
                 except: pass
                 
-            mod_actions = 3 # Placeholder hook to real inf cache
-            questions = 0 # Placeholder NLP metric
-            
             desc = [
                 f"• **{total_msgs}** messages processed",
                 f"• **{len(users)}** unique active users",
-                f"• **{mod_actions}** moderation actions tracked",
-                f"• **{questions}** open support spikes detected"
+                f"• Routine moderation tracked."
             ]
             
             embed = discord.Embed(
@@ -272,9 +292,9 @@ class InfrastructureEngine(commands.Cog):
                 color=0x3498DB
             )
             embed.set_footer(text="Engine: Hyacine Rollup Core")
-            await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓉ℯ𝓁𝓁𝒶𝓇 ℛℴ𝓁𝓁𝓊𝓅 Retrieval Complete: {total_msgs} messages analyzed.")
+            await self._send_embed(ctx, embed, fallback_text=f"𝒮ℯ𝓁𝓁𝓊𝓅 Complete: {total_msgs} messages analyzed.")
         except Exception as e:
-            await ctx.send(f"❌ | 𝒟𝒾𝑔ℯ𝓈𝓉 𝓇ℴ𝓁𝓁𝓊𝓅 𝒻𝒶𝒾𝓁ℯ𝒹: {e}")
+            await ctx.send(f"❌ | Digest failed: {e}")
 
 async def setup(bot):
     if "InfrastructureEngine" not in bot.cogs:

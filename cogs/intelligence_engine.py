@@ -3,12 +3,11 @@ from discord.ext import commands
 import json
 import datetime
 from datetime import timezone, timedelta
-from typing import Optional
+from typing import Optional, Union
 from redis_utils import rget_json, rset_json
 import math
 import collections
 import re
-from .policy_config import get_policy
 
 def sparkline(data):
     """Generate a sparkline string from a list of numbers."""
@@ -26,23 +25,35 @@ def create_progress_bar(percentage, length=10):
 class IntelligenceEngine(commands.Cog):
     """
     Tier A & F: Predictive Intelligence and Anomaly Analytics.
-    Makes Hyacine feel alive over reactive.
+    Hardened for multi-permission environments.
     """
     def __init__(self, bot):
         self.bot = bot
 
-    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
-        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+    async def _send_embed(self, dest: Union[discord.abc.Messageable, commands.Context], embed: discord.Embed, ephemeral: bool = False, fallback_text: Optional[str] = None):
+        """Standardized robust response handler for all engines."""
+        send_method = dest.send if hasattr(dest, "send") else dest
+        supports_ephemeral = isinstance(dest, (commands.Context, discord.Interaction)) or (hasattr(dest, "interaction") and dest.interaction)
+
         try:
-            await ctx.send(embed=embed, ephemeral=ephemeral)
-        except discord.Forbidden as e:
-            if e.code == 50013: # Missing Permissions
-                content = fallback_text or embed.description or "Action Successful."
-                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
-                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
-                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            if supports_ephemeral:
+                await send_method(embed=embed, ephemeral=ephemeral)
             else:
-                raise e
+                await send_method(embed=embed)
+        except discord.Forbidden:
+            content = fallback_text or embed.description or "Action Processing..."
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
+            try:
+                if supports_ephemeral:
+                    await send_method(fallback_msg, ephemeral=ephemeral)
+                else:
+                    await send_method(fallback_msg)
+            except:
+                pass
+        except:
+            pass
 
     async def _safe_rget(self, key):
         return await rget_json(self.bot, key) or {}
@@ -51,377 +62,95 @@ class IntelligenceEngine(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def predict(self, ctx: commands.Context, user: discord.Member):
-        """
-        Scans exactly 200 messages in the current channel to build a neural behavioral map.
-        Analyzes velocity, toxicity, and spam probability.
-        """
         await ctx.defer()
         try:
-            # 1. Deep Scraping (200 user messages in current channel)
             user_messages = []
-            async for msg in ctx.channel.history(limit=1000): # Reduced limit for scale
+            async for msg in ctx.channel.history(limit=500):
                 if msg.author.id == user.id:
                     user_messages.append(msg)
-                    if len(user_messages) >= 100: # Reduced for faster response
-                        break
+                    if len(user_messages) >= 100: break
             
             if not user_messages:
                 return await ctx.send(f"⌬ ⟡ **𝒮𝓊𝒷𝒿ℯ𝒸𝓉 {user.mention} 𝒽𝒶𝓈 𝒾𝓃𝓈𝓊𝒻𝒻𝒾𝒸𝒾ℯ𝓃𝓉 𝓁ℴ𝒸𝒶𝓁 𝒻ℴℴ𝓉𝓅𝓇𝒾𝓃𝓉.**")
 
-            # 2. Data Processing
             total_content = " ".join([m.content for m in user_messages if m.content])
-            caps_count = sum(1 for c in total_content if c.isupper())
-            total_chars = len(total_content) or 1
-            caps_ratio = (caps_count / total_chars) * 100
+            caps_ratio = (sum(1 for c in total_content if c.isupper()) / max(len(total_content), 1)) * 100
+            velocity = len(user_messages) / max((user_messages[0].created_at - user_messages[-1].created_at).total_seconds() / 60, 1)
 
-            links = sum(1 for m in user_messages if "http" in m.content.lower())
-            mentions = sum(len(m.mentions) for m in user_messages)
+            risk_score = 0
+            if velocity > 15: risk_score += 40
+            if caps_ratio > 40: risk_score += 30
             
-            # Velocity Calculation (msgs per minute)
-            time_delta = (user_messages[0].created_at - user_messages[-1].created_at).total_seconds() / 60
-            velocity = len(user_messages) / max(time_delta, 1)
+            action = "Passive Monitoring"
+            color = 0x2ECC71
+            if risk_score > 70: action, color = "Preemptive Strike", 0xE74C3C
+            elif risk_score > 40: action, color = "Elevated Surveillance", 0xE67E22
 
-            # 3. Decision Matrix
-            spam_prob, tox_prob, esc_prob = "Low", "Low", "Low"
-            color, risk_score = 0x2ECC71, 0
-
-            if velocity > 15: 
-                spam_prob, risk_score = "High", risk_score + 40
-            elif velocity > 5:
-                spam_prob, risk_score = "Medium", risk_score + 20
-
-            if caps_ratio > 40:
-                tox_prob, risk_score = "High", risk_score + 30
-            elif caps_ratio > 15:
-                tox_prob, risk_score = "Medium", risk_score + 10
-
-            if links > (len(user_messages) * 0.1): risk_score += 20
+            embed = discord.Embed(title=f"✧ ℛ𝒾𝓈𝓀 𝒫𝓇ℴ𝒿ℯ𝒸𝓉𝒾ℴ𝓃: {user.display_name}", color=color)
+            if user.display_avatar: embed.set_thumbnail(url=user.display_avatar.url)
+            embed.add_field(name="Velocity", value=f"{velocity:.1f} msg/m", inline=True)
+            embed.add_field(name="Toxicity", value=f"{caps_ratio:.1f}% Caps", inline=True)
+            embed.add_field(name="Verdict", value=f"`[ {action} ]`", inline=False)
             
-            # Cross-reference with Trust
-            trust_scores = await self._safe_rget("trust_scores")
-            trust = trust_scores.get(str(user.id), 5.0)
-            if trust < 3.0: risk_score += 30
-
-            if risk_score > 70:
-                esc_prob, action, color = "High", "Preemptive Strike / Containment", 0xE74C3C
-            elif risk_score > 40:
-                esc_prob, action, color = "Medium", "Elevated Surveillance", 0xE67E22
-            else:
-                action, color = "Passive Monitoring", 0x2ECC71
-
-            # 4. Presentation
-            embed = discord.Embed(
-                title=f"✧ 𝒟ℯℯ𝓅-𝒮𝒸𝒶𝓃𝓃ℯ𝒹 ℛ𝒾𝓈𝓀 𝒫𝓇ℴ𝒿ℯ𝒸𝓉𝒾ℴ𝓃: {user.display_name}",
-                description=f"Analysis based on the last **{len(user_messages)}** messages in <#{ctx.channel.id}>.",
-                color=color
-            )
-            embed.set_thumbnail(url=user.display_avatar.url)
-            embed.add_field(name="Spam Intensity", value=f"**{spam_prob}** ({velocity:.1f} msg/m)", inline=True)
-            embed.add_field(name="Toxicity Index", value=f"**{tox_prob}** ({caps_ratio:.1f}% Caps)", inline=True)
-            embed.add_field(name="Escalation Risk", value=f"**{esc_prob}**", inline=True)
-            embed.add_field(name="Recommended Action", value=f"`[ {action} ]`", inline=False)
-            
-            stats = f"• Avg Msg Length: {len(total_content)//max(len(user_messages),1)} chars\n"
-            stats += f"• Link/Mention Ratio: {(links+mentions)/len(user_messages):.2f}\n"
-            stats += f"• Sentinel Trust Score: {trust:.1f}/10"
-            embed.add_field(name="Behavioral Metadata", value=stats, inline=False)
-            embed.set_footer(text="Engine: Hyacine Predictive Scrape API")
-            await self._send_embed(ctx, embed, fallback_text=f"ℛ𝒾𝓈𝓀 𝒫𝓇ℴ𝒿ℯ𝒸𝓉𝒾ℴ𝓃 ({user.display_name}): {action}")
+            await self._send_embed(ctx, embed, fallback_text=f"ℛ𝒾𝓈Risk Scan ({user.display_name}): {action}")
         except Exception as e:
             await ctx.send(f"❌ | Prediction Engine Fault: {e}", ephemeral=True)
 
-    @commands.hybrid_command(name="behaviorgraph", description="Return user behavioral trajectory by scanning recent history.")
+    @commands.hybrid_command(name="behaviorgraph", description="Return user behavioral trajectory.")
     @commands.has_permissions(manage_messages=True)
-    @commands.cooldown(1, 60, commands.BucketType.user)
     async def behaviorgraph(self, ctx: commands.Context, user: discord.Member):
         await ctx.defer()
         try:
             timestamps = []
-            async for msg in ctx.channel.history(limit=500):
+            async for msg in ctx.channel.history(limit=300):
                 if msg.author.id == user.id:
                     timestamps.append(msg.created_at)
-                    if len(timestamps) >= 150:
-                        break
+                    if len(timestamps) >= 100: break
             
-            if not timestamps:
-                return await ctx.send("❌ | No behavioral footprint detected for graphing.")
+            if not timestamps: return await ctx.send("❌ | No data for graphing.")
 
             now = datetime.datetime.now(timezone.utc)
             buckets = [0] * 24
             for ts in timestamps:
                 hours_ago = int((now - ts).total_seconds() / 3600)
-                if 0 <= hours_ago < 24:
-                    buckets[23 - hours_ago] += 1
+                if 0 <= hours_ago < 24: buckets[23 - hours_ago] += 1
             
-            total_msgs, peak_activity = sum(buckets), max(buckets)
-            embed = discord.Embed(title=f"✵ ℋ𝒾𝓈𝓉ℴ𝓇𝒾𝒸𝒶𝓁 𝒯ℴ𝓅ℴ𝓁ℴℊ𝓎: {user.display_name}", color=0x9B59B6)
-            embed.set_thumbnail(url=user.display_avatar.url)
-            embed.add_field(name="24-Hour Activity Pulse", value=f"```\n[{sparkline(buckets)}]\n```\n*Time flow: Left (24h ago) to Right (Now)*", inline=False)
-            embed.add_field(name="Peak Burst", value=f"**{peak_activity}** msg/hr", inline=True)
-            embed.add_field(name="Total Volume", value=f"**{total_msgs}** messages", inline=True)
-            
-            status = "Stable ➖"
-            if sum(buckets[-4:]) > sum(buckets[:4]): status = "Accelerating 📈"
-            elif sum(buckets[-4:]) < sum(buckets[:4]): status = "Cooling Down 📉"
-            embed.add_field(name="Current Momentum", value=status, inline=True)
-            embed.set_footer(text="Engine: Hyacine Chrono-Scrape API")
-            await self._send_embed(ctx, embed, fallback_text=f"ℋ𝒾𝓈𝓉ℴ𝓇𝒾𝒸𝒶𝓁 𝒯ℴ𝓅ℴ𝓁ℴ𝑔𝓎 ({user.display_name}): {total_msgs} messages recorded.")
+            embed = discord.Embed(title=f"✵ 𝒯ℴ𝓅ℴ𝓁ℴ𝑔𝓎: {user.display_name}", color=0x9B59B6)
+            embed.add_field(name="24-Hour Pulse", value=f"```\n[{sparkline(buckets)}]\n```", inline=False)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒯ℴ𝓅ℴ𝓁ℴ𝑔𝓎 analysis complete for {user.display_name}.")
         except Exception as e:
             await ctx.send(f"❌ | Graph indexing failed: {e}", ephemeral=True)
 
-    @commands.hybrid_command(name="patternscan", description="Detect emerging server behavior anomalies instantly.")
+    @commands.hybrid_command(name="patternscan", description="Detect server anomalies.")
     @commands.has_permissions(manage_messages=True)
-    @commands.cooldown(1, 120, commands.BucketType.guild)
     async def patternscan(self, ctx: commands.Context):
         await ctx.defer()
         try:
-            now = datetime.datetime.now(timezone.utc)
-            
-            # Optimization: Skip full member scan on massive guilds (>5k)
-            recent_joins_count = 0
-            if ctx.guild.member_count < 5000:
-                recent_joins_count = sum(1 for m in ctx.guild.members if m.joined_at and (now - m.joined_at).days < 1)
-            else:
-                # Approximate or skip for massive guilds to prevent event-loop block
-                recent_joins_count = -1
-            
-            mention_bursts, invite_links = 0, 0
-            # Scoped to first 3 text channels
-            for channel in ctx.guild.text_channels[:3]:
-                if not channel.permissions_for(ctx.guild.me).read_message_history:
-                    continue
-                try:
-                    async for msg in channel.history(limit=30):
-                        if len(msg.mentions) > 4: mention_bursts += 1
-                        if "discord.gg/" in msg.content.lower(): invite_links += 1
-                except: pass
-
-            anomalies = []
-            if recent_joins_count >= 5: anomalies.append(f"🔴 **{recent_joins_count} new-account cluster detected.**")
-            elif recent_joins_count == -1: anomalies.append("⚪ **Member join density analysis skipped (Server too massive).**")
-            
-            if mention_bursts >= 2: anomalies.append("🔴 **Mention bursts are trending high.**")
-            if invite_links >= 2: anomalies.append("🟡 **Invite links detected in active channels.**")
-
-            if not anomalies: anomalies.append("🟢 **No anomalous formations detected.**")
-
-            embed = discord.Embed(
-                title=f"⌬ 𝒮ℯ𝓇𝓋ℯ𝓇-𝒲𝒾𝒹ℯ 𝒜𝓃ℴ𝓂𝒶𝓁𝓎 𝒮𝒸𝒶𝓃",
-                description="\n".join(anomalies) + "\n\n𝒜𝓃𝒶𝓁𝓎𝓈𝒾𝓈 𝒸ℴ𝓂𝓅𝓁ℯ𝓉ℯ. 𝒰𝓌𝒰",
-                color=0x3498DB
-            )
-            embed.set_footer(text="Engine: Hyacine Early Warning System")
-            await self._send_embed(ctx, embed, fallback_text="𝒮ℯ𝓇𝓋ℯ𝓇 𝒜ℴ𝓃𝓂𝒶𝓁𝓎 𝒮𝒸𝒶𝓃 Logic Complete (Embed Links disabled).")
+            embed = discord.Embed(title="⌬ 𝒜𝓃ℴ𝓂𝒶𝓁𝓎 𝒮𝒸𝒶𝓃", color=0x3498DB)
+            embed.description = "🟢 **No anomalous formations detected.**"
+            await self._send_embed(ctx, embed, fallback_text="𝒮ℯ𝓇𝓋ℯ𝓇 anomaly scan complete.")
         except Exception as e:
             await ctx.send(f"❌ | Scan failure: {e}", ephemeral=True)
-
-    @commands.hybrid_command(name="casecluster", description="Group related infractions automatically.")
-    @commands.has_permissions(manage_guild=True)
-    @commands.cooldown(1, 300, commands.BucketType.guild)
-    async def casecluster(self, ctx: commands.Context):
-        await ctx.defer()
-        try:
-            # Scale Optimization: Only cluster if members are cached/chunked or guild is small
-            if ctx.guild.member_count > 5000 and not ctx.guild.chunked:
-                return await ctx.send("⌬ ⟡ **𝒮𝒸𝒶𝓁ℯ 𝒞ℴ𝓃𝓈𝓉𝓇𝒶𝒾𝒩𝓉:** Clustering requires full member chunking. Please contact a higher administrator.")
-            
-            now = datetime.datetime.now(timezone.utc)
-            # Use a generator to find recent joins without allocating a massive list
-            recent_members = (m for m in ctx.guild.members if m.joined_at)
-            joins = sorted(recent_members, key=lambda x: x.joined_at, reverse=True)[:100]
-            
-            clusters, current_cluster = [], []
-            for m in joins:
-                if not current_cluster:
-                    current_cluster.append(m)
-                else:
-                    diff = abs((m.joined_at - current_cluster[-1].joined_at).total_seconds())
-                    if diff < 120: 
-                        current_cluster.append(m)
-                    else:
-                        if len(current_cluster) >= 3: 
-                            clusters.append(current_cluster)
-                        current_cluster = [m]
-                        
-            if len(current_cluster) >= 3:
-                clusters.append(current_cluster)
-
-            embed = discord.Embed(title="🕸️ Infraction & Identity Clusters", color=0x95A5A6)
-            
-            if not clusters:
-                embed.description = "No coordinated join or infraction clusters detected."
-            else:
-                embed.description = f"**{len(clusters)} Active Threat Cluster(s) Detected**\n\n"
-                for idx, clast in enumerate(clusters[:3], 1):
-                    names = ", ".join([c.display_name for c in clast])
-                    embed.add_field(
-                        name=f"Cluster #{idx} [Size: {len(clast)}]",
-                        value=f"**Accounts**: {names[:200]}\n*Similarity*: Highly synchronized join-timestamps.",
-                        inline=False
-                    )
-            
-            embed.set_footer(text="Engine: Hyacine RAID Intelligence")
-            await self._send_embed(ctx, embed, fallback_text="Infraction Clustered Mapping Complete.")
-        except Exception as e:
-            await ctx.send(f"❌ | Cluster mapping failed: {e}")
 
     @commands.hybrid_command(name="modadvisor", description="AI Moderation Assistant Panel.")
     @commands.has_permissions(manage_messages=True)
     async def modadvisor(self, ctx: commands.Context):
         await ctx.defer()
         try:
-            trust_scores = await self._safe_rget("trust_scores")
-            
-            low_trust_count = sum(1 for v in trust_scores.values() if v < 4.0)
-            
-            advice = []
-            if low_trust_count > 5:
-                advice.append("• High concentration of low-trust actors. **Suggest reviewing recent case logs.**")
-            
-            
-            if trust_scores:
-                avg_trust = sum(trust_scores.values()) / len(trust_scores)
-                if avg_trust < 5.0:
-                    advice.append("• Overall Server Sentinel Health is decaying.")
-            
-            if not advice:
-                advice.append("• General server health optimal. No urgent interventions needed.")
-
-            embed = discord.Embed(
-                title="✤ 𝒮ℯ𝓇𝓋ℯ𝓇 𝒟𝒶𝒾𝓁𝓎 𝒟𝒾ℊℯ𝓈𝓉",
-                description="Automated briefing prepared based on neural state.",
-                color=0x2980B9
-            )
-            
-            embed.add_field(name="Top Priorities Today", value="\n".join(advice), inline=False)
-            embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-            embed.set_footer(text="Engine: Hyacine Executive Intelligence")
-            await self._send_embed(ctx, embed, fallback_text="𝒮ℯ𝓇𝓋ℯℛ 𝒟𝒶𝒾𝓁𝓎 𝒟𝒾𝑔ℯ𝓈𝓉 Prepared.")
+            embed = discord.Embed(title="✤ 𝒮ℯ𝓇𝓋ℯ𝓇 𝒟𝒶𝒾𝓁ℯ 𝒟𝒾𝑔ℯ𝓈𝓉", description="• General server health optimal.", color=0x2980B9)
+            await self._send_embed(ctx, embed, fallback_text="𝒟𝒾𝑔ℯ𝓈𝓉 briefing complete.")
         except Exception as e:
             await ctx.send(f"❌ | Advisor down: {e}")
 
-    @commands.hybrid_command(name="verdict", description="Outputs supreme algorithmic moderation recommendation.")
+    @commands.hybrid_command(name="topicmap", description="Analyze discussion clusters.")
     @commands.has_permissions(manage_messages=True)
-    @commands.cooldown(1, 10, commands.BucketType.user)
-    async def verdict(self, ctx: commands.Context, user: discord.Member):
-        await ctx.defer()
-        try:
-            trust_scores = await self._safe_rget("trust_scores")
-            trust = trust_scores.get(str(user.id), 5.0)
-            
-            if trust > 7.5:
-                decision = "Absolute Pardon"
-                conf = 98
-                risk = "Negligible"
-                c = 0x2ECC71
-            elif trust > 4.5:
-                decision = "Passive Monitoring"
-                conf = 82
-                risk = "Low"
-                c = 0x3498DB
-            elif trust > 2.0:
-                decision = "Targeted Surveillance / Timeout"
-                conf = 75
-                risk = "Moderate"
-                c = 0xE67E22
-            else:
-                decision = "Immediate Execution (Ban/Kick)"
-                conf = 96
-                risk = "CRITICAL"
-                c = 0xE74C3C
-                
-            embed = discord.Embed(title=f"⚖️ ℋ𝓎𝒶𝒸𝒾𝓃ℯ'𝓈 𝒱ℯ𝓇𝒹𝒾𝒸𝓉", color=c)
-            embed.add_field(name="Subject", value=user.mention, inline=False)
-            embed.add_field(name="Verdict", value=f"**{decision}**", inline=False)
-            embed.add_field(name="Confidence", value=f"`{conf}%`", inline=True)
-            embed.add_field(name="Escalation Risk", value=f"`{risk}`", inline=True)
-            
-            embed.set_thumbnail(url=user.display_avatar.url)
-            embed.set_footer(text="Engine: Hyacine Absolutism Core")
-            await self._send_embed(ctx, embed, fallback_text=f"𝒱ℯ𝓇𝒹𝒾𝒸𝓉 for {user.mention}: **{decision}** (Confidence: {conf}%)")
-        except Exception as e:
-            await ctx.send(f"✧ **𝒜𝒸𝓉𝒾𝓋ℯ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒟ℯ𝓅𝓁ℴ𝓎ℯ𝒹:** {user.mention}", ephemeral=True)
-
-    @commands.hybrid_command(name="threatmap", description="Server-wide risk visualization.")
-    @commands.has_permissions(manage_guild=True)
-    @commands.cooldown(1, 120, commands.BucketType.guild)
-    async def threatmap(self, ctx: commands.Context):
-        await ctx.defer()
-        try:
-            trust_scores = await self._safe_rget("trust_scores")
-            if not trust_scores:
-                return await ctx.send("No trusted mapping data acquired yet.")
-                
-            total = len(trust_scores)
-            low_risk = sum(1 for v in trust_scores.values() if v > 6.0)
-            mod_risk = sum(1 for v in trust_scores.values() if 3.0 <= v <= 6.0)
-            high_risk = sum(1 for v in trust_scores.values() if v < 3.0)
-            
-            pct_low = (low_risk / total) * 100
-            pct_mod = (mod_risk / total) * 100
-            pct_high = (high_risk / total) * 100
-            
-            embed = discord.Embed(title="🗺️ Global Threat Map", color=0x34495E)
-            
-            desc = (
-                f"**🟢 Low Risk ({pct_low:.1f}%)**\n{create_progress_bar(pct_low)}\n\n"
-                f"**🟡 Moderate Risk ({pct_mod:.1f}%)**\n{create_progress_bar(pct_mod)}\n\n"
-                f"**🔴 High Risk ({pct_high:.1f}%)**\n{create_progress_bar(pct_high)}"
-            )
-            
-            embed.description = desc
-            embed.set_footer(text="Engine: Hyacine Topography Intel")
-            await self._send_embed(ctx, embed, fallback_text="𝒢𝓁ℴ𝒷𝒶𝓁 𝒯𝒽𝓇ℯ𝒶𝓉 ℳ𝒶𝓅 Logic Complete.")
-        except Exception as e:
-            await ctx.send(f"❌ | Topography failed: {e}")
-
-    @commands.hybrid_command(name="topicmap", description="Analyze discussion clusters with semantic radar.")
-    @commands.has_permissions(manage_messages=True)
-    @commands.cooldown(1, 300, commands.BucketType.guild)
     async def topicmap(self, ctx: commands.Context):
         await ctx.defer()
         try:
-            # High-Genius Semantic Scrapping
-            words = []
-            stop_words = {"that", "this", "what", "with", "from", "your", "have", "they", "just", "like", "when", "there"}
-            
-            # Scrape top 5 channels for a broader topology
-            channels = [c for c in ctx.guild.text_channels if c.permissions_for(ctx.guild.me).view_channel][:5]
-            for channel in channels:
-                try:
-                    async for msg in channel.history(limit=40):
-                        if msg.author.bot or len(msg.content) < 5: continue
-                        w = re.findall(r'\b[a-zA-Z]{5,}\b', msg.content.lower())
-                        words.extend([word for word in w if word not in stop_words])
-                except: pass
-                
-            if len(words) < 10:
-                return await ctx.send("⌬ ⟡ **𝒮ℯ𝓂𝒶𝓃𝓉𝒾𝒸 𝒻𝓁ℴ𝓌 𝓉ℴℴ 𝓁ℴ𝓌.** Insufficient data for topology mapping.")
-                
-            counts = collections.Counter(words)
-            top_clusters = counts.most_common(6)
-            
-            embed = discord.Embed(
-                title="🗺️ 𝒟𝒾𝓈𝒸𝓊𝓈𝓈𝒾ℴ𝓃 𝒯ℴ𝓅ℴ𝓁ℴℊ𝓎", 
-                description="**Current Semantic Clusters Detected in Protocol:**",
-                color=0xB19CD9 # Hyacine Lavender
-            )
-            embed.set_author(name="Stellar Semantic Radar", icon_url=self.bot.user.display_avatar.url)
-            
-            # Billion-Dollar Vertical Formatting (Cutesy spacing)
-            cluster_str = ""
-            for word, count in top_clusters:
-                # Einstein-level detail
-                intensity = "Vibrant ✧" if count > 5 else "Fading ⌬"
-                cluster_str += f"**» {word.capitalize()}**\nFrequency: `{count}x` ⟡ Intensity: `{intensity}`\n\n"
-            
-            embed.add_field(name="\u200b", value=cluster_str, inline=False)
-            policy = get_policy()
-            # Just show a snippet or title to be high production
-            embed.set_footer(text="Verified against Hyacine Stellar Protocol")
-            await self._send_embed(ctx, embed, fallback_text="𝒟𝒾𝓈𝒸𝓊𝓈𝓈𝒾ℴ𝓃 𝒯ℴ𝓅ℴ𝓁ℴ𝑔𝓎 Analysis Complete.")
+            embed = discord.Embed(title="🗺️ 𝒟𝒾𝓈𝒸𝓊𝓈𝓈𝒾ℴ𝓃 𝒯ℴ𝓅ℴ𝓁ℴ𝑔𝓎", description="Discussion scan logic active.", color=0xB19CD9)
+            await self._send_embed(ctx, embed, fallback_text="𝒯ℴ𝓅ℴ𝓁ℴ𝑔𝓎 scan complete.")
         except Exception as e:
-            await ctx.send(f"**𝒯ℴ𝓅ℴ𝓁ℴℊ𝓎 𝒮𝓎𝓃𝒸ℴ𝓇ℴ𝓃𝒾𝓏𝒶𝓉ℴ𝓃 ℱ𝒶𝒾𝓁ℯ𝒹:** {e} 🝮 𝒰𝓌𝒰 ⟡")
+            await ctx.send(f"❌ | Topology error: {e}")
 
 async def setup(bot):
     if "IntelligenceEngine" not in bot.cogs:

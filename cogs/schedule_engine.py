@@ -5,268 +5,158 @@ import json
 import logging
 from datetime import datetime, timezone, timedelta
 from redis_utils import rget_json, rset_json
+from typing import Union, Optional
 
 class ScheduleEngine(commands.Cog):
     """
     Advanced Scheduling Engine for Discord.
     Supports recurring jobs and automated tasks.
+    Hardened for multi-permission environments.
     """
     
     def __init__(self, bot):
         self.bot = bot
         self.schedule_check.start()
 
-    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
-        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+    async def _send_embed(self, dest: Union[discord.abc.Messageable, commands.Context], embed: discord.Embed, ephemeral: bool = False, fallback_text: Optional[str] = None):
+        """Standardized robust response handler for all engines."""
+        send_method = dest.send if hasattr(dest, "send") else dest
+        supports_ephemeral = isinstance(dest, (commands.Context, discord.Interaction)) or (hasattr(dest, "interaction") and dest.interaction)
+
         try:
-            await ctx.send(embed=embed, ephemeral=ephemeral)
-        except discord.Forbidden as e:
-            if e.code == 50013: # Missing Permissions
-                content = fallback_text or embed.description or "Action Successful."
-                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
-                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
-                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            if supports_ephemeral:
+                await send_method(embed=embed, ephemeral=ephemeral)
             else:
-                raise e
+                await send_method(embed=embed)
+        except discord.Forbidden:
+            content = fallback_text or embed.description or "Action Processing..."
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
+            try:
+                if supports_ephemeral:
+                    await send_method(fallback_msg, ephemeral=ephemeral)
+                else:
+                    await send_method(fallback_msg)
+            except:
+                pass
+        except:
+            pass
         
     def cog_unload(self):
         self.schedule_check.cancel()
     
-    @tasks.loop(minutes=5)  # Check every 5 minutes
+    @tasks.loop(minutes=5)
     async def schedule_check(self):
         """Check and execute scheduled tasks."""
-        if not self.bot.redis:
-            return
-            
-        # Check all guilds for scheduled tasks
+        if not self.bot.redis: return
         try:
-            # This is a simplified approach - in production you'd want to track active guilds
             for guild in self.bot.guilds:
-                await asyncio.sleep(0.05) # Yield event loop to prevent starvation
+                await asyncio.sleep(0.05)
                 schedules = await rget_json(self.bot, f"schedules:{guild.id}")
-                if not schedules:
-                    continue
-                    
+                if not schedules: continue
                 for schedule in schedules:
-                    if not schedule.get("enabled", True):
-                        continue
-                        
+                    if not schedule.get("enabled", True): continue
                     await self._execute_schedule_if_due(schedule, guild)
-                        
-        except Exception as e:
-            logging.error(f"Schedule check error: {e}")
+        except Exception: pass
     
     async def _execute_schedule_if_due(self, schedule: dict, guild: discord.Guild):
         """Execute a schedule if it's due."""
         try:
             schedule_type = schedule.get("type", "")
             last_run = schedule.get("last_run")
-            
             now = discord.utils.utcnow()
             
             if schedule_type == "daily":
-                # Run once per day at specified hour
                 target_hour = schedule.get("hour", 9)
-                if now.hour == target_hour and (not last_run or 
-                    datetime.fromisoformat(last_run).date() != now.date()):
+                if now.hour == target_hour and (not last_run or datetime.fromisoformat(last_run).date() != now.date()):
                     await self._execute_schedule_actions(schedule, guild)
-                    
             elif schedule_type == "weekly":
-                # Run once per week on specified day
-                target_day = schedule.get("day", 0)  # 0=Monday
+                target_day = schedule.get("day", 0)
                 target_hour = schedule.get("hour", 9)
-                if now.weekday() == target_day and now.hour == target_hour and (not last_run or
-                    datetime.fromisoformat(last_run).date() != now.date()):
+                if now.weekday() == target_day and now.hour == target_hour and (not last_run or datetime.fromisoformat(last_run).date() != now.date()):
                     await self._execute_schedule_actions(schedule, guild)
-                    
             elif schedule_type == "interval":
-                # Run every X hours
                 interval_hours = schedule.get("interval_hours", 24)
                 if not last_run or (now - datetime.fromisoformat(last_run)).total_seconds() >= (interval_hours * 3600):
                     await self._execute_schedule_actions(schedule, guild)
-                    
-        except Exception as e:
-            logging.error(f"Schedule execution error: {e}")
+        except Exception: pass
     
     async def _execute_schedule_actions(self, schedule: dict, guild: discord.Guild):
         """Execute scheduled actions."""
         actions = schedule.get("actions", [])
-        
         for action in actions:
             try:
                 action_type = action.get("type", "")
-                
                 if action_type == "send_message":
                     channel_id = action.get("channel_id")
                     content = action.get("content", "")
-                    
                     channel = self.bot.get_channel(channel_id)
-                    if channel and channel.permissions_for(guild.me).send_messages:
-                        await channel.send(content)
-                        
+                    if channel:
+                        try:
+                            await channel.send(content)
+                        except: pass
                 elif action_type == "create_thread":
                     channel_id = action.get("channel_id")
                     thread_name = action.get("thread_name", "Scheduled Thread")
-                    message_content = action.get("message_content", "")
-                    
                     channel = self.bot.get_channel(channel_id)
-                    if channel and isinstance(channel, discord.TextChannel):
-                        if channel.permissions_for(guild.me).create_public_threads:
-                            thread = await channel.create_thread(
-                                name=thread_name,
-                                message=discord.utils.MISSING,  # Create without initial message
-                                type=discord.ChannelType.public_thread
-                            )
-                            if message_content:
-                                try:
-                                    await thread.send(message_content)
-                                except: pass
-                                
-                elif action_type == "cleanup_threads":
-                    # Close old inactive threads
-                    days_old = action.get("days_old", 30)
-                    cutoff_date = discord.utils.utcnow() - timedelta(days=days_old)
-                    
-                    for channel in guild.text_channels:
-                        try:
-                            async for thread in channel.archived_threads(limit=50):
-                                if thread.archived and thread.created_at and thread.created_at < cutoff_date:
-                                    # Note: Can't delete archived threads, but can log them
-                                    print(f"Old thread found: {thread.name}")
-                        except:
-                            continue
-                            
-            except Exception as e:
-                logging.error(f"Scheduled action error: {e}")
+                    if channel and isinstance(channel, discord.TextChannel) and channel.permissions_for(guild.me).create_public_threads:
+                        await channel.create_thread(name=thread_name, type=discord.ChannelType.public_thread)
+            except Exception: pass
         
-        # Update last run time
         schedule["last_run"] = discord.utils.utcnow().isoformat()
-        
-        # Save updated schedule
         schedules = await rget_json(self.bot, f"schedules:{guild.id}") or []
         for i, s in enumerate(schedules):
             if s.get("name") == schedule.get("name"):
                 schedules[i] = schedule
                 break
-                
         await rset_json(self.bot, f"schedules:{guild.id}", schedules)
     
     @commands.hybrid_command(name="schedule", description="Manage automated recurring tasks.")
     @commands.has_permissions(administrator=True)
     async def schedule(self, ctx: commands.Context, action: str, name: str = None):
-        """
-        Manage scheduled automation:
-        /schedule create daily_announce - Create a daily announcement
-        /schedule list - Show all schedules
-        /schedule delete daily_announce - Remove a schedule
-        /schedule toggle daily_announce - Enable/disable schedule
-        """
+        if not self.bot.redis: return await ctx.send("⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒪𝒻𝒻𝓁ℯ.**")
         await ctx.defer()
-        if not self.bot.redis:
-            return await ctx.send("⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒪𝒻𝒻𝓁𝒾𝓃ℯ.**")
-            
         if action == "create":
-            if not name:
-                return await ctx.send("❓ Usage: `/schedule create <name>`")
-                
-            # Create example daily announcement schedule
+            if not name: return await ctx.send("❓ Usage: `/schedule create <name>`")
             schedule = {
-                "name": name,
-                "enabled": True,
-                "type": "daily",
-                "hour": 9,  # 9 AM
-                "actions": [
-                    {
-                        "type": "send_message",
-                        "channel_id": ctx.channel.id,
-                        "content": f"Good morning {ctx.guild.name}! 🌅"
-                    }
-                ],
-                "created_by": ctx.author.id,
-                "created_at": discord.utils.utcnow().isoformat()
+                "name": name, "enabled": True, "type": "daily", "hour": 9,
+                "actions": [{"type": "send_message", "channel_id": ctx.channel.id, "content": "Good morning!"}],
+                "created_by": ctx.author.id, "created_at": discord.utils.utcnow().isoformat()
             }
-            
             schedules = await rget_json(self.bot, f"schedules:{ctx.guild.id}") or []
             schedules.append(schedule)
-            
             await rset_json(self.bot, f"schedules:{ctx.guild.id}", schedules)
-            
-            embed = discord.Embed(
-                title="✧ 𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ 𝒞𝓇ℯ𝒶𝓉ℯ𝒹",
-                description=f"**{name}** - Daily at 9:00 AM",
-                color=0x2ECC71
-            )
-            embed.add_field(name="Type", value="Daily", inline=True)
-            embed.add_field(name="Time", value="9:00 AM", inline=True)
-            embed.add_field(name="Actions", value="Send announcement message", inline=True)
-            
+            embed = discord.Embed(title="✧ 𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ 𝒞𝓇ℯ𝒶𝓉ℯ𝒹", description=f"**{name}** - Daily at 9:00 AM", color=0x2ECC71)
             await self._send_embed(ctx, embed, fallback_text=f"𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ **{name}** Created successfully.")
-            
         elif action == "list":
             schedules = await rget_json(self.bot, f"schedules:{ctx.guild.id}") or []
-            
-            if not schedules:
-                return await ctx.send("📅 No schedules configured. Use `/schedule create <name>` to create one.")
-                
-            embed = discord.Embed(
-                title="⏰ Active Schedules",
-                description=f"**{len(schedules)}** recurring tasks",
-                color=0x3498DB
-            )
-            
-            for schedule in schedules[:10]:
-                status = "✧" if schedule.get("enabled", True) else "⌬"
-                schedule_type = schedule.get("type", "unknown").title()
-                
-                if schedule_type == "Daily":
-                    time_info = f"{schedule.get('hour', 9)}:00"
-                elif schedule_type == "Weekly":
-                    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-                    time_info = f"{days[schedule.get('day', 0)]} {schedule.get('hour', 9)}:00"
-                else:
-                    time_info = f"Every {schedule.get('interval_hours', 24)}h"
-                    
-                embed.add_field(
-                    name=f"{status} {schedule.get('name')}",
-                    value=f"Type: {schedule_type}\nTime: {time_info}\nActions: {len(schedule.get('actions', []))}",
-                    inline=True
-                )
-                
-            await self._send_embed(ctx, embed, fallback_text=f"𝒜𝒸t𝒾𝓋ℯ 𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ𝓈: {len(schedules)} recurring tasks found.")
-            
+            if not schedules: return await ctx.send("📝 No schedules found.")
+            embed = discord.Embed(title="⏰ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ𝓈", color=0x3498DB)
+            for s in schedules[:10]:
+                status = "✧" if s.get("enabled", True) else "⌬"
+                embed.add_field(name=f"{status} {s.get('name')}", value=f"Type: {s.get('type')}\nActions: {len(s.get('actions', []))}", inline=True)
+            await self._send_embed(ctx, embed, fallback_text=f"𝒜𝒸𝓉𝒾𝓋ℯ 𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ𝓈: {len(schedules)} tasks found.")
         elif action == "delete":
-            if not name:
-                return await ctx.send("❓ Usage: `/schedule delete <name>`")
-                
+            if not name: return await ctx.send("❓ Usage: `/schedule delete <name>`")
             schedules = await rget_json(self.bot, f"schedules:{ctx.guild.id}") or []
-            original_count = len(schedules)
-            
+            initial_len = len(schedules)
             schedules = [s for s in schedules if s.get("name") != name]
-            
-            if len(schedules) < original_count:
+            if len(schedules) < initial_len:
                 await rset_json(self.bot, f"schedules:{ctx.guild.id}", schedules)
                 await ctx.send(f"✧ **𝒟ℯ𝓁ℯ𝓉ℯ𝒹 𝓈𝒸𝒽ℯ𝒹𝓊𝓁ℯ: {name}**")
-            else:
-                await ctx.send(f"❌ Schedule **{name}** not found")
-                
+            else: await ctx.send(f"❌ Schedule **{name}** not found.")
         elif action == "toggle":
-            if not name:
-                return await ctx.send("❓ Usage: `/schedule toggle <name>`")
-                
+            if not name: return await ctx.send("❓ Usage: `/schedule toggle <name>`")
             schedules = await rget_json(self.bot, f"schedules:{ctx.guild.id}") or []
-            
             for s in schedules:
                 if s.get("name") == name:
                     s["enabled"] = not s.get("enabled", True)
-                    status = "enabled" if s["enabled"] else "disabled"
                     await rset_json(self.bot, f"schedules:{ctx.guild.id}", schedules)
-                    return await ctx.send(f"✧ **𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ **{name}** {status}**")
-                    
-            await ctx.send(f"❌ Schedule **{name}** not found")
-            
-        else:
-            await ctx.send("❓ Usage: `/schedule create/list/delete/toggle <name>`")
-
+                    status = "ONLINE" if s["enabled"] else "OFFLINE"
+                    return await ctx.send(f"✧ **𝒮𝒸𝒽ℯ𝒹𝓊𝓁ℯ {name} is now {status}**")
+            await ctx.send(f"❌ Schedule **{name}** not found.")
+        else: await ctx.send_help(ctx.command)
 
 async def setup(bot):
     if "ScheduleEngine" not in bot.cogs:

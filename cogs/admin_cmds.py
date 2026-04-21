@@ -7,6 +7,7 @@ import platform
 import asyncio
 import json
 from redis_utils import rget_json, rset_json
+from typing import Union, Optional
 
 
 # --- CUSTOM BOT ADMIN CHECK ---
@@ -21,23 +22,39 @@ async def is_bot_admin(ctx):
 
 
 class OwnerCmds(commands.Cog):
+    """
+    Bot Owner and Global Administrator commands.
+    Hardened for multi-permission environments.
+    """
 
     def __init__(self, bot):
         self.bot = bot
 
     # --- INTERNAL HELPERS ---
-    async def _send_embed(self, ctx, embed, ephemeral=False, fallback_text=None):
-        """Internal robust sender that handles missing 'Embed Links' permission gracefully."""
+    async def _send_embed(self, dest: Union[discord.abc.Messageable, commands.Context], embed: discord.Embed, ephemeral: bool = False, fallback_text: Optional[str] = None):
+        """Standardized robust response handler for all engines."""
+        send_method = dest.send if hasattr(dest, "send") else dest
+        supports_ephemeral = isinstance(dest, (commands.Context, discord.Interaction)) or (hasattr(dest, "interaction") and dest.interaction)
+
         try:
-            await ctx.send(embed=embed, ephemeral=ephemeral)
-        except discord.Forbidden as e:
-            if e.code == 50013: # Missing Permissions
-                content = fallback_text or embed.description or "Action Successful."
-                header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
-                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
-                await ctx.send(f"{header}```fix\n{content}\n``` {footer}", ephemeral=ephemeral)
+            if supports_ephemeral:
+                await send_method(embed=embed, ephemeral=ephemeral)
             else:
-                raise e
+                await send_method(embed=embed)
+        except discord.Forbidden:
+            content = fallback_text or embed.description or "Action Processing..."
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
+            try:
+                if supports_ephemeral:
+                    await send_method(fallback_msg, ephemeral=ephemeral)
+                else:
+                    await send_method(fallback_msg)
+            except:
+                pass
+        except:
+            pass
 
     async def _send_error(self, ctx, text):
         embed = discord.Embed(
@@ -70,11 +87,7 @@ class OwnerCmds(commands.Cog):
             )
 
         try:
-            cached = await self.bot.redis.get("bot_admins")
-
-            admins = json.loads(
-                cached.decode("utf-8") if isinstance(cached, bytes) else cached
-            ) if cached else []
+            admins = await rget_json(self.bot, "bot_admins") or []
 
             if user.id in admins:
                 return await self._send_error(
@@ -83,11 +96,7 @@ class OwnerCmds(commands.Cog):
                 )
 
             admins.append(user.id)
-
-            await self.bot.redis.set(
-                "bot_admins",
-                json.dumps(admins)
-            )
+            await rset_json(self.bot, "bot_admins", admins)
 
             await self._send_success(
                 ctx,
@@ -112,11 +121,7 @@ class OwnerCmds(commands.Cog):
             )
 
         try:
-            cached = await self.bot.redis.get("bot_admins")
-
-            admins = json.loads(
-                cached.decode("utf-8") if isinstance(cached, bytes) else cached
-            ) if cached else []
+            admins = await rget_json(self.bot, "bot_admins") or []
 
             if user.id not in admins:
                 return await self._send_error(
@@ -125,11 +130,7 @@ class OwnerCmds(commands.Cog):
                 )
 
             admins.remove(user.id)
-
-            await self.bot.redis.set(
-                "bot_admins",
-                json.dumps(admins)
-            )
+            await rset_json(self.bot, "bot_admins", admins)
 
             await self._send_success(
                 ctx,
@@ -158,54 +159,30 @@ class OwnerCmds(commands.Cog):
 
         # Uptime
         uptime = time.time() - self.bot.start_time if hasattr(self.bot, 'start_time') else 0
-        uptime_str = f"{int(uptime // 3600)}h {int((uptime % 3600) // 60)}m {int(uptime % 60)}s"
-
-        # Extension count
-        ext_count = len(self.bot.extensions)
+        uptime_str = f"{int(uptime // 3600)}h {int((uptime % 3600) // 60)}m"
 
         embed = discord.Embed(
-            title="𖦹 ℋ𝓎𝒶𝒸𝒾𝓃ℯ ℋℯ𝒶𝓁𝓉𝒽 𝒮𝓉𝒶𝓉𝓊𝓈",
+            title="𖦹 ℋ𝓎𝒶𝒸𝒾𝓃ℯ ℋℯ𝒶𝓁𝓉ℋ 𝒮𝓉𝒶𝓉𝓊𝓈",
             color=0x9B59B6
         )
         embed.add_field(name="Redis", value=redis_status, inline=True)
         embed.add_field(name="API Latency", value=f"{latency}ms", inline=True)
         embed.add_field(name="Uptime", value=uptime_str, inline=True)
-        embed.add_field(name="Extensions", value=str(ext_count), inline=True)
-        embed.add_field(name="Python", value=platform.python_version(), inline=True)
-        embed.add_field(name="Discord.py", value=discord.__version__, inline=True)
-
-        try:
-        await self._send_embed(ctx, embed, fallback_text=f"**𖦹 ℋ𝓎𝒶𝒸𝒾𝓃ℯ ℋℯ𝒶𝓁𝓉𝒽:** {uptime_str} | Latency: {latency}ms | Redis: {redis_status}")
-        except discord.Forbidden as e:
-            if e.code == 50013:
-                await ctx.send(f"**𖦹 ℋ𝓎𝒶𝒸𝒾𝓃ℯ ℋℯ𝒶𝓁𝓉𝒽:** {uptime_str} | Latency: {latency}ms | Redis: {redis_status}")
-            else:
-                raise e
-
-    @commands.hybrid_command(name="embed", description="Send a custom high-density matrix embed.")
-    @commands.has_permissions(manage_messages=True)
-    async def send_embed(self, ctx: commands.Context, title: str, *, description: str):
-        await ctx.defer(ephemeral=True)
-        embed = discord.Embed(title=f"⌬ {title}", description=description, color=0x9B59B6)
-        embed.set_footer(text=f"Sent by {ctx.author.display_name} | Hyacine Matrix")
-        await ctx.send(embed=embed)
+        
+        await self._send_embed(ctx, embed, fallback_text=f"ℋℯ𝒶𝓁𝓉ℋ: {uptime_str} | Latency: {latency}ms | Redis: {redis_status}")
 
     @commands.hybrid_command(name="sync", description="Synchronize the command tree for immediate updates.")
     @commands.is_owner()
     async def sync_commands(self, ctx: commands.Context, scope: str = "guild"):
-        """
-        Synchronize the command tree. 
-        Scopes: 'guild' (instant), 'global' (up to 1 hour delay).
-        """
         await ctx.defer(ephemeral=True)
         try:
             if scope.lower() == "global":
                 synced = await self.bot.tree.sync()
-                msg = f"Synced `{len(synced)}` gates across the **Global Nexus** (Propagation: ~1h)."
+                msg = f"Synced `{len(synced)}` gates across the **Global Nexus**."
             else:
                 self.bot.tree.copy_global_to(guild=ctx.guild)
                 synced = await self.bot.tree.sync(guild=ctx.guild)
-                msg = f"Synced `{len(synced)}` gates to **this Sector** (Propagation: Instant)."
+                msg = f"Synced `{len(synced)}` gates to **this Sector**."
             
             await self._send_success(ctx, msg, ephemeral=True)
         except Exception as e:
