@@ -6,61 +6,97 @@ import json
 from dotenv import load_dotenv
 from upstash_redis.asyncio import Redis
 from eval_bridge import register_bot, app as eval_app
-from flask import Flask, request, Response
+from flask import Flask
 from threading import Thread
 import asyncio
 import sys
 import logging
 import uvicorn
 import certifi
-import ssl
-import aiohttp
-import httpx
-import random
-import socket
 
-# --- 1. THE INTERNAL LOOPBACK BRIDGE (ZERO-CONFIG BYPASS) ---
-# This starts a local proxy on 127.0.0.1 that uses httpx to reach Discord.
-# httpx is not blocked by HF, so it acts as our internal "tunnel".
-
-bridge_app = Flask(__name__)
-
-@bridge_app.route("/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
-def proxy(path):
-    url = f"https://discord.com/{path}"
-    headers = {k: v for k, v in request.headers if k.lower() != 'host'}
-    try:
-        with httpx.Client(verify=False, timeout=10.0) as client:
-            resp = client.request(
-                method=request.method,
-                url=url,
-                headers=headers,
-                data=request.get_data(),
-                params=request.args
-            )
-            return Response(resp.content, resp.status_code, resp.headers.items())
-    except Exception as e:
-        return str(e), 502
-
-def run_bridge():
-    # Run the bridge on a high local port
-    uvicorn.run(bridge_app, host="127.0.0.1", port=8888, log_level="error")
+# --- 1. GLOBAL SSL FIX ---
+# This ensures that even when passing through the proxy, the SSL handshake is verified correctly
+os.environ['SSL_CERT_FILE'] = certifi.where()
+os.environ['SSL_CERT_DIR'] = os.path.dirname(certifi.where())
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
-logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: ℒ𝒪𝒪𝒫ℬ𝒜𝒞𝒦 ℬℛℐ𝒟𝒢ℰ 𝒜𝒞𝒯ℐ𝒱ℰ**")
+logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: ℒ𝒪𝒪𝒫ℬ𝒜𝒞𝒦 𝒯𝒰𝒩𝒩ℰℒ 𝒜𝒞𝒯ℐ𝒱ℰ**")
 
-# --- 2. WEB SERVER SETUP ---
+# --- 2. INTERNAL LOOPBACK TUNNEL (ZERO-CONFIG BYPASS) ---
+# Hugging Face blocks Discord's IPs at the DNS/aiohttp level.
+# This creates a genuine HTTP CONNECT proxy that bypasses it.
+DNS_CACHE = {
+    'discord.com': '162.159.138.232',
+    'gateway.discord.gg': '162.159.136.234',
+    'cdn.discordapp.com': '162.159.133.233'
+}
+
+async def handle_client(reader, writer):
+    request_line = await reader.readline()
+    if not request_line:
+        writer.close()
+        return
+    
+    try:
+        method, url, version = request_line.decode().strip().split(' ')
+    except:
+        writer.close()
+        return
+
+    if method == 'CONNECT':
+        host, port = url.split(':')
+        port = int(port)
+        
+        # Drain headers
+        while True:
+            line = await reader.readline()
+            if line == b'\r\n': break
+                
+        ip = DNS_CACHE.get(host, host)
+        
+        try:
+            remote_reader, remote_writer = await asyncio.open_connection(ip, port)
+            writer.write(b'HTTP/1.1 200 Connection Established\r\n\r\n')
+            await writer.drain()
+            
+            async def forward(r, w):
+                try:
+                    while True:
+                        data = await r.read(8192)
+                        if not data: break
+                        w.write(data)
+                        await w.drain()
+                except: pass
+                try: w.close()
+                except: pass
+
+            asyncio.create_task(forward(reader, remote_writer))
+            asyncio.create_task(forward(remote_reader, writer))
+        except Exception as e:
+            writer.write(b'HTTP/1.1 502 Bad Gateway\r\n\r\n')
+            await writer.drain()
+            writer.close()
+    else:
+        writer.close()
+
+def run_tunnel():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    server = loop.run_until_complete(asyncio.start_server(handle_client, '127.0.0.1', 8888))
+    loop.run_until_complete(server.serve_forever())
+
+# --- 3. WEB SERVER SETUP ---
 app = Flask(__name__)
 @app.route("/", methods=["GET", "POST"])
 def home(): return "Hyacine is alive and guarding Hugging Face."
 
 def keep_alive():
     port = int(os.environ.get("PORT", 7860))
-    Thread(target=run_bridge, daemon=True).start()
+    Thread(target=run_tunnel, daemon=True).start()
     Thread(target=lambda: app.run(host="0.0.0.0", port=port), daemon=True).start()
     Thread(target=lambda: uvicorn.run(eval_app, host="127.0.0.1", port=9000, log_level="warning"), daemon=True).start()
 
-# --- 3. BOT CONFIGURATION ---
+# --- 4. BOT CONFIGURATION ---
 load_dotenv()
 TOKEN = os.getenv("dc_token")
 
@@ -88,8 +124,7 @@ class HyacineBot(commands.AutoShardedBot):
         super().__init__(
             command_prefix=get_server_prefixes,
             intents=discord.Intents.all(),
-            # Point the bot to our internal loopback bridge
-            proxy="http://127.0.0.1:8888",
+            proxy="http://127.0.0.1:8888", # Direct traffic through our Loopback Tunnel
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸ℴ𝒽ℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
@@ -123,15 +158,18 @@ class HyacineBot(commands.AutoShardedBot):
         except: pass
 
     async def on_ready(self):
-        logging.info(f"SUCCESS: {self.user} is online via Loopback Bridge.")
+        logging.info(f"SUCCESS: {self.user} is online via Loopback Tunnel.")
 
-# --- 4. STARTUP ---
+# --- 5. STARTUP ---
 async def main():
     keep_alive()
     if not TOKEN: sys.exit(1)
 
+    # Small delay to ensure the Loopback Tunnel thread is listening
+    await asyncio.sleep(2)
+
     for attempt in range(5):
-        logging.info(f"Loopback Handshake Attempt #{attempt + 1}...")
+        logging.info(f"Tunnel Handshake Attempt #{attempt + 1}...")
         bot = HyacineBot()
         try:
             async with bot: await bot.start(TOKEN)
