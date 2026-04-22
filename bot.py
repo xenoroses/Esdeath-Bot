@@ -13,77 +13,65 @@ import sys
 import logging
 import uvicorn
 import certifi
+import aiohttp
+import random
 
 # --- 1. GLOBAL SSL FIX ---
-# This ensures that even when passing through the proxy, the SSL handshake is verified correctly
 os.environ['SSL_CERT_FILE'] = certifi.where()
 os.environ['SSL_CERT_DIR'] = os.path.dirname(certifi.where())
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
-logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: ℒ𝒪𝒪𝒫ℬ𝒜𝒞𝒦 𝒯𝒰𝒩𝒩ℰℒ 𝒜𝒞𝒯ℐ𝒱ℰ**")
+logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒜𝒰𝒯𝒪𝒩𝒪ℳ𝒪𝒰𝒮 ℛℰℒ𝒜𝒴 ℰ𝒩𝒢ℐ𝒩ℰ**")
 
-# --- 2. INTERNAL LOOPBACK TUNNEL (ZERO-CONFIG BYPASS) ---
-# Hugging Face blocks Discord's IPs at the DNS/aiohttp level.
-# This creates a genuine HTTP CONNECT proxy that bypasses it.
-DNS_CACHE = {
-    'discord.com': '162.159.138.232',
-    'gateway.discord.gg': '162.159.136.234',
-    'cdn.discordapp.com': '162.159.133.233'
-}
-
-async def handle_client(reader, writer):
-    request_line = await reader.readline()
-    if not request_line:
-        writer.close()
-        return
+# --- 2. AUTONOMOUS RELAY HARVESTER (ZERO-CONFIG PERMA-FIX) ---
+# Since Hugging Face drops all packets to Discord, we MUST use a proxy.
+# This engine automatically scrapes, tests, and uses free public proxies.
+async def get_working_proxy():
+    logging.info("⌬ ⟡ Initiating Autonomous Relay Harvest...")
+    PROXY_URLS = [
+        "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+        "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
+        "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt"
+    ]
+    proxies = []
     
-    try:
-        method, url, version = request_line.decode().strip().split(' ')
-    except:
-        writer.close()
-        return
-
-    if method == 'CONNECT':
-        host, port = url.split(':')
-        port = int(port)
-        
-        # Drain headers
-        while True:
-            line = await reader.readline()
-            if line == b'\r\n': break
+    # 1. Scrape latest free proxies
+    async with aiohttp.ClientSession() as session:
+        for url in PROXY_URLS:
+            try:
+                async with session.get(url, timeout=5) as resp:
+                    text = await resp.text()
+                    proxies.extend([f"http://{line.strip()}" for line in text.split('\n') if line.strip()])
+            except Exception as e:
+                pass
                 
-        ip = DNS_CACHE.get(host, host)
-        
+    proxies = list(set(proxies))
+    random.shuffle(proxies)
+    logging.info(f"⌬ ⟡ Harvested {len(proxies)} candidate relays. Testing for resonance...")
+
+    # 2. Lightning-fast concurrency tester
+    async def test_proxy(proxy):
         try:
-            remote_reader, remote_writer = await asyncio.open_connection(ip, port)
-            writer.write(b'HTTP/1.1 200 Connection Established\r\n\r\n')
-            await writer.drain()
-            
-            async def forward(r, w):
-                try:
-                    while True:
-                        data = await r.read(8192)
-                        if not data: break
-                        w.write(data)
-                        await w.drain()
-                except: pass
-                try: w.close()
-                except: pass
+            connector = aiohttp.TCPConnector(ssl=False)
+            async with aiohttp.ClientSession(connector=connector) as test_session:
+                async with test_session.get("https://discord.com", proxy=proxy, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                    if resp.status in [200, 301, 302, 403, 404]:
+                        return proxy
+        except: pass
+        return None
 
-            asyncio.create_task(forward(reader, remote_writer))
-            asyncio.create_task(forward(remote_reader, writer))
-        except Exception as e:
-            writer.write(b'HTTP/1.1 502 Bad Gateway\r\n\r\n')
-            await writer.drain()
-            writer.close()
-    else:
-        writer.close()
-
-def run_tunnel():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    server = loop.run_until_complete(asyncio.start_server(handle_client, '127.0.0.1', 8888))
-    loop.run_until_complete(server.serve_forever())
+    # 3. Test in chunks and return the absolute fastest one
+    for i in range(0, min(1000, len(proxies)), 100):
+        chunk = proxies[i:i+100]
+        tasks = [asyncio.create_task(test_proxy(p)) for p in chunk]
+        
+        for coro in asyncio.as_completed(tasks):
+            res = await coro
+            if res:
+                for t in tasks: t.cancel()
+                logging.info(f"✧ Optimal Relay Established: {res}")
+                return res
+    return None
 
 # --- 3. WEB SERVER SETUP ---
 app = Flask(__name__)
@@ -92,7 +80,6 @@ def home(): return "Hyacine is alive and guarding Hugging Face."
 
 def keep_alive():
     port = int(os.environ.get("PORT", 7860))
-    Thread(target=run_tunnel, daemon=True).start()
     Thread(target=lambda: app.run(host="0.0.0.0", port=port), daemon=True).start()
     Thread(target=lambda: uvicorn.run(eval_app, host="127.0.0.1", port=9000, log_level="warning"), daemon=True).start()
 
@@ -120,11 +107,11 @@ async def get_server_prefixes(bot, message):
     return commands.when_mentioned_or(*HYACINE_DEFAULT_PREFIXES)(bot, message)
 
 class HyacineBot(commands.AutoShardedBot):
-    def __init__(self):
+    def __init__(self, relay_url):
         super().__init__(
             command_prefix=get_server_prefixes,
             intents=discord.Intents.all(),
-            proxy="http://127.0.0.1:8888", # Direct traffic through our Loopback Tunnel
+            proxy=relay_url, # Inject the harvested proxy
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸ℴ𝒽ℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
@@ -158,25 +145,29 @@ class HyacineBot(commands.AutoShardedBot):
         except: pass
 
     async def on_ready(self):
-        logging.info(f"SUCCESS: {self.user} is online via Loopback Tunnel.")
+        logging.info(f"SUCCESS: {self.user} is online via Autonomous Relay.")
 
 # --- 5. STARTUP ---
 async def main():
     keep_alive()
     if not TOKEN: sys.exit(1)
 
-    # Small delay to ensure the Loopback Tunnel thread is listening
-    await asyncio.sleep(2)
-
-    for attempt in range(5):
-        logging.info(f"Tunnel Handshake Attempt #{attempt + 1}...")
-        bot = HyacineBot()
+    # Indefinite self-healing loop
+    for attempt in range(100):
+        proxy_url = await get_working_proxy()
+        if not proxy_url:
+            logging.error("No valid relays found. Recalibrating in 15 seconds...")
+            await asyncio.sleep(15)
+            continue
+            
+        logging.info(f"Relay Handshake Attempt #{attempt + 1} using {proxy_url}...")
+        bot = HyacineBot(proxy_url)
+        
         try:
             async with bot: await bot.start(TOKEN)
-            break
         except Exception as e:
             logging.error(f"Link Failure: {e}")
-            await asyncio.sleep(15)
+            await asyncio.sleep(5) # Fast retry to grab a new proxy
 
 if __name__ == "__main__":
     try: asyncio.run(main())
