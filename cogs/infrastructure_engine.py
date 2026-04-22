@@ -32,8 +32,15 @@ class InfrastructureEngine(commands.Cog):
                 await send_method(embed=embed)
         except discord.Forbidden:
             content = fallback_text or embed.description or "Action Processing..."
-            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾Audit (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
-            footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            
+            # Smart Check: Only suggest Embed Links if it's actually missing
+            perms = dest.permissions_for(dest.guild.me) if hasattr(dest, "permissions_for") else None
+            if perms and not perms.embed_links:
+                footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
+            else:
+                footer = "" # Permission issue was likely something else (e.g. External Emojis)
+                
             fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
             try:
                 if supports_ephemeral:
@@ -42,7 +49,8 @@ class InfrastructureEngine(commands.Cog):
                     await send_method(fallback_msg)
             except:
                 pass
-        except:
+        except Exception as e:
+            logging.error(f"Sovereign Send Error: {e}")
             pass
 
     async def _check_hierarchy(self, ctx, member):
@@ -112,7 +120,7 @@ class InfrastructureEngine(commands.Cog):
             
             # Robust Reporting: Independent of internal delete success
             try:
-                report = discord.Embed(title="⌬ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫ℴ𝓉ℴℴ𝓁 𝒯𝓇𝒾𝑔𝑔ℯ𝓇ℯ𝒹", description=f"Action intercepted from {message.author.mention}.\n**Violation:** `{violation}`", color=0xE67E22)
+                report = discord.Embed(title="⌬ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒯𝓇𝒾𝑔𝑔ℯ𝓇ℯ𝒹", description=f"Action intercepted from {message.author.mention}.\n**Violation:** `{violation}`", color=0xE67E22)
                 report.set_footer(text="Hyacine Sentinel Enforcement")
                 await self._send_embed(message.channel, report, fallback_text=f"⌬ {message.author.mention}, action intercepted: **{violation}**")
             except: pass
@@ -123,9 +131,9 @@ class InfrastructureEngine(commands.Cog):
         await ctx.defer()
         try:
             embed = discord.Embed(title=f"𖦹 𝒟ℯℯ𝓅 𝒜𝓊Aud𝒾𝓉 𝒜𝓇𝒸𝒽𝒾𝓋ℯ: {user.display_name}", description="Analysis complete. Vitals: Stable.", color=0x9B59B6)
-            await self._send_embed(ctx, embed, fallback_text=f"𝒯ℯ𝓁ℯ𝓂ℯTelemetry Analysis Complete for {user.display_name}.")
+            await self._send_embed(ctx, embed, fallback_text=f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 Analysis Complete for {user.display_name}.")
         except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒴𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** Forensics failure: {e}", ephemeral=True)
+            await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** Forensics failure: {e}", ephemeral=True)
 
     @commands.hybrid_command(name="channelhealth", description="Algorithmic channel metrics.")
     @commands.has_permissions(manage_messages=True)
@@ -143,7 +151,7 @@ class InfrastructureEngine(commands.Cog):
         await ctx.defer()
         try:
             embed = discord.Embed(title="✤ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 ℛℴ𝓁𝓁𝓊𝓅", description="• Daily brief synchronized.\n• Status: Operational.", color=0x3498DB)
-            await self._send_embed(ctx, embed, fallback_text="𝒮ℯ𝓁𝓁𝓊𝓅 Complete.")
+            await self._send_embed(ctx, embed, fallback_text="ℛℴ𝓁𝓁𝓊𝓅 Complete.")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** Digest formation failed: {e}")
 
