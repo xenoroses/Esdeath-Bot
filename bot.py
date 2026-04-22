@@ -21,48 +21,45 @@ os.environ['SSL_CERT_FILE'] = certifi.where()
 os.environ['SSL_CERT_DIR'] = os.path.dirname(certifi.where())
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
-logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒜𝒰𝒯𝒪𝒩𝒪ℳ𝒪𝒰𝒮 ℛℰℒ𝒜𝒴 ℰ𝒩𝒢ℐ𝒩ℰ**")
+logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒜𝒰𝒯𝒪𝒩𝒪ℳ𝒪𝒰𝒮 ℛℰℒ𝒜𝒴 ℰ𝒩𝒢ℐ𝒩ℰ v2**")
 
-# --- 2. AUTONOMOUS RELAY HARVESTER (ZERO-CONFIG PERMA-FIX) ---
-# Since Hugging Face drops all packets to Discord, we MUST use a proxy.
-# This engine automatically scrapes, tests, and uses free public proxies.
+# --- 2. ADVANCED AUTONOMOUS RELAY HARVESTER ---
 async def get_working_proxy():
-    logging.info("⌬ ⟡ Initiating Autonomous Relay Harvest...")
-    PROXY_URLS = [
-        "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
-        "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
-        "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt"
-    ]
+    logging.info("⌬ ⟡ Initiating Advanced Relay Harvest...")
+    # Proxyscrape provides highly active, recently tested proxies compared to static GitHub lists
+    url = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=5000&country=all&ssl=all&anonymity=all"
     proxies = []
     
-    # 1. Scrape latest free proxies
     async with aiohttp.ClientSession() as session:
-        for url in PROXY_URLS:
-            try:
-                async with session.get(url, timeout=5) as resp:
-                    text = await resp.text()
-                    proxies.extend([f"http://{line.strip()}" for line in text.split('\n') if line.strip()])
-            except Exception as e:
-                pass
-                
-    proxies = list(set(proxies))
+        try:
+            # Wait up to 10 seconds to fetch the premium list
+            async with session.get(url, timeout=10) as resp:
+                text = await resp.text()
+                proxies = [f"http://{line.strip()}" for line in text.split('\n') if line.strip()]
+        except Exception as e:
+            logging.error(f"Harvest Failure: {e}")
+            
+    if not proxies:
+        return None
+
     random.shuffle(proxies)
     logging.info(f"⌬ ⟡ Harvested {len(proxies)} candidate relays. Testing for resonance...")
 
-    # 2. Lightning-fast concurrency tester
     async def test_proxy(proxy):
         try:
             connector = aiohttp.TCPConnector(ssl=False)
             async with aiohttp.ClientSession(connector=connector) as test_session:
-                async with test_session.get("https://discord.com", proxy=proxy, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                # Increased timeout to 10s. Free proxies are often slow to establish the initial tunnel.
+                async with test_session.get("https://discord.com", proxy=proxy, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status in [200, 301, 302, 403, 404]:
                         return proxy
         except: pass
         return None
 
-    # 3. Test in chunks and return the absolute fastest one
-    for i in range(0, min(1000, len(proxies)), 100):
-        chunk = proxies[i:i+100]
+    # Test in smaller chunks (50) to prevent Hugging Face from dropping our connections 
+    # due to 'Too Many Open Files' (FD limits) or outbound DDoS protection flags.
+    for i in range(0, min(500, len(proxies)), 50):
+        chunk = proxies[i:i+50]
         tasks = [asyncio.create_task(test_proxy(p)) for p in chunk]
         
         for coro in asyncio.as_completed(tasks):
@@ -111,7 +108,7 @@ class HyacineBot(commands.AutoShardedBot):
         super().__init__(
             command_prefix=get_server_prefixes,
             intents=discord.Intents.all(),
-            proxy=relay_url, # Inject the harvested proxy
+            proxy=relay_url, 
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸ℴ𝒽ℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
@@ -152,7 +149,6 @@ async def main():
     keep_alive()
     if not TOKEN: sys.exit(1)
 
-    # Indefinite self-healing loop
     for attempt in range(100):
         proxy_url = await get_working_proxy()
         if not proxy_url:
@@ -167,7 +163,7 @@ async def main():
             async with bot: await bot.start(TOKEN)
         except Exception as e:
             logging.error(f"Link Failure: {e}")
-            await asyncio.sleep(5) # Fast retry to grab a new proxy
+            await asyncio.sleep(5) 
 
 if __name__ == "__main__":
     try: asyncio.run(main())
