@@ -25,7 +25,7 @@ class StaffCommands(commands.Cog):
                 await send_method(embed=embed)
         except discord.Forbidden:
             content = fallback_text or embed.description or "Action Processing..."
-            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾Audit (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
+            header = "⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 𝒜𝓊𝒹𝒾𝓉 (𝒫𝓁𝒶𝒾𝓃-𝒯ℯ𝓍𝓉 ℳℴ𝒹ℯ)**\n"
             footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
             fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
             try:
@@ -182,6 +182,46 @@ class StaffCommands(commands.Cog):
             return await self._send_error(ctx, "Authority Insufficient for target role rank.")
         await member.remove_roles(role)
         await self._send_success(ctx, f"𝒮ℯ𝓇𝒾𝓅𝓅ℯ𝒹 **{role.name}** for {member.mention}.")
+
+    @commands.hybrid_command(name="kick", description="Sever subject's connection to this sector.")
+    @commands.has_permissions(kick_members=True)
+    async def kick_cmd(self, ctx: commands.Context, member: discord.Member, *, reason: str = "Unspecified violation."):
+        if not await self._check_hierarchy(ctx, member): return
+        await member.kick(reason=reason)
+        await self._send_success(ctx, f"𝒦𝒾𝒸𝓀ℯ𝒹 **{member.display_name}** from this sector. Reason: `{reason}`")
+
+    @commands.hybrid_command(name="ban", description="Permanently blacklist subject from this sector.")
+    @commands.has_permissions(ban_members=True)
+    async def ban_cmd(self, ctx: commands.Context, member: Union[discord.Member, discord.User], *, reason: str = "Unspecified violation."):
+        if isinstance(member, discord.Member):
+            if not await self._check_hierarchy(ctx, member): return
+        await ctx.guild.ban(member, reason=reason)
+        await self._send_success(ctx, f"ℬ𝒶𝓃𝓃ℯ𝒹 **{member.display_name}** from all logic gates. Reason: `{reason}`")
+
+    @commands.hybrid_command(name="unban", description="Restore subject's access to this sector.")
+    @commands.has_permissions(ban_members=True)
+    async def unban_cmd(self, ctx: commands.Context, user_id: str, *, reason: str = "Restoration of access."):
+        try:
+            user = await self.bot.fetch_user(int(user_id))
+            await ctx.guild.unban(user, reason=reason)
+            await self._send_success(ctx, f"𝒰𝓃𝒷𝒶𝓃𝓃ℯ𝒹 **{user.display_name}**. Reason: `{reason}`")
+        except:
+            await self._send_error(ctx, "Invalid User ID or subject is not blacklisted.")
+
+    @commands.hybrid_command(name="mute", description="Silence subject's outgoing packets.")
+    @commands.has_permissions(moderate_members=True)
+    async def mute_cmd(self, ctx: commands.Context, member: discord.Member, duration: int = 60, *, reason: str = "Communications breach."):
+        if not await self._check_hierarchy(ctx, member): return
+        delta = datetime.timedelta(minutes=duration)
+        await member.timeout(delta, reason=reason)
+        await self._send_success(ctx, f"𝒮𝒾𝓁ℯ𝓃𝒸ℯ𝒹 **{member.display_name}** for {duration} cycles. Reason: `{reason}`")
+
+    @commands.hybrid_command(name="unmute", description="Restore subject's communication channels.")
+    @commands.has_permissions(moderate_members=True)
+    async def unmute_cmd(self, ctx: commands.Context, member: discord.Member, *, reason: str = "Communication restored."):
+        if not await self._check_hierarchy(ctx, member): return
+        await member.timeout(None, reason=reason)
+        await self._send_success(ctx, f"𝒰𝓃𝓂𝓊𝓉ℯ𝒹 **{member.display_name}**. Reason: `{reason}`")
 
 async def setup(bot):
     if "StaffCommands" not in bot.cogs:
