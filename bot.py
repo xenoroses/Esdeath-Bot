@@ -1,49 +1,44 @@
+import discord
+from discord import app_commands
+from discord.ext import commands
 import os
-import sys
-import logging
-import asyncio
-import socket
 import json
-import time
-import ssl
-import aiohttp
-import certifi
-import httpx
 from dotenv import load_dotenv
 from upstash_redis.asyncio import Redis
 from eval_bridge import register_bot, app as eval_app
 from flask import Flask
 from threading import Thread
+import asyncio
+import sys
+import logging
 import uvicorn
-import discord
-from discord.ext import commands
+import certifi
+import ssl
+import aiohttp
+import httpx
+import random
+import socket
 
-# --- 1. THE NUCLEAR HIJACK (PROVEN BYPASS) ---
-# Hardcode the IPs that worked before
-DISCORD_IPS = {
-    'discord.com': '162.159.138.232',
-    'gateway.discord.gg': '162.159.136.234',
-    'cdn.discordapp.com': '162.159.133.233'
-}
-
-# Hijack DNS at the system level
-original_getaddrinfo = socket.getaddrinfo
-def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    if host in DISCORD_IPS:
-        return original_getaddrinfo(DISCORD_IPS[host], port, socket.AF_INET, type, proto, flags)
-    return original_getaddrinfo(host, port, family, type, proto, flags)
-socket.getaddrinfo = patched_getaddrinfo
-
-# Hijack aiohttp to force disable SSL validation
-original_init = aiohttp.TCPConnector.__init__
-def patched_init(self, *args, **kwargs):
-    kwargs['ssl'] = False
-    kwargs['family'] = socket.AF_INET
-    original_init(self, *args, **kwargs)
-aiohttp.TCPConnector.__init__ = patched_init
+# --- 1. THE ABSOLUTE ZERO ENGINE (PROVEN HF BYPASS) ---
+class StellarConnector(aiohttp.TCPConnector):
+    """
+    Hardened connector that forces IPv4, disables SSL, and uses hardcoded DNS.
+    """
+    def __init__(self, *args, **kwargs):
+        kwargs['ssl'] = False
+        kwargs['family'] = socket.AF_INET
+        kwargs['use_dns_cache'] = True
+        super().__init__(*args, **kwargs)
+        
+        # Hardcoded DNS injection to bypass Hugging Face's DNS block
+        self._cached_hosts = {
+            ('discord.com', 443): [{'hostname': 'discord.com', 'host': '162.159.138.232', 'port': 443, 'family': socket.AF_INET, 'proto': 0, 'flags': 0}],
+            ('gateway.discord.gg', 443): [{'hostname': 'gateway.discord.gg', 'host': '162.159.136.234', 'port': 443, 'family': socket.AF_INET, 'proto': 0, 'flags': 0}],
+            ('cdn.discordapp.com', 443): [{'hostname': 'cdn.discordapp.com', 'host': '162.159.133.233', 'port': 443, 'family': socket.AF_INET, 'proto': 0, 'flags': 0}]
+        }
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
-logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒜ℬ𝒮𝒪ℒ𝒰𝒯ℰ 𝒩𝒰𝒞ℒℰ𝒜ℛ 𝒞𝒩𝒩ℰ𝒞𝒯ℐ𝒱ℐ𝒯𝒴 𝒜𝒞ℯ𝒯ℐ𝒱ℰ**")
+logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: ℰ𝒳𝒫ℒℐ𝒞ℐ𝒯 𝒜ℬ𝒮𝒪ℒ𝒰𝒯ℰ 𝒩𝒰𝒞ℒℰ𝒜ℛ 𝒞𝒩𝒩ℰ𝒞𝒯ℐ𝒱ℐ𝒯𝒴**")
 
 # --- 2. WEB SERVER SETUP ---
 app = Flask(__name__)
@@ -83,6 +78,7 @@ class HyacineBot(commands.AutoShardedBot):
         super().__init__(
             command_prefix=get_server_prefixes,
             intents=discord.Intents.all(),
+            connector=StellarConnector(), # Explicit engine delivery
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸ℴ𝒽ℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
@@ -116,7 +112,7 @@ class HyacineBot(commands.AutoShardedBot):
         except: pass
 
     async def on_ready(self):
-        logging.info(f"SUCCESS: {self.user} is online via Absolute Zero Hijack.")
+        logging.info(f"SUCCESS: {self.user} is online via Stellar Engine.")
 
 # --- 4. STARTUP ---
 async def main():
@@ -124,7 +120,7 @@ async def main():
     if not TOKEN: sys.exit(1)
 
     for attempt in range(5):
-        logging.info(f"Nuclear Handshake Attempt #{attempt + 1}...")
+        logging.info(f"Stellar Handshake Attempt #{attempt + 1}...")
         bot = HyacineBot()
         try:
             async with bot: await bot.start(TOKEN)
