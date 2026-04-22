@@ -1,70 +1,25 @@
-import discord
-from discord import app_commands
-from discord.ext import commands
-import os
-import json
-from dotenv import load_dotenv
-from upstash_redis.asyncio import Redis
-from eval_bridge import register_bot, app as eval_app
-from flask import Flask
-from threading import Thread
-import asyncio
-import sys
-import logging
-import uvicorn
-import certifi
-import ssl
-import aiohttp
-import httpx
-import random
-import socket
-
-# --- 1. THE SOVEREIGN RESOLVER (PERMANENT DOH BYPASS) ---
-class SovereignResolver(aiohttp.abc.AbstractResolver):
+# --- 1. THE ABSOLUTE ZERO CORE (PERMANENT NO-PROXY BYPASS) ---
+class AbsoluteZeroConnector(aiohttp.TCPConnector):
     """
-    A professional DNS-over-HTTPS resolver that bypasses host DNS blocks.
-    Self-contained, permanent, and doesn't rely on system configuration.
+    A hardened connector that forces IPv4 and disables SSL validation.
+    The only proven way to run Discord bots on Hugging Face for free.
     """
-    def __init__(self):
-        self.cache = {}
-        self.doh_urls = [
-            "https://dns.google/resolve?name={host}&type=A",
-            "https://cloudflare-dns.com/dns-query?name={host}&type=A"
-        ]
-
-    async def resolve(self, host, port=0, family=socket.AF_INET):
-        if family != socket.AF_INET:
-            # Force IPv4 to bypass broken HF IPv6 routing
-            family = socket.AF_INET
-            
-        h_lower = host.lower()
-        if h_lower in ["discord.com", "gateway.discord.gg", "cdn.discordapp.com"]:
-            if h_lower in self.cache and time.time() < self.cache[h_lower]['expiry']:
-                return self.cache[h_lower]['ips']
-
-            logging.info(f"Sovereign Resolution: {host}")
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                for url_template in self.doh_urls:
-                    try:
-                        headers = {"Accept": "application/dns-json"} if "cloudflare" in url_template else {}
-                        resp = await client.get(url_template.format(host=host), headers=headers)
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            ips = [ans['data'] for ans in data.get('Answer', []) if ans['type'] == 1]
-                            if ips:
-                                result = [{"hostname": host, "host": ip, "port": port, "family": family, "proto": 0, "flags": 0} for ip in ips]
-                                self.cache[h_lower] = {'ips': result, 'expiry': time.time() + 3600}
-                                return result
-                    except: continue
+    def __init__(self, *args, **kwargs):
+        # Force ignore all SSL errors and limit to IPv4
+        kwargs['ssl'] = False
+        kwargs['family'] = socket.AF_INET
+        kwargs['use_dns_cache'] = True
+        super().__init__(*args, **kwargs)
         
-        # Fallback to standard resolution for non-Discord hosts
-        return await aiohttp.ThreadedResolver().resolve(host, port, family)
-
-    async def close(self):
-        pass
+        # Inject Discord IPs directly into the internal cache to skip blocked DNS
+        self._cached_hosts = {
+            ('discord.com', 443): [{'hostname': 'discord.com', 'host': '162.159.138.232', 'port': 443, 'family': socket.AF_INET, 'proto': 0, 'flags': 0}],
+            ('gateway.discord.gg', 443): [{'hostname': 'gateway.discord.gg', 'host': '162.159.136.234', 'port': 443, 'family': socket.AF_INET, 'proto': 0, 'flags': 0}],
+            ('cdn.discordapp.com', 443): [{'hostname': 'cdn.discordapp.com', 'host': '162.159.133.233', 'port': 443, 'family': socket.AF_INET, 'proto': 0, 'flags': 0}]
+        }
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
-logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒩ℰ𝒯𝒲𝒪ℛ𝒦 𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩𝒯𝒴 𝒜𝒞𝒯ℐ𝒱ℰ**")
+logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒜ℬ𝒮𝒪ℒ𝒰𝒯ℰ 𝒩𝒰𝒞ℒℰ𝒜ℛ 𝒞𝒪𝒩𝒩ℰ𝒞𝒯ℐ𝒱ℐ𝒯𝒴**")
 
 # --- 2. WEB SERVER SETUP ---
 app = Flask(__name__)
@@ -101,20 +56,10 @@ async def get_server_prefixes(bot, message):
 
 class HyacineBot(commands.AutoShardedBot):
     def __init__(self):
-        # Sovereign SSL Context
-        ssl_context = ssl.create_default_context(cafile=certifi.where())
-        
-        # Sovereign Connector: Custom Resolver + Forced IPv4 + Bundled SSL
-        connector = aiohttp.TCPConnector(
-            resolver=SovereignResolver(),
-            family=socket.AF_INET,
-            ssl=ssl_context
-        )
-        
         super().__init__(
             command_prefix=get_server_prefixes,
             intents=discord.Intents.all(),
-            connector=connector,
+            connector=AbsoluteZeroConnector(),
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸ℴ𝒽ℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
@@ -148,7 +93,7 @@ class HyacineBot(commands.AutoShardedBot):
         except: pass
 
     async def on_ready(self):
-        logging.info(f"SUCCESS: {self.user} is online via Sovereign Path.")
+        logging.info(f"SUCCESS: {self.user} is online via Absolute Zero.")
 
 # --- 4. STARTUP ---
 async def main():
@@ -156,42 +101,19 @@ async def main():
     if not TOKEN: sys.exit(1)
 
     for attempt in range(5):
-        logging.info(f"Ghost Protocol Handshake Attempt #{attempt + 1}...")
-        
-        # 1. Identity Spoofing: Mimic a real Chrome browser to bypass "Bot-Only" firewalls
-        browser_headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1"
-        }
-
-        # 2. Sovereign SSL: Force certifi but allow fallbacks
-        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.CERT_NONE # Final connectivity priority
-        
-        # 3. Ghost Connector: Custom Resolver + Forced IPv4 + Browser Spoof
-        connector = aiohttp.TCPConnector(
-            resolver=SovereignResolver(),
-            family=socket.AF_INET,
-            ssl=ssl_ctx
-        )
-        
+        logging.info(f"Absolute Zero Handshake Attempt #{attempt + 1}...")
         bot = HyacineBot()
-        bot.http.user_agent = browser_headers["User-Agent"]
-        bot.http.connector = connector
-        
         try:
             async with bot: await bot.start(TOKEN)
             break
         except Exception as e:
-            err_str = str(e)
-            if "Cannot connect" in err_str or "ssl" in err_str:
-                logging.warning(f"Ghost Protocol Deflected: {err_str}. Re-calibrating...")
+            logging.error(f"Link Failure: {e}")
+            await asyncio.sleep(15)
+
+if __name__ == "__main__":
+    try: asyncio.run(main())
+    except KeyboardInterrupt: pass
+err_str}. Re-calibrating...")
             else:
                 logging.error(f"Link Failure: {e}")
             await asyncio.sleep(10)
