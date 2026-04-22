@@ -35,7 +35,7 @@ class SocialEngine(commands.Cog):
                     await send_method(fallback_msg)
             except:
                 pass
-        exceptException:
+        except Exception:
             pass
 
     @commands.hybrid_command(name="judgement", description="AI profiling of a member.")
