@@ -1,6 +1,3 @@
-import socket
-import httpx
-import random
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -14,148 +11,109 @@ from threading import Thread
 import asyncio
 import sys
 import logging
-import time
 import uvicorn
-import atexit
-import psutil
-from cache_layer import HyacineCache
 import certifi
-import ssl
-import aiohttp
 
-# --- STELLAR SYSTEM INITIALIZATION ---
-logging.basicConfig(level=logging.INFO)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ 𝒜𝒞𝒯ℐ𝒱ℰ: 𝒫ℰℛℳ𝒜𝒩ℰ𝒩𝒯 ℱℐ𝒳 ℒ𝒪𝒜𝒟ℰ𝒟**")
+# --- 1. GLOBAL ENVIRONMENT & LOGGING ---
+logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
 
-# --- 1. THE DEEP STELLAR PATCH (DOH HIJACK) ---
-async def fetch_discord_ips():
-    """Fetches real terminal IPs via multiple DoH providers."""
-    logging.info("Initiating Stellar DoH Bypass Sequence...")
-    com_ips, gg_ips = set(), set()
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        try:
-            responses = await asyncio.gather(
-                client.get("https://dns.google/resolve?name=discord.com&type=A"),
-                client.get("https://dns.google/resolve?name=gateway.discord.gg&type=A"),
-                return_exceptions=True
-            )
-            for i, resp in enumerate(responses):
-                if isinstance(resp, httpx.Response) and resp.status_code == 200:
-                    data = resp.json()
-                    ips = [ans['data'] for ans in data.get('Answer', []) if ans['type'] == 1]
-                    if i == 0: com_ips.update(ips)
-                    else: gg_ips.update(ips)
-        except: pass
-        if not com_ips or not gg_ips:
-            try:
-                headers = {"Accept": "application/dns-json"}
-                responses = await asyncio.gather(
-                    client.get("https://cloudflare-dns.com/dns-query?name=discord.com&type=A", headers=headers),
-                    client.get("https://cloudflare-dns.com/dns-query?name=gateway.discord.gg&type=A", headers=headers),
-                    return_exceptions=True
-                )
-                for i, resp in enumerate(responses):
-                    if isinstance(resp, httpx.Response) and resp.status_code == 200:
-                        data = resp.json()
-                        ips = [ans['data'] for ans in data.get('Answer', []) if ans['type'] == 1]
-                        if i == 0: com_ips.update(ips)
-                        else: gg_ips.update(ips)
-            except: pass
-    final_com = list(com_ips)
-    final_gg = list(gg_ips)
-    if final_com: logging.info(f"Resolved discord.com -> {final_com}")
-    if final_gg: logging.info(f"Resolved gateway.discord.gg -> {final_gg}")
-    return final_com, final_gg
+# Permanent Architectural Fix: Fix SSL validation issues in containers globally
+os.environ['SSL_CERT_FILE'] = certifi.where()
+os.environ['SSL_CERT_DIR'] = os.path.dirname(certifi.where())
 
-DISCORD_COM_IPS, DISCORD_GG_IPS = [], []
-
-# --- MONKEYPATCH: STELLAR SOVEREIGNTY (SSL & DNS BYPASS) ---
-original_resolve_host = aiohttp.TCPConnector._resolve_host
-
-async def patched_resolve_host(self, host, port, traces=None):
-    h_lower = host.lower()
-    if h_lower in ["discord.com", "gateway.discord.gg", "cdn.discordapp.com"]:
-        # THE FIX: Surgical SSL Bypass for Discord hosts on Hugging Face
-        self._ssl = False 
-        ips = DISCORD_COM_IPS if h_lower == "discord.com" else DISCORD_GG_IPS
-        if not ips: ips = DISCORD_COM_IPS # Fallback for CDN
-        if ips:
-            return [{"hostname": host, "host": random.choice(ips), "port": port, "family": socket.AF_INET, "proto": 0, "flags": 0}]
-    return await original_resolve_host(self, host, port, traces)
-
-aiohttp.TCPConnector._resolve_host = patched_resolve_host
+logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒞ℒℰ𝒜𝒩 𝒜ℛ𝒞ℋ𝒐𝒯ℰ𝒞𝒯𝒰ℛℰ ℒ𝒪𝒜𝒟ℰ𝒟**")
 
 # --- 2. WEB SERVER SETUP ---
 app = Flask(__name__)
+
 @app.route("/", methods=["GET", "POST"])
 def home():
     return "Hyacine is alive and guarding Hugging Face."
 
 def run_flask():
     port = int(os.environ.get("PORT", 7860))
+    # Suppress werkzeug logging
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
     app.run(host="0.0.0.0", port=port)
 
 def start_eval_server():
     uvicorn.run(eval_app, host="127.0.0.1", port=9000, log_level="warning")
 
 def keep_alive():
-    Thread(target=run_flask, daemon=True).start()
-    Thread(target=start_eval_server, daemon=True).start()
+    flask_thread = Thread(target=run_flask, daemon=True)
+    flask_thread.start()
 
-# --- 3. BOT INITIALIZATION ---
+    eval_thread = Thread(target=start_eval_server, daemon=True)
+    eval_thread.start()
+
+# --- 3. BOT CONFIGURATION ---
 load_dotenv()
 TOKEN = os.getenv("dc_token")
-PROXY = os.getenv("proxy")
+PROXY = os.getenv("proxy") # Standard, clean proxy injection
+
+from cache_layer import HyacineCache
+
+HYACINE_DEFAULT_PREFIXES = ["!", ","]
 
 async def get_server_prefixes(bot, message):
     if not message.guild or not getattr(bot, 'cache', None):
-        return commands.when_mentioned_or("!", ",")(bot, message)
+        return commands.when_mentioned_or(*HYACINE_DEFAULT_PREFIXES)(bot, message)
+    
     try:
-        cached = await bot.cache.get(f"prefixes:{message.guild.id}")
-        if cached:
-            prefixes = json.loads(cached)
-            if prefixes:
+        cached_prefixes = await bot.cache.get(f"prefixes:{message.guild.id}")
+        if cached_prefixes:
+            custom_prefixes = json.loads(cached_prefixes)
+            if isinstance(custom_prefixes, list) and custom_prefixes:
                 expanded = []
-                for p in prefixes:
+                for p in custom_prefixes:
                     expanded.append(p)
-                    if p.isalnum() and not p.endswith(" "): expanded.append(p + " ")
-                return commands.when_mentioned_or(*sorted(list(set(expanded + ["!", ","])), key=len, reverse=True))(bot, message)
-    except: pass
-    return commands.when_mentioned_or("!", ",")(bot, message)
+                    if p.replace(" ", "").isalnum() and not p.endswith(" "):
+                        expanded.append(p + " ")
+                final_prefixes = sorted(list(set(expanded + HYACINE_DEFAULT_PREFIXES)), key=len, reverse=True)
+                return commands.when_mentioned_or(*final_prefixes)(bot, message)
+    except Exception as e:
+        logging.error(f"Prefix Fetch Error: {e}")
+    return commands.when_mentioned_or(*HYACINE_DEFAULT_PREFIXES)(bot, message)
 
 class HyacineBot(commands.AutoShardedBot):
+    """Clean, unpatched Discord bot architecture."""
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
+        
         super().__init__(
             command_prefix=get_server_prefixes,
             intents=intents,
-            proxy=PROXY,
+            proxy=PROXY, # Native proxy support (no monkey-patching required)
             status=discord.Status.idle,
             activity=discord.Activity(type=discord.ActivityType.watching, name="✧ ℰ𝒸ℴ𝒽ℯ𝓈 ℴ𝒻 𝓉𝒽ℯ 𝒱ℴ𝒾𝒹"),
             help_command=None,
-            case_insensitive=True
+            case_insensitive=True,
+            shard_count=None 
         )
         self.redis = None
         self.cache = None
 
     async def setup_hook(self):
         logging.info("Initializing setup_hook...")
+        self.tree.on_error = self.on_tree_error
         register_bot(self)
         try:
-            url, token = os.getenv("UPSTASH_REDIS_REST_URL"), os.getenv("UPSTASH_REDIS_REST_TOKEN")
+            url = os.getenv("UPSTASH_REDIS_REST_URL")
+            token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
             if url and token:
+                logging.info("Connecting to Upstash Redis...")
                 self.redis = Redis(url=url, token=token)
                 self.cache = HyacineCache(self.redis)
                 await asyncio.wait_for(self.redis.ping(), timeout=5.0)
                 logging.info("Redis Connection: SUCCESS")
             else:
-                logging.error("FATAL: Redis Missing.")
+                logging.error("FATAL: Redis Configuration Missing. Aborting startup.")
                 sys.exit(1)
         except Exception as e:
-            logging.error(f"FATAL REDIS: {e}")
+            logging.error(f"FATAL REDIS FAILURE: {e}. Aborting startup.")
             sys.exit(1)
 
         extensions = [
@@ -167,14 +125,22 @@ class HyacineBot(commands.AutoShardedBot):
             "cogs.prestige_engine", "cogs.social_engine", "cogs.lore_engine",
             "cogs.synaptic_social", "cogs.schedule_engine", "cogs.workflow_engine"
         ]
+
+        logging.info(f"Loading {len(extensions)} extensions...")
         for ext in extensions:
-            try: await self.load_extension(ext)
-            except Exception as e: logging.error(f"Failed {ext}: {e}")
-        try: await self.tree.sync()
-        except: pass
+            try:
+                await self.load_extension(ext)
+            except Exception as e:
+                logging.error(f"Failed to load {ext}: {e}")
+        
+        try:
+            synced = await self.tree.sync()
+            logging.info(f"Synced {len(synced)} slash commands.")
+        except Exception as e:
+            logging.error(f"Sync Error: {e}")
 
     async def on_ready(self):
-        logging.info(f"SUCCESS: {self.user} is online.")
+        logging.info(f"SUCCESS: {self.user} is online and operational.")
         if not hasattr(self, "presence_task"):
             self.presence_task = self.loop.create_task(self.rotate_presence())
 
@@ -188,55 +154,45 @@ class HyacineBot(commands.AutoShardedBot):
                 await self.change_presence(status=status, activity=activity)
                 await asyncio.sleep(300)
 
-    async def on_command_error(self, ctx, error):
+    async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(error, commands.CommandNotFound): return
         logging.error(f"Command Error: {error}")
 
-# --- 4. STARTUP ---
+    async def on_tree_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        logging.error(f"Tree Error: {error}")
+
+# --- 4. STARTUP LOGIC ---
 async def main():
-    global DISCORD_COM_IPS, DISCORD_GG_IPS
-    DISCORD_COM_IPS, DISCORD_GG_IPS = await fetch_discord_ips()
-
-    # Singleton Enforcement
-    for proc in psutil.process_iter(['pid', 'cmdline']):
-        try:
-            if proc.info['pid'] != os.getpid() and any('bot.py' in str(arg) for arg in (proc.info['cmdline'] or [])):
-                proc.terminate()
-        except: pass
-
     keep_alive()
-    if not TOKEN: sys.exit(1)
+    
+    if not TOKEN:
+        logging.error("FATAL: dc_token missing from environment.")
+        sys.exit(1)
 
+    # Clean retry loop without DNS monkeypatching
     max_retries = 5
     for attempt in range(max_retries):
-        logging.info(f"Stellar Connection Attempt #{attempt + 1}...")
+        logging.info(f"Connection Attempt #{attempt + 1}...")
         
-        # Probe
-        if DISCORD_COM_IPS:
-            target = random.choice(DISCORD_COM_IPS)
-            try:
-                # Raw TCP Probe
-                _, writer = await asyncio.wait_for(asyncio.open_connection(target, 443), timeout=3.0)
-                writer.close()
-                await writer.wait_closed()
-                logging.info(f"✧ TCP SUCCESS: {target}")
-                
-                # TLS Probe (verify=False mirrors the fix)
-                async with httpx.AsyncClient(verify=False) as client:
-                    resp = await client.get(f"https://{target}", headers={"Host": "discord.com"}, timeout=5.0)
-                    logging.info(f"✧ TLS SUCCESS: {resp.status_code}")
-            except Exception as e:
-                logging.error(f"⌬ PROBE FAILED: {e}")
-
         bot = HyacineBot()
         try:
             async with bot:
                 await bot.start(TOKEN)
             break
         except Exception as e:
-            logging.error(f"Stellar Link Failure: {e}")
-            await asyncio.sleep(5)
+            logging.error(f"Link Failure: {e}")
+            if "429" in str(e) or "1015" in str(e):
+                wait_time = 60 * (attempt + 1)
+                logging.warning(f"Throttled. Reconnection in {wait_time}s...")
+                await asyncio.sleep(wait_time)
+            else:
+                await asyncio.sleep(5)
+                if attempt == max_retries - 1:
+                    logging.error("FATAL: All connection attempts exhausted.")
+                    sys.exit(1)
 
 if __name__ == "__main__":
-    try: asyncio.run(main())
-    except KeyboardInterrupt: pass
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
