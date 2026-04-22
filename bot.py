@@ -1,3 +1,25 @@
+import discord
+from discord import app_commands
+from discord.ext import commands
+import os
+import json
+from dotenv import load_dotenv
+from upstash_redis.asyncio import Redis
+from eval_bridge import register_bot, app as eval_app
+from flask import Flask
+from threading import Thread
+import asyncio
+import sys
+import logging
+import uvicorn
+import certifi
+import ssl
+import aiohttp
+import httpx
+import random
+import socket
+import time
+
 # --- 1. THE ABSOLUTE ZERO CORE (PERMANENT NO-PROXY BYPASS) ---
 class AbsoluteZeroConnector(aiohttp.TCPConnector):
     """
@@ -19,7 +41,7 @@ class AbsoluteZeroConnector(aiohttp.TCPConnector):
         }
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
-logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒜ℬ𝒮𝒪ℒ𝒰𝒯ℰ 𝒩𝒰𝒞ℒℰ𝒜ℛ 𝒞𝒪𝒩𝒩ℰ𝒞𝒯ℐ𝒱ℐ𝒯𝒴**")
+logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒜ℬ𝒮𝒪ℒ𝒰𝒯ℰ 𝒩𝒰𝒞ℒℰ𝒜ℛ 𝒞𝒩𝒩ℰ𝒞𝒯ℐ𝒱ℐ𝒯𝒴**")
 
 # --- 2. WEB SERVER SETUP ---
 app = Flask(__name__)
@@ -109,14 +131,6 @@ async def main():
         except Exception as e:
             logging.error(f"Link Failure: {e}")
             await asyncio.sleep(15)
-
-if __name__ == "__main__":
-    try: asyncio.run(main())
-    except KeyboardInterrupt: pass
-err_str}. Re-calibrating...")
-            else:
-                logging.error(f"Link Failure: {e}")
-            await asyncio.sleep(10)
 
 if __name__ == "__main__":
     try: asyncio.run(main())
