@@ -20,7 +20,7 @@ import random
 import socket
 
 # --- 1. THE SOVEREIGN RESOLVER (PERMANENT DOH BYPASS) ---
-class SovereignResolver(aiohttp.AbstractResolver):
+class SovereignResolver(aiohttp.abc.AbstractResolver):
     """
     A professional DNS-over-HTTPS resolver that bypasses host DNS blocks.
     Self-contained, permanent, and doesn't rely on system configuration.
