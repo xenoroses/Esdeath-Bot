@@ -6,7 +6,8 @@ colorTo: indigo
 sdk: docker
 pinned: false
 app_file: bot.py
-# Trigger: 2026-04-24-Hardening-Cycle
+app_port: 7860
+# Trigger: 2026-04-24-Hardening-Cycle-v2
 ---
 
 Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
