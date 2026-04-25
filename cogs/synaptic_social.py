@@ -63,6 +63,7 @@ class SynapticSocial(commands.Cog):
 
     @synapse_group.command(name="resonance", description="Propose a social resonance bond.")
     async def resonance(self, ctx: commands.Context, target: discord.Member):
+        await ctx.defer()
         if target.bot or target.id == ctx.author.id: return
         await ctx.send(f"✧ {target.mention}, **{ctx.author.display_name}** requests a resonance bond. Type `synchronize` in 30s.")
         def check(m): return m.author == target and m.channel == ctx.channel and m.content.lower() == "synchronize"

@@ -21,9 +21,42 @@ os.environ['SSL_CERT_FILE'] = certifi.where()
 os.environ['SSL_CERT_DIR'] = os.path.dirname(certifi.where())
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
-logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒜𝒰𝒯𝒪𝒩𝒪ℳ𝒪𝒰𝒮 ℛℰℒ𝒜𝒴 ℰ𝒩𝒢ℐ𝒩ℰ v2**")
+logging.info("⌬ ⟡ **𝒮𝒯ℰℒℒ𝒜ℛ 𝒞𝒪ℛℰ: 𝒱𝒜𝒩𝒢𝒰𝒜ℛ𝒟 ℰ𝒩𝒢ℐ𝒩ℰ v3.1**")
 
-# --- 2. ADVANCED AUTONOMOUS RELAY HARVESTER ---
+# --- 2. THE DOH MASTER BYPASS (DNS OVER HTTPS) ---
+async def fetch_discord_ips():
+    """Fetches real terminal IPs via Google's DNS-over-HTTPS API."""
+    logging.info("⌬ ⟡ Initiating DoH Bypass Protocol...")
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get("https://dns.google/resolve?name=discord.com&type=A", timeout=5.0) as r1:
+                d_com = await r1.json()
+            async with session.get("https://dns.google/resolve?name=gateway.discord.gg&type=A", timeout=5.0) as r2:
+                d_gg = await r2.json()
+            
+            com_ips = [ans['data'] for ans in d_com.get('Answer', []) if ans['type'] == 1]
+            gg_ips = [ans['data'] for ans in d_gg.get('Answer', []) if ans['type'] == 1]
+            logging.info(f"⌬ ⟡ Bypass Successful! Found IPs: {len(com_ips)} API, {len(gg_ips)} Gateway")
+            return com_ips, gg_ips
+        except Exception as e:
+            logging.error(f"DoH Bypass Error: {e}")
+            return [], []
+
+import socket
+DISCORD_COM_IPS, DISCORD_GG_IPS = [], []
+original_getaddrinfo = socket.getaddrinfo
+
+def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    safe_host = host.decode('utf-8') if isinstance(host, bytes) else host
+    if safe_host == "discord.com" and DISCORD_COM_IPS:
+        return original_getaddrinfo(random.choice(DISCORD_COM_IPS), port, family, type, proto, flags)
+    elif safe_host == "gateway.discord.gg" and DISCORD_GG_IPS:
+        return original_getaddrinfo(random.choice(DISCORD_GG_IPS), port, family, type, proto, flags)
+    return original_getaddrinfo(host, port, family, type, proto, flags)
+
+socket.getaddrinfo = patched_getaddrinfo
+
+# --- 3. ADVANCED AUTONOMOUS RELAY HARVESTER (FALLBACK) ---
 async def get_working_proxy():
     logging.info("⌬ ⟡ Initiating Advanced Relay Harvest...")
     # Proxyscrape provides highly active, recently tested proxies compared to static GitHub lists
@@ -148,21 +181,41 @@ class HyacineBot(commands.AutoShardedBot):
 
 # --- 5. STARTUP ---
 async def main():
+    global DISCORD_COM_IPS, DISCORD_GG_IPS
+    
+    # 1. Singleton Enforcement
+    import psutil
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            if proc.info['pid'] != os.getpid() and any('bot.py' in str(arg) for arg in (proc.info['cmdline'] or [])):
+                logging.info(f"❂ Singleton Alert: Terminating stellar ghost process (PID: {proc.info['pid']})...")
+                proc.terminate()
+        except: pass
+
     keep_alive()
     if not TOKEN: sys.exit(1)
 
-    for attempt in range(100):
-        proxy_url = await get_working_proxy()
-        if not proxy_url:
-            logging.error("No valid relays found. Recalibrating in 15 seconds...")
-            await asyncio.sleep(15)
-            continue
-            
-        logging.info(f"Relay Handshake Attempt #{attempt + 1} using {proxy_url}...")
-        bot = HyacineBot(proxy_url)
+    # 2. Try Direct Connection with DoH first
+    DISCORD_COM_IPS, DISCORD_GG_IPS = await fetch_discord_ips()
+    
+    attempts = 10
+    for attempt in range(attempts):
+        use_proxy = (attempt >= 2) # Only use proxy after 2 direct failures
+        proxy_url = None
         
+        if use_proxy:
+            logging.warning(f"Direct link unstable. Attempting Relay Harvest (Attempt #{attempt+1})...")
+            proxy_url = await get_working_proxy()
+            if not proxy_url:
+                await asyncio.sleep(5)
+                continue
+        else:
+            logging.info(f"Link Handshake Attempt #{attempt + 1} (Direct Connection)...")
+
+        bot = HyacineBot(proxy_url)
         try:
             async with bot: await bot.start(TOKEN)
+            break
         except Exception as e:
             logging.error(f"Link Failure: {e}")
             await asyncio.sleep(5) 

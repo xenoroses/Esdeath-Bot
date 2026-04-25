@@ -47,7 +47,7 @@ class SecurityCommands(commands.Cog):
         if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
             error_msg = "𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟: Subject ranks equal to or above your authority."
         elif member.id == ctx.guild.owner_id:
-            error_msg = "𝒮𝒪𝒱ℰℛℰℐ™𝒩 ℐℳℳ𝒰ℴ𝒩ℐ𝒯ℴ: The Sovereign is immune."
+            error_msg = "𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩 ℐℳℳ𝒰𝒩ℐ𝒯𝒴: The Sovereign is immune."
         elif member.top_role >= ctx.me.top_role:
             error_msg = "𝒮ℋℐℰℒ𝒟 𝒟ℰ𝒯ℰ𝒞⒯ℰ𝒟: Subject's neural shielding (Role Rank) is higher than mine."
 
@@ -60,6 +60,7 @@ class SecurityCommands(commands.Cog):
     @commands.hybrid_command(name="shadowban", description="Silent moderation: Auto-deletes all messages.")
     @commands.has_permissions(ban_members=True)
     async def shadowban(self, ctx: commands.Context, user: discord.Member):
+        await ctx.defer(ephemeral=True)
         if not await self._check_hierarchy(ctx, user): return
         key = f"shadowban:{ctx.guild.id}:{user.id}"
         
@@ -78,6 +79,7 @@ class SecurityCommands(commands.Cog):
 
     @raidshield.command(name="auto", description="Toggle automated raid detection.")
     async def raidshield_auto(self, ctx: commands.Context):
+        await ctx.defer(ephemeral=True)
         key = f"raid_shield_config:{ctx.guild.id}"
         cached = await rget_json(self.bot, key) or {}
         enabled = not cached.get("enabled", False)

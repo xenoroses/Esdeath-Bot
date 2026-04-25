@@ -46,7 +46,7 @@ class PrestigeEngine(commands.Cog):
         if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
              error_msg = "𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟: Subject ranks equal to or above your authority."
         elif member.id == ctx.guild.owner_id:
-             error_msg = "𝒮𝒪𝒱ℰℛℰℐ™𝒩 ℐℳℳℰ𝒰𝒩ℐ𝒯ℴ: The Sovereign is immune."
+             error_msg = "𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩 ℐℳℳ𝒰𝒩ℐ𝒯𝒴: The Sovereign is immune."
         elif member.top_role >= ctx.me.top_role:
              error_msg = "𝒮ℋℐℰℒ𝒟 𝒟ℰ𝒯ℰ𝒞⒯ℰ𝒟: Subject's neural shielding (Role Rank) is higher than mine."
 
@@ -59,12 +59,14 @@ class PrestigeEngine(commands.Cog):
     @commands.hybrid_command(name="bestow", description="Grant permanent prestige titles.")
     @commands.has_permissions(administrator=True)
     async def bestow(self, ctx: commands.Context, user: discord.Member, *, title: str):
+        await ctx.defer()
         if not await self._check_hierarchy(ctx, user): return
         embed = discord.Embed(title="✧ 𝒫𝓇ℯ𝓈𝓉𝒾𝑔ℯ ℬℯ𝓈𝓉ℴ𝓌ℯ𝒹", description=f"**{user.display_name}** is now recognized as: `{title}`", color=0xF1C40F)
         await self._send_embed(ctx, embed, fallback_text=f"𝒫𝓇ℯ𝓈𝓉𝒾𝑔ℯ: {user.display_name} is now '{title}'.")
 
     @commands.hybrid_command(name="renown", description="Check influence score.")
     async def renown(self, ctx: commands.Context, user: discord.Member = None):
+        await ctx.defer()
         user = user or ctx.author
         score = random.randint(100, 999)
         embed = discord.Embed(title=f"✺ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 ℛℯ𝓃ℴ𝓌𝓃: {user.display_name}", color=0xE67E22)

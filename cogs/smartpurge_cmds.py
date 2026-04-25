@@ -49,7 +49,7 @@ class SmartPurge(commands.Cog):
             return await ctx.send("⌬ ⟡ **ℒ𝒾𝓂𝒾𝓉 𝒸𝒶𝓃𝓃ℴ𝓉 ℯ𝓍𝒸ℯℯ𝒹 𝟧𝟢𝟢.**", ephemeral=True)
 
         def purge_check(m: discord.Message):
-            if m.id == ctx.message.id: return False
+            if ctx.message and m.id == ctx.message.id: return False
             if filter_type == "all": return True
             elif filter_type == "bots": return m.author.bot
             elif filter_type == "links":

@@ -41,6 +41,7 @@ class ObservabilityEngine(commands.Cog):
 
     @commands.hybrid_command(name="health", description="System heartbeat check.")
     async def health(self, ctx: commands.Context):
+        await ctx.defer()
         ping = round(self.bot.latency * 1000)
         embed = discord.Embed(title="⌬ 𝒮𝓎𝓈𝓉ℯ𝓂 ℋℯ𝒶𝓁𝓉𝒽", color=0x2ECC71)
         embed.add_field(name="Gateway Latency", value=f"{ping}ms", inline=True)

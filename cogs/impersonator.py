@@ -41,9 +41,10 @@ class Impersonator(commands.Cog):
 
     @app_commands.command(name="say", description="Impersonate a user and send a message.")
     @app_commands.describe(user="The user to impersonate", message="The message to send")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def say(self, interaction: discord.Interaction, user: discord.Member, message: str):
-        await interaction.response.defer(ephemeral=True)
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
         try:
             webhooks = await interaction.channel.webhooks()
             webhook = discord.utils.get(webhooks, name="Hyacine-Impersonator") or await interaction.channel.create_webhook(name="Hyacine-Impersonator")
