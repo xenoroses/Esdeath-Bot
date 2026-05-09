@@ -85,10 +85,10 @@ class InfrastructureEngine(commands.Cog):
 
         if contained.get("active"):
             await self._safe_rset(key, {"active": False})
-            embed = discord.Embed(title="🔓 𝒞ℴ𝓃𝓉ℯ𝒾𝓃𝓂ℯ𝓃𝓉 ℒ𝒾𝒻𝓉ℯ𝒹", description=f"**{user.display_name}** has been restored to standard permissions.", color=0x2ECC71)
+            embed = discord.Embed(title="🔓 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 ℒ𝒾𝒻𝓉ℯ𝒹", description=f"**{user.display_name}** has been restored to standard permissions.", color=0x2ECC71)
         else:
             await self._safe_rset(key, {"active": True, "timestamp": datetime.datetime.now(timezone.utc).isoformat()})
-            embed = discord.Embed(title="❖ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒞ℴ𝓇ℯ", description=f"**{user.display_name}** is now under **𝒮ℴ𝒻ℯ-𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫ℴ𝓉ℴ𝒸ℴ𝓁**.", color=0xE67E22)
+            embed = discord.Embed(title="❖ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒞ℴ𝓇ℯ", description=f"**{user.display_name}** is now under **𝒮ℴ𝒻𝓉-𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁**.", color=0xE67E22)
             embed.add_field(name="Neural Dampeners Active", value="• Links: **Vaporized**\n• Mentions: **Limited**\n• Media: **Intercepted**", inline=False)
             if user.display_avatar: embed.set_thumbnail(url=user.display_avatar.url)
             
@@ -130,7 +130,7 @@ class InfrastructureEngine(commands.Cog):
     async def forensics(self, ctx: commands.Context, user: discord.Member):
         await ctx.defer()
         try:
-            embed = discord.Embed(title=f"𖦹 𝒟ℯℯ𝓅 𝒜𝓊Aud𝒾𝓉 𝒜𝓇𝒸𝒽𝒾𝓋ℯ: {user.display_name}", description="Analysis complete. Vitals: Stable.", color=0x9B59B6)
+            embed = discord.Embed(title=f"𖦹 𝒟ℯℯ𝓅 𝒜𝓊𝒹𝒾𝓉 𝒜𝓇𝒸𝒽𝒾𝓋ℯ: {user.display_name}", description="Analysis complete. Vitals: Stable.", color=0x9B59B6)
             await self._send_embed(ctx, embed, fallback_text=f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 Analysis Complete for {user.display_name}.")
         except Exception as e:
             await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** Forensics failure: {e}", ephemeral=True)
