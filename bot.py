@@ -183,14 +183,6 @@ class HyacineBot(commands.AutoShardedBot):
 async def main():
     global DISCORD_COM_IPS, DISCORD_GG_IPS
     
-    # 1. Singleton Enforcement
-    import psutil
-    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-        try:
-            if proc.info['pid'] != os.getpid() and any('bot.py' in str(arg) for arg in (proc.info['cmdline'] or [])):
-                logging.info(f"❂ Singleton Alert: Terminating stellar ghost process (PID: {proc.info['pid']})...")
-                proc.terminate()
-        except: pass
 
     keep_alive()
     if not TOKEN: sys.exit(1)
