@@ -36,12 +36,19 @@ class InfrastructureEngine(commands.Cog):
             
             # Smart Check: Only suggest Embed Links if it's actually missing
             perms = dest.permissions_for(dest.guild.me) if hasattr(dest, "permissions_for") else None
+            footer = ""
             if perms and not perms.embed_links:
                 footer = "\n*Note: Enable 'Embed Links' for rich telemetry.*"
-            else:
-                footer = "" # Permission issue was likely something else (e.g. External Emojis)
-                
-            fallback_msg = f"{header}```fix\n{content}\n``` {footer}"
+            
+            # Extract mentions so they resolve outside the code block
+            import re
+            mentions = re.findall(r'<@(?:!|&)?\d+>|<#\d+>', content)
+            mention_prefix = " ".join(mentions) + " " if mentions else ""
+            clean_content = content
+            for m in mentions:
+                clean_content = clean_content.replace(m, "").replace("  ", " ").strip(" ,:;")
+
+            fallback_msg = f"{header}{mention_prefix}```fix\n⌬ {clean_content}\n``` {footer}"
             try:
                 if supports_ephemeral:
                     await send_method(fallback_msg, ephemeral=ephemeral)
@@ -120,9 +127,9 @@ class InfrastructureEngine(commands.Cog):
             
             # Robust Reporting: Independent of internal delete success
             try:
-                report = discord.Embed(title="⌬ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒯𝓇𝒾𝑔𝑔ℯ𝓇ℯ𝒹", description=f"Action intercepted from {message.author.mention}.\n**Violation:** `{violation}`", color=0xE67E22)
+                report = discord.Embed(title="⌬ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁 𝒯𝓇𝒾ℊℊℯ𝓇ℯ𝒹", description=f"Action intercepted from {message.author.mention}.\n**Violation:** `{violation}`", color=0xE67E22)
                 report.set_footer(text="Hyacine Sentinel Enforcement")
-                await self._send_embed(message.channel, report, fallback_text=f"⌬ {message.author.mention}, action intercepted: **{violation}**")
+                await self._send_embed(message.channel, report, fallback_text=f"{message.author.mention}, action intercepted: **{violation}**")
             except: pass
 
     @commands.hybrid_command(name="forensics", description="Deep moderation audit for a user.")
