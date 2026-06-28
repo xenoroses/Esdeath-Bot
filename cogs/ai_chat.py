@@ -66,6 +66,13 @@ class AIChat(commands.Cog):
     async def on_message(self, message):
         if message.author.bot or not message.guild: return
         
+        # Check if AI is completely disabled in the server
+        if getattr(self.bot, 'redis', None):
+            try:
+                ai_disabled = await rget(self.bot, f"ai_disabled:{message.guild.id}")
+                if ai_disabled == "1": return
+            except: pass
+
         channel_id_str = str(message.channel.id)
         current_time = time.time()
 
