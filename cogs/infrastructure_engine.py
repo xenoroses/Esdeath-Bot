@@ -78,7 +78,7 @@ class InfrastructureEngine(commands.Cog):
             return False
         return True
 
-    @commands.hybrid_command(name="contain", description="Soft containment mode: Limit user capabilities aggressively.")
+    @commands.hybrid_command(name="contain", description="Soft containment mode: Limit user capabilities (links, media, mentions, emojis, stickers) aggressively.")
     @commands.has_permissions(manage_messages=True)
     async def contain(self, ctx: commands.Context, user: discord.Member):
         await ctx.defer()
@@ -96,7 +96,7 @@ class InfrastructureEngine(commands.Cog):
         else:
             await self._safe_rset(key, {"active": True, "timestamp": datetime.datetime.now(timezone.utc).isoformat()})
             embed = discord.Embed(title="❖ 𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒞ℴ𝓇ℯ", description=f"**{user.display_name}** is now under **𝒮ℴ𝒻𝓉-𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 𝒫𝓇ℴ𝓉ℴ𝒸ℴ𝓁**.", color=0xE67E22)
-            embed.add_field(name="Neural Dampeners Active", value="• Links: **Vaporized**\n• Mentions: **Limited**\n• Media: **Intercepted**", inline=False)
+            embed.add_field(name="Neural Dampeners Active", value="• Links: **Vaporized**\n• Mentions: **Limited**\n• Media: **Intercepted**\n• Emojis & Stickers: **Suppressed**", inline=False)
             if user.display_avatar: embed.set_thumbnail(url=user.display_avatar.url)
             
         await self._send_embed(ctx, embed, fallback_text=f"𝒞ℴ𝓃𝓉𝒶𝒾𝓃𝓂ℯ𝓃𝓉 Protocol Updated for {user.display_name}.")
@@ -119,6 +119,15 @@ class InfrastructureEngine(commands.Cog):
             should_delete, violation = True, "Media Payload Intercepted"
         elif len(message.mentions) > 1:
             should_delete, violation = True, "Mass Mention Suppression"
+        elif message.stickers:
+            should_delete, violation = True, "Sticker Content Intercepted"
+        else:
+            import re
+            # Match custom Discord emojis (<:name:id> or <a:name:id>) or Unicode emojis
+            custom_emoji_pattern = re.compile(r'<a?:[a-zA-Z0-9_]+:[0-9]+>')
+            unicode_emoji_pattern = re.compile(r'[\u2600-\u27BF]|[\U0001F000-\U0001FAFF]')
+            if custom_emoji_pattern.search(message.content) or unicode_emoji_pattern.search(message.content):
+                should_delete, violation = True, "Emoji Transmission Blocked"
 
         if should_delete:
             try:

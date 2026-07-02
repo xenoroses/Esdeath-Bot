@@ -608,7 +608,7 @@ Welcome to the **Infinite Registry (v13.0)** of the Hyacine Protocol. This docum
 - **The Essence:** Soft-Lock throttle without formal muting. It applies an aggressive, machine-enforced rate-limit to an identity, preventing them from "Flooding" the sector while still allowing for basic communication.
 - **Usage Example:** `,contain @User`
 - **Operational Scenarios:**
-    - *Scenario A (The Cool-off):* A user is getting too excited and spamming emojis. You `contain` them, forcing a restrict on links/images.
+    - *Scenario A (The Cool-off):* A user is getting excited and spamming emojis. You `contain` them, forcing a restrict on links, images, emojis, and stickers.
     - *Scenario B (Suspicion):* A new account is acting like a bot. You `contain` them until a staff member can perform a full `forensics` scan.
     - *Scenario C (Crowd Control):* Throttling multiple individuals during a heated debate to keep the chat readable.
 
