@@ -64,12 +64,11 @@ class InfrastructureEngine(commands.Cog):
         """Unified rank check with robust response. Premium Aesthetics."""
         if not isinstance(member, discord.Member): return True
         
-        if member.id == ctx.guild.owner_id:
-             return True
-
         error_msg = None
         if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
              error_msg = "𝒜𝒰𝒯ℋ𝒪ℛℐ𝒯𝒴 𝒟ℰ𝒩ℐℰ𝒟: Subject ranks equal to or above your authority."
+        elif member.id == ctx.guild.owner_id:
+             error_msg = "𝒮𝒪𝒱ℰℛℰℐ𝒢𝒩 ℐℳℳ𝒰𝓝ℐ𝒯𝒴: Owner cannot be processed."
         elif member.top_role >= ctx.me.top_role:
              error_msg = "𝒮ℋℐℰℒ𝒟 𝒟ℰ𝒯ℰ𝒞⒯ℰ𝒟: Subject's neural shielding (Role Rank) is higher than mine."
 
@@ -83,6 +82,9 @@ class InfrastructureEngine(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     async def contain(self, ctx: commands.Context, user: discord.Member):
         await ctx.defer()
+        if user.id == ctx.guild.owner_id:
+            return await self._send_embed(ctx, discord.Embed(description="⌬ ⟡ **The Sovereign (Owner) is immune to containment protocols.**"), ephemeral=True)
+            
         if not await self._check_hierarchy(ctx, user): return
 
         key = f"containment:{ctx.guild.id}:{user.id}"
@@ -102,6 +104,7 @@ class InfrastructureEngine(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild: return
+        if message.author.id == message.guild.owner_id: return
 
         key = f"containment:{message.guild.id}:{message.author.id}"
         contained = await self._safe_rget(key)
