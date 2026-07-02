@@ -7,7 +7,7 @@ import platform
 import asyncio
 import json
 from redis_utils import rget_json, rset_json
-from typing import Union, Optional
+from typing import Union, Optional, Literal
 
 async def is_bot_admin(ctx):
     if await ctx.bot.is_owner(ctx.author): return True
@@ -83,15 +83,20 @@ class OwnerCmds(commands.Cog):
 
     @commands.hybrid_command(name="sync", description="Synchronize command tree.")
     @commands.is_owner()
-    async def sync_commands(self, ctx: commands.Context, scope: str = "guild"):
+    async def sync_commands(self, ctx: commands.Context, scope: Literal["global", "guild", "clear"] = "global"):
         await ctx.defer(ephemeral=True)
         try:
             if scope.lower() == "global":
                 synced = await self.bot.tree.sync()
+                await self._send_success(ctx, f"Synced `{len(synced)}` gates globally.", ephemeral=True)
+            elif scope.lower() == "clear":
+                self.bot.tree.clear_commands(guild=ctx.guild)
+                await self.bot.tree.sync(guild=ctx.guild)
+                await self._send_success(ctx, f"Cleared all guild-specific gates for this Sector to resolve duplicates.", ephemeral=True)
             else:
                 self.bot.tree.copy_global_to(guild=ctx.guild)
                 synced = await self.bot.tree.sync(guild=ctx.guild)
-            await self._send_success(ctx, f"Synced `{len(synced)}` gates to **this Sector**.", ephemeral=True)
+                await self._send_success(ctx, f"Synced `{len(synced)}` gates to **this Sector**.", ephemeral=True)
         except Exception as e:
             await self._send_error(ctx, f"Sync Failure: {e}")
 
