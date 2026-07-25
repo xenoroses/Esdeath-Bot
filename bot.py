@@ -168,7 +168,8 @@ class HyacineBot(commands.AutoShardedBot):
             "cogs.ai_utility_cmds", "cogs.help_cmds", "cogs.intelligence_engine",
             "cogs.infrastructure_engine", "cogs.observability_engine",
             "cogs.prestige_engine", "cogs.social_engine", "cogs.lore_engine",
-            "cogs.synaptic_social", "cogs.schedule_engine", "cogs.workflow_engine"
+            "cogs.synaptic_social", "cogs.schedule_engine", "cogs.workflow_cmds",
+            "cogs.autodelete_engine"
         ]
         for ext in extensions:
             try: await self.load_extension(ext)

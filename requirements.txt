@@ -5,6 +5,7 @@ flask
 fastmcp
 httpx
 fastapi
+uvicorn
 numexpr
 psutil
 certifi

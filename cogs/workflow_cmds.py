@@ -84,6 +84,26 @@ class WorkflowCommands(commands.Cog):
             embed.add_field(name=f"Workflow #{f['id']}", value=f"IF `{f['trigger']}` AND `{f['condition']}` THEN `{f['action']}`", inline=False)
         await self._send_embed(ctx, embed, fallback_text=f"𝒜𝒸𝓉𝒾𝓋ℯ 𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌𝓈 Check Complete. {len(flows)} rules found.")
 
+    @workflow.command(name="toggle", description="Toggle an active logic gate workflow.")
+    async def workflow_toggle(self, ctx: commands.Context, flow_id: int):
+        key = f"workflows:{ctx.guild.id}"
+        data = await rget_json(self.bot, key) or {"flows": []}
+        flows = data.get("flows", [])
+        
+        target = None
+        for f in flows:
+            if f.get("id") == flow_id:
+                target = f
+                break
+                
+        if not target:
+            return await ctx.send(f"⌬ ⟡ **𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 #{flow_id} 𝓃ℴ𝓉 𝒻ℴ𝓊𝓃𝒹.**", ephemeral=True)
+            
+        target["enabled"] = not target.get("enabled", True)
+        await rset_json(self.bot, key, data)
+        status = "Active ✧" if target["enabled"] else "Deactivated ⌬"
+        await ctx.send(f"✧ **𝒲ℴ𝓇𝓀𝒻𝓁ℴ𝓌 #{flow_id} is now {status}.**")
+
     @workflow.command(name="visual", description="Plots a linear text-graph of active workflows.")
     async def workflow_visual(self, ctx: commands.Context):
         key = f"workflows:{ctx.guild.id}"
