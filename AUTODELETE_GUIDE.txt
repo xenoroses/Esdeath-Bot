@@ -119,6 +119,16 @@ Both Slash Commands (`/autodelete <subcommand>`) and Prefix Commands
    Description:
      Lists all active auto-delete channels in the server with their durations and filters.
 
+11. SELF-DESTRUCT SINGLE MESSAGE COMMAND
+   Slash:  /selfdestruct [duration] [message]
+   Prefix: ,selfdestruct [duration] [message] (aliases: ,sd, ,timedmsg)
+   Description:
+     Sends a single message into the current channel that automatically self-destructs 
+     after a custom duration (e.g. 10s, 30s, 1m, 5m).
+   Example:
+     ,selfdestruct 10s hello
+     /selfdestruct duration:10s message:hello
+
 ================================================================================
 STEP-BY-STEP EXAMPLES & USE CASES
 ================================================================================

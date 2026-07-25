@@ -557,6 +557,47 @@ class AutoDeleteEngine(commands.Cog):
                 except Exception:
                     pass
 
+    @commands.hybrid_command(
+        name="selfdestruct", 
+        aliases=["sd", "timedmsg"], 
+        description="Send a message that automatically self-destructs after a specified duration."
+    )
+    async def selfdestruct(
+        self,
+        ctx: commands.Context,
+        duration: str,
+        *,
+        message: str
+    ):
+        sec = parse_duration_to_seconds(duration)
+        if sec is None or sec <= 0:
+            return await ctx.send("❌ **Invalid duration format.** Use e.g. `10s`, `30s`, `1m`, `5m`, `1h`.", ephemeral=True)
+
+        if sec > 86400:
+            return await ctx.send("❌ **Self-destruct duration cannot exceed 24 hours (24h).**", ephemeral=True)
+
+        dur_text = format_seconds_to_duration(sec)
+        
+        if ctx.interaction:
+            await ctx.defer(ephemeral=True)
+        elif ctx.message:
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
+        sent_msg = await ctx.channel.send(f"{message}\n\n*⏱️ This message will self-destruct in {dur_text}.*")
+
+        if ctx.interaction:
+            await ctx.send(f"✧ **Self-destruct message sent in {ctx.channel.mention}** (timer: `{dur_text}`).", ephemeral=True)
+
+        await asyncio.sleep(sec)
+        try:
+            await sent_msg.delete()
+        except:
+            pass
+
 async def setup(bot):
     if "AutoDeleteEngine" not in bot.cogs:
         await bot.add_cog(AutoDeleteEngine(bot))
+
