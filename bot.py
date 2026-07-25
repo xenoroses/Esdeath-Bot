@@ -179,6 +179,14 @@ class HyacineBot(commands.AutoShardedBot):
 
     async def on_ready(self):
         logging.info(f"SUCCESS: {self.user} is online via Autonomous Relay.")
+        # Automatic Guild Command Cleanup: Clear leftover guild-level tree overrides to prevent duplicate slash commands in Discord UI
+        for guild in self.guilds:
+            try:
+                self.tree.clear_commands(guild=guild)
+                await self.tree.sync(guild=guild)
+                logging.info(f"Purged guild command overrides for {guild.name} ({guild.id}) - 0 duplicates.")
+            except Exception as e:
+                logging.warning(f"Could not purge guild tree for {guild.id}: {e}")
 
 # --- 5. STARTUP ---
 async def main():
