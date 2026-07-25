@@ -1,22 +1,18 @@
-# CLUB EROTIC REGULATIONS - Stellar Symphony Edition
+# STELLAR SYMPHONY COMMUNITY REGULATIONS - 100% SFW Edition
 # This file centralizes the bot's normative framework for Intelligence and Forensics.
 
 SERVER_RULES = """
-CLUB EROTIC REGULATIONS:
+STELLAR SYMPHONY COMMUNITY REGULATIONS:
 
-1. Common Sense: Not everything can be listed. If it feels questionable, ask staff first. 
-2. Adults Only: This is an 18+ server. Age verification is required if suspected of being underage.
-3. Respect: Treat everyone with respect. No harassment, excessive toxicity, or bigotry. Consent is mandatory.
-4. Channels: Keep content in the correct channels. Check pins/descriptions.
-5. Personal Content: Focus on hentai/drawn NSFW. Real porn allowed. Self-NSFW requires verification.
-6. Banned Content: 
-   - Underage/Minor content (Loli, Shota, etc.) is strictly prohibited.
-   - Bestiality/Zoophilia, Scat, Gore, Snuff, Extreme Fetish, Rape content, Blood Incest.
-   - Any content violating Discord ToS.
-7. DMs/FRs: Do not DM or friend request without consent.
-8. Advertising: No advertising other servers or selling products.
-9. Terms of Service: Follow Discord Community Guidelines at all times.
+1. 100% Safe For Work (SFW): This server is strictly 100% SFW. Absolutely no NSFW, adult, sexually explicit, suggestive, vulgar, or lewd content is permitted anywhere.
+2. Respect & Civility: Treat all members with respect. Harassment, excessive toxicity, hate speech, and bigotry are strictly prohibited.
+3. Clean Communication: Keep text, images, attachments, and conversations clean, appropriate, and family-friendly across all sectors and channels.
+4. Channel Organization: Keep discussions in their appropriate channels. Check channel topics and pinned messages for channel-specific guidelines.
+5. Privacy & DMs: Do not send unsolicited private messages or friend requests to members without prior consent.
+6. Anti-Spam & Advertising: Avoid self-promotion, advertising third-party products/servers, or spamming text and links.
+7. Discord Terms of Service: Full compliance with Discord Community Guidelines and Terms of Service is mandatory at all times.
 """
 
 def get_policy():
     return SERVER_RULES
+
