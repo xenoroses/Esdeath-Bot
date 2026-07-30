@@ -10,7 +10,7 @@ from redis_utils import rget_json, rset_json
 def parse_duration_to_seconds(duration_str: str) -> Optional[int]:
     """
     Parses human readable duration string into seconds.
-    Examples: '5m' -> 300, '1h' -> 3600, '1d' -> 86400, '1w' -> 604800, '0' -> 0.
+    Examples: '5m' -> 300, '1h' -> 3600, '2h' -> 7200, '1d' -> 86400, '1w' -> 604800, '0' -> 0.
     """
     duration_str = str(duration_str).strip().lower()
     if duration_str in ["0", "instant", "now", "off"]:
@@ -51,8 +51,8 @@ def format_seconds_to_duration(seconds: int) -> str:
 
 class AutoDeleteEngine(commands.Cog):
     """
-    Tier 3 Platform Feature: Advanced EazyAutodelete Engine.
-    High-performance, multi-filter, custom-duration message autodelete system.
+    Member & User-Focused AutoDelete Engine.
+    High-performance channel post cleanup and member self-service personal message deletion system.
     """
     def __init__(self, bot):
         self.bot = bot
@@ -98,11 +98,11 @@ class AutoDeleteEngine(commands.Cog):
         if not config:
             return {
                 "enabled": False,
-                "duration_seconds": 300, # Default 5 mins
-                "filter_mode": "all",    # all, links, media, text, bots, humans, mentions, contains, not_contains
+                "duration_seconds": 3600, # Default 1 hour
+                "filter_mode": "all",      # all, links, media, text, bots, humans, mentions, contains, not_contains
                 "specific_text": None,
                 "exempt_pinned": True,
-                "exempt_bots": False,
+                "exempt_bots": True,       # Member-focused default: Protect bot messages
                 "exempt_admins": True,
                 "exempt_roles": [],
                 "target_roles": [],
@@ -116,7 +116,6 @@ class AutoDeleteEngine(commands.Cog):
         key = f"autodelete:config:{guild_id}:{channel_id}"
         await rset_json(self.bot, key, config)
         
-        # Update guild registry set
         reg_key = f"autodelete:channels:{guild_id}"
         channels = await rget_json(self.bot, reg_key) or []
         if config.get("enabled") and channel_id not in channels:
@@ -126,6 +125,32 @@ class AutoDeleteEngine(commands.Cog):
             channels.remove(channel_id)
             await rset_json(self.bot, reg_key, channels)
 
+    async def get_user_config(self, guild_id: int, user_id: int) -> dict:
+        key = f"autodelete:user:{guild_id}:{user_id}"
+        config = await rget_json(self.bot, key)
+        if not config:
+            return {
+                "enabled": False,
+                "duration_seconds": 7200, # Default 2 hours
+                "media_only": False,      # False = all user posts, True = images/media only
+                "channel_id": None        # None = all channels in server
+            }
+        return config
+
+    async def save_user_config(self, guild_id: int, user_id: int, config: dict):
+        key = f"autodelete:user:{guild_id}:{user_id}"
+        await rset_json(self.bot, key, config)
+        
+        reg_key = f"autodelete:users:{guild_id}"
+        users = await rget_json(self.bot, reg_key) or []
+        if config.get("enabled") and user_id not in users:
+            users.append(user_id)
+            await rset_json(self.bot, reg_key, users)
+        elif not config.get("enabled") and user_id in users:
+            if user_id in users:
+                users.remove(user_id)
+            await rset_json(self.bot, reg_key, users)
+
     def should_delete_message(self, message: discord.Message, config: dict) -> bool:
         if not config.get("enabled"):
             return False
@@ -134,12 +159,12 @@ class AutoDeleteEngine(commands.Cog):
         if config.get("exempt_pinned", True) and message.pinned:
             return False
 
-        # Bot Check
+        # Bot Check (Default exempt_bots=True to focus on member messages)
         if message.author.bot:
-            if config.get("exempt_bots", False):
+            if config.get("exempt_bots", True):
                 return False
         else:
-            # Admin check for humans
+            # Admin check for human members
             if config.get("exempt_admins", True) and isinstance(message.author, discord.Member):
                 if message.author.guild_permissions.administrator or message.author.guild_permissions.manage_guild:
                     return False
@@ -189,13 +214,125 @@ class AutoDeleteEngine(commands.Cog):
 
         return True
 
-    @commands.hybrid_group(name="autodelete", aliases=["autoclean", "ad"], description="Advanced customizable message auto-delete engine.")
-    @commands.has_permissions(manage_messages=True)
+    def should_delete_user_message(self, message: discord.Message, user_config: dict) -> bool:
+        """Determines if a message should be deleted based on a user's personal self-autodelete settings."""
+        if not user_config.get("enabled"):
+            return False
+        if message.author.bot:
+            return False
+        if message.pinned:
+            return False
+
+        target_ch_id = user_config.get("channel_id")
+        if target_ch_id and message.channel.id != target_ch_id:
+            return False
+
+        if user_config.get("media_only"):
+            return len(message.attachments) > 0 or len(message.embeds) > 0
+
+        return True
+
+    @commands.hybrid_group(name="autodelete", aliases=["autoclean", "ad"], description="Member and channel auto-delete engine.")
     async def autodelete_group(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
 
-    @autodelete_group.command(name="setup", description="Quickly setup auto-delete for a channel.")
+    # --- PERSONAL MEMBER SELF-SERVICE AUTODELETE ---
+
+    @autodelete_group.group(name="me", invoke_without_command=True, description="Manage personal auto-delete settings for your own messages.")
+    async def autodelete_me(self, ctx: commands.Context, duration_or_action: Optional[str] = None, media_only: bool = False, channel: Optional[discord.TextChannel] = None):
+        """
+        Self-service command for members to automatically delete their own messages or images after a set duration.
+        Examples:
+          ,autodelete me 2h
+          ,autodelete me 1d True #media-share
+          ,autodelete me off
+          ,autodelete me status
+        """
+        if ctx.invoked_subcommand is not None:
+            return
+
+        if not duration_or_action:
+            return await self.autodelete_me_status(ctx)
+
+        action_clean = str(duration_or_action).strip().lower()
+        if action_clean in ["off", "disable", "stop"]:
+            return await self.autodelete_me_off(ctx)
+        elif action_clean in ["status", "info", "show"]:
+            return await self.autodelete_me_status(ctx)
+        else:
+            return await self.autodelete_me_set(ctx, duration=duration_or_action, media_only=media_only, channel=channel)
+
+    @autodelete_me.command(name="set", description="Set personal auto-delete duration for your own posted messages or images.")
+    async def autodelete_me_set(
+        self,
+        ctx: commands.Context,
+        duration: str = "2h",
+        media_only: bool = False,
+        channel: Optional[discord.TextChannel] = None
+    ):
+        await ctx.defer(ephemeral=True)
+        sec = parse_duration_to_seconds(duration)
+        if sec is None:
+            return await ctx.send("❌ **Invalid duration format.** Examples: `15m`, `1h`, `2h`, `6h`, `12h`, `1d`, `7d`.", ephemeral=True)
+
+        config = await self.get_user_config(ctx.guild.id, ctx.author.id)
+        config["enabled"] = True
+        config["duration_seconds"] = sec
+        config["media_only"] = media_only
+        config["channel_id"] = channel.id if channel else None
+
+        await self.save_user_config(ctx.guild.id, ctx.author.id, config)
+
+        dur_text = format_seconds_to_duration(sec)
+        target_scope = channel.mention if channel else "all channels in this server"
+        filter_type = "Images & Media Only" if media_only else "All Messages"
+
+        embed = discord.Embed(
+            title="👤 𝒫ℯ𝓇𝓈ℴ𝓃𝒶𝓁 𝒜𝓊𝓉ℴ𝒟ℯ𝓁ℯ𝓉ℯ 𝒜𝒸𝓉𝒾𝓋𝒶𝓉ℯ𝒹",
+            description=f"Your personal message auto-delete is now **active**!\n\n"
+                        f"• **Duration**: `{dur_text}`\n"
+                        f"• **Filter**: `{filter_type}`\n"
+                        f"• **Scope**: {target_scope}\n\n"
+                        f"*The bot will automatically remove your posted messages after {dur_text}.*",
+            color=0x2ECC71
+        )
+        embed.set_footer(text="Use '/autodelete me off' to disable anytime.")
+        await self._send_embed(ctx, embed, ephemeral=True, fallback_text=f"Personal AutoDelete set to {dur_text}.")
+
+    @autodelete_me.command(name="off", description="Turn off your personal message auto-delete.")
+    async def autodelete_me_off(self, ctx: commands.Context):
+        await ctx.defer(ephemeral=True)
+        config = await self.get_user_config(ctx.guild.id, ctx.author.id)
+        config["enabled"] = False
+        await self.save_user_config(ctx.guild.id, ctx.author.id, config)
+        await ctx.send("✧ **Your personal auto-delete has been turned off.**", ephemeral=True)
+
+    @autodelete_me.command(name="status", description="Display your current personal message auto-delete settings.")
+    async def autodelete_me_status(self, ctx: commands.Context):
+        await ctx.defer(ephemeral=True)
+        config = await self.get_user_config(ctx.guild.id, ctx.author.id)
+
+        status = "Active ✧" if config.get("enabled") else "Disabled ⌬"
+        dur_text = format_seconds_to_duration(config.get("duration_seconds", 7200))
+        filter_type = "Images & Media Only" if config.get("media_only") else "All Messages"
+        scope = f"<#{config.get('channel_id')}>" if config.get("channel_id") else "All Server Channels"
+
+        embed = discord.Embed(
+            title=f"👤 𝒫ℯ𝓇𝓈ℴ𝓃𝒶𝓁 𝒜𝓊𝓉ℴ𝒟ℯ𝓁ℯ𝓉ℯ 𝒮𝓉𝒶𝓉𝓊𝓈 — {ctx.author.display_name}",
+            color=0x3498DB
+        )
+        embed.add_field(name="Status", value=f"**{status}**", inline=True)
+        embed.add_field(name="Duration", value=f"`{dur_text}`", inline=True)
+        embed.add_field(name="Filter", value=f"`{filter_type}`", inline=True)
+        embed.add_field(name="Scope", value=scope, inline=False)
+
+        embed.set_footer(text="Use '/autodelete me set' to update or '/autodelete me off' to disable.")
+        await self._send_embed(ctx, embed, ephemeral=True, fallback_text=f"Personal AutoDelete Status: {status}, {dur_text}.")
+
+    # --- ADMIN CHANNEL AUTODELETE COMMANDS ---
+
+    @autodelete_group.command(name="setup", description="Quickly setup auto-delete for member posts in a channel.")
     @commands.has_permissions(manage_messages=True)
     async def autodelete_setup(
         self,
@@ -209,26 +346,28 @@ class AutoDeleteEngine(commands.Cog):
         ch = channel or ctx.channel
         sec = parse_duration_to_seconds(duration)
         if sec is None:
-            return await ctx.send("❌ **Invalid duration format.** Use e.g. `5m`, `1h`, `24h`, `1d`, `7d`, or `0` for instant.", ephemeral=True)
+            return await ctx.send("❌ **Invalid duration format.** Use e.g. `5m`, `1h`, `2h`, `24h`, `1d`, `7d`, or `0` for instant.", ephemeral=True)
 
         config = await self.get_channel_config(ctx.guild.id, ch.id)
         config["enabled"] = True
         config["duration_seconds"] = sec
         config["filter_mode"] = filter_mode
         config["exempt_pinned"] = exempt_pinned
+        config["exempt_bots"] = True # Member-focused default
 
         await self.save_channel_config(ctx.guild.id, ch.id, config)
 
         dur_text = format_seconds_to_duration(sec)
         embed = discord.Embed(
             title="⚙️ 𝒜𝓊𝓉ℴ𝒟ℯ𝓁ℯ𝓉ℯ 𝒞ℴ𝓃𝒻𝒾𝑔𝓊𝓇ℯ𝒹",
-            description=f"Auto-delete successfully activated for {ch.mention}.\n\n"
+            description=f"Auto-delete for member posts successfully activated for {ch.mention}.\n\n"
                         f"• **Duration / Interval**: `{dur_text}`\n"
                         f"• **Content Filter**: `{filter_mode}`\n"
-                        f"• **Exempt Pinned**: `{'Yes' if exempt_pinned else 'No'}`",
+                        f"• **Exempt Pinned**: `{'Yes' if exempt_pinned else 'No'}`\n"
+                        f"• **Exempt Bots**: `Yes (Default)`",
             color=0x2ECC71
         )
-        embed.set_footer(text="Engine: Hyacine EazyAutodelete Architecture")
+        embed.set_footer(text="Engine: Member-Focused AutoDelete Architecture")
         await self._send_embed(ctx, embed, fallback_text=f"Auto-delete configured for {ch.name}.")
 
     @autodelete_group.command(name="config", description="Display auto-delete configuration for a channel.")
@@ -239,7 +378,7 @@ class AutoDeleteEngine(commands.Cog):
         config = await self.get_channel_config(ctx.guild.id, ch.id)
 
         status = "Active ✧" if config.get("enabled") else "Disabled ⌬"
-        dur_text = format_seconds_to_duration(config.get("duration_seconds", 300))
+        dur_text = format_seconds_to_duration(config.get("duration_seconds", 3600))
 
         exempt_roles = [f"<@&{rid}>" for rid in config.get("exempt_roles", [])]
         target_roles = [f"<@&{rid}>" for rid in config.get("target_roles", [])]
@@ -257,7 +396,7 @@ class AutoDeleteEngine(commands.Cog):
             embed.add_field(name="Target Query Text", value=f"`{config.get('specific_text')}`", inline=False)
 
         embed.add_field(name="Exempt Pinned", value=f"`{config.get('exempt_pinned', True)}`", inline=True)
-        embed.add_field(name="Exempt Bots", value=f"`{config.get('exempt_bots', False)}`", inline=True)
+        embed.add_field(name="Exempt Bots", value=f"`{config.get('exempt_bots', True)}`", inline=True)
         embed.add_field(name="Exempt Admins", value=f"`{config.get('exempt_admins', True)}`", inline=True)
 
         embed.add_field(name="Exempt Roles", value=", ".join(exempt_roles) if exempt_roles else "*None*", inline=False)
@@ -267,14 +406,14 @@ class AutoDeleteEngine(commands.Cog):
         embed.set_footer(text="Use /autodelete options or /autodelete roles to customize.")
         await self._send_embed(ctx, embed, fallback_text=f"AutoDelete Config for #{ch.name}: {status}, {dur_text}.")
 
-    @autodelete_group.command(name="duration", description="Set deletion delay interval (e.g. 5m, 1h, 1d, 7d).")
+    @autodelete_group.command(name="duration", description="Set deletion delay interval (e.g. 5m, 1h, 2h, 24h, 1d, 7d).")
     @commands.has_permissions(manage_messages=True)
     async def autodelete_duration(self, ctx: commands.Context, duration: str, channel: Optional[discord.TextChannel] = None):
         await ctx.defer()
         ch = channel or ctx.channel
         sec = parse_duration_to_seconds(duration)
         if sec is None:
-            return await ctx.send("❌ **Invalid duration format.** Use e.g. `5m`, `15m`, `1h`, `24h`, `1d`, `7d`, or `0`.", ephemeral=True)
+            return await ctx.send("❌ **Invalid duration format.** Use e.g. `5m`, `15m`, `1h`, `2h`, `24h`, `1d`, `7d`, or `0`.", ephemeral=True)
 
         config = await self.get_channel_config(ctx.guild.id, ch.id)
         config["duration_seconds"] = sec
@@ -421,7 +560,7 @@ class AutoDeleteEngine(commands.Cog):
                 continue
             cfg = await self.get_channel_config(ctx.guild.id, cid)
             if cfg.get("enabled"):
-                dur_text = format_seconds_to_duration(cfg.get("duration_seconds", 300))
+                dur_text = format_seconds_to_duration(cfg.get("duration_seconds", 3600))
                 embed.add_field(
                     name=f"#{ch.name}",
                     value=f"• **Duration**: `{dur_text}`\n• **Filter**: `{cfg.get('filter_mode', 'all')}`",
@@ -448,9 +587,11 @@ class AutoDeleteEngine(commands.Cog):
         purged_count = await self.run_channel_purge(ch, config)
         await ctx.send(f"✧ **Manual purge complete:** Removed **{purged_count}** expired messages from {ch.mention}.", ephemeral=True)
 
+    # --- PURGE WORKERS ---
+
     async def run_channel_purge(self, channel: discord.TextChannel, config: dict) -> int:
-        """Core purge execution for a single channel."""
-        duration = config.get("duration_seconds", 300)
+        """Core purge execution for a single channel's active rules."""
+        duration = config.get("duration_seconds", 3600)
         if duration <= 0:
             return 0 # Instant mode handled by on_message
 
@@ -469,33 +610,7 @@ class AutoDeleteEngine(commands.Cog):
         if not to_delete:
             return 0
 
-        purged = 0
-        try:
-            # Split messages into bulk (<= 14 days old) and single deletes (> 14 days old)
-            fourteen_days_ago = datetime.now(timezone.utc) - timedelta(days=14)
-            bulk_msgs = [m for m in to_delete if m.created_at > fourteen_days_ago]
-            old_msgs = [m for m in to_delete if m.created_at <= fourteen_days_ago]
-
-            if bulk_msgs:
-                if len(bulk_msgs) == 1:
-                    await bulk_msgs[0].delete()
-                    purged += 1
-                else:
-                    deleted = await channel.purge(bulk=True, check=lambda m: m.id in [x.id for x in bulk_msgs])
-                    purged += len(deleted)
-
-            for m in old_msgs:
-                try:
-                    await m.delete()
-                    purged += 1
-                    await asyncio.sleep(0.5)
-                except Exception:
-                    pass
-
-        except discord.Forbidden:
-            pass
-        except Exception:
-            pass
+        purged = await self._delete_messages_bulk_safe(channel, to_delete)
 
         if purged > 0 and config.get("log_channel_id"):
             log_ch = channel.guild.get_channel(config["log_channel_id"])
@@ -512,11 +627,80 @@ class AutoDeleteEngine(commands.Cog):
 
         return purged
 
+    async def run_user_purge(self, guild: discord.Guild, user_id: int, user_config: dict) -> int:
+        """Core purge execution for a member's personal self-autodelete settings."""
+        duration = user_config.get("duration_seconds", 7200)
+        if duration <= 0:
+            return 0
+
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=duration)
+        target_ch_id = user_config.get("channel_id")
+        
+        channels_to_scan = []
+        if target_ch_id:
+            ch = guild.get_channel(target_ch_id)
+            if ch and isinstance(ch, discord.TextChannel):
+                channels_to_scan.append(ch)
+        else:
+            channels_to_scan = [c for c in guild.text_channels if isinstance(c, discord.TextChannel)]
+
+        total_purged = 0
+        for channel in channels_to_scan:
+            to_delete = []
+            try:
+                async for message in channel.history(limit=100, before=cutoff):
+                    if message.author.id == user_id and self.should_delete_user_message(message, user_config):
+                        to_delete.append(message)
+                        if len(to_delete) >= 50:
+                            break
+            except Exception:
+                continue
+
+            if to_delete:
+                purged = await self._delete_messages_bulk_safe(channel, to_delete)
+                total_purged += purged
+
+        return total_purged
+
+    async def _delete_messages_bulk_safe(self, channel: discord.TextChannel, messages: list) -> int:
+        """Helper to bulk delete messages <= 14 days old and individually delete older ones."""
+        if not messages:
+            return 0
+
+        purged = 0
+        try:
+            fourteen_days_ago = datetime.now(timezone.utc) - timedelta(days=14)
+            bulk_msgs = [m for m in messages if m.created_at > fourteen_days_ago]
+            old_msgs = [m for m in messages if m.created_at <= fourteen_days_ago]
+
+            if bulk_msgs:
+                if len(bulk_msgs) == 1:
+                    await bulk_msgs[0].delete()
+                    purged += 1
+                else:
+                    deleted = await channel.purge(bulk=True, check=lambda m: m.id in [x.id for x in bulk_msgs])
+                    purged += len(deleted)
+
+            for m in old_msgs:
+                try:
+                    await m.delete()
+                    purged += 1
+                    await asyncio.sleep(0.5)
+                except Exception:
+                    pass
+        except discord.Forbidden:
+            pass
+        except Exception:
+            pass
+
+        return purged
+
     @tasks.loop(seconds=30)
     async def autodelete_loop(self):
-        """Background worker scanning active auto-delete channels."""
+        """Background worker scanning active auto-delete channels and user settings."""
         for guild in self.bot.guilds:
             try:
+                # 1. Channel level auto-deletions
                 reg_key = f"autodelete:channels:{guild.id}"
                 channel_ids = await rget_json(self.bot, reg_key) or []
                 for cid in channel_ids:
@@ -524,9 +708,19 @@ class AutoDeleteEngine(commands.Cog):
                     if not ch or not isinstance(ch, discord.TextChannel):
                         continue
                     config = await self.get_channel_config(guild.id, cid)
-                    if config.get("enabled") and config.get("duration_seconds", 300) > 0:
+                    if config.get("enabled") and config.get("duration_seconds", 3600) > 0:
                         await self.run_channel_purge(ch, config)
-                        await asyncio.sleep(1)
+                        await asyncio.sleep(0.5)
+
+                # 2. Member personal auto-deletions
+                user_reg_key = f"autodelete:users:{guild.id}"
+                user_ids = await rget_json(self.bot, user_reg_key) or []
+                for uid in user_ids:
+                    ucfg = await self.get_user_config(guild.id, uid)
+                    if ucfg.get("enabled") and ucfg.get("duration_seconds", 7200) > 0:
+                        await self.run_user_purge(guild, uid, ucfg)
+                        await asyncio.sleep(0.5)
+
             except Exception:
                 pass
 
@@ -536,10 +730,11 @@ class AutoDeleteEngine(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        """Instant deletion enforcement for duration=0 mode."""
+        """Instant deletion enforcement for duration=0 mode (channel or user)."""
         if not message.guild or not isinstance(message.channel, discord.TextChannel):
             return
 
+        # 1. Instant Channel Rule
         config = await self.get_channel_config(message.guild.id, message.channel.id)
         if config.get("enabled") and config.get("duration_seconds") == 0:
             if self.should_delete_message(message, config):
@@ -554,8 +749,19 @@ class AutoDeleteEngine(commands.Cog):
                                 color=0xE74C3C
                             )
                             await self._send_embed(log_ch, embed)
+                    return
                 except Exception:
                     pass
+
+        # 2. Instant User Personal Rule
+        if not message.author.bot:
+            ucfg = await self.get_user_config(message.guild.id, message.author.id)
+            if ucfg.get("enabled") and ucfg.get("duration_seconds") == 0:
+                if self.should_delete_user_message(message, ucfg):
+                    try:
+                        await message.delete()
+                    except Exception:
+                        pass
 
     @commands.hybrid_command(
         name="selfdestruct", 
@@ -600,4 +806,3 @@ class AutoDeleteEngine(commands.Cog):
 async def setup(bot):
     if "AutoDeleteEngine" not in bot.cogs:
         await bot.add_cog(AutoDeleteEngine(bot))
-

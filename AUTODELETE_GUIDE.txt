@@ -1,29 +1,32 @@
 ================================================================================
-           HYACINE BOT - ADVANCED AUTODELETE ENGINE USER GUIDE
-                    (EazyAutodelete Architecture Parity)
+           HYACINE BOT - MEMBER & USER-FOCUSED AUTODELETE ENGINE USER GUIDE
+                     (EazyAutodelete & Personal AutoDelete Architecture)
 ================================================================================
 
 OVERVIEW:
 --------------------------------------------------------------------------------
 The Hyacine AutoDelete Engine is a high-density, multi-filter, custom-duration
-message cleanup system designed to mirror and expand upon the core features of 
-EazyAutodelete (https://eazyautodelete.xyz/en).
+message cleanup system designed specifically for members and server users.
+
+Whether you want to automatically clean up member image uploads/messages in a 
+channel after a few hours, or allow members to set a personal auto-delete timer 
+for their own posts, Hyacine handles it seamlessly.
 
 Key Highlights:
-- UNLIMITED CHANNELS: Configure independent auto-delete rules across any number 
-  of text channels in your server for free.
-- FLEXIBLE DURATIONS: Set durations ranging from 5 minutes, 15 minutes, 1 hour, 
-  12 hours, 24 hours (1 day), up to 1 week, custom seconds/minutes/hours/days, 
-  or 0 for Instant Deletion.
-- RICH FILTERS: Delete all messages or selectively filter by links, media/embeds, 
-  plain text, bot messages, human messages, user/role/@everyone mentions, or 
-  specific keyword/phrase matching.
+- MEMBER POST CLEANUP: Automatically deletes member messages, images, media 
+  uploads, or links after a specified duration (e.g. 2 hours, 6 hours, 24 hours).
+- BOT PROTECTION BY DEFAULT: Bot system posts and administrative logs are protected 
+  by default so channel cleanup focuses on user content.
+- PERSONAL SELF-SERVICE AUTODELETE (/autodelete me): Every server member can set 
+  their own personal auto-delete timer for their messages or images across channels.
+- FLEXIBLE DURATIONS: Set durations ranging from 5m, 15m, 1h, 2h, 6h, 12h, 24h (1d),
+  up to 1w, or 0 for Instant Deletion.
+- RICH CONTENT FILTERS: Filter by all member messages, media/images only, links, 
+  plain text, mentions, or specific keyword matching.
 - ROLE & USER RULES: Add exempt roles/users (messages never deleted) or target 
-  roles/users (only messages from specified roles/users deleted).
-- SAFEGUARDS: Pinned message protection enabled by default, optional bot 
-  exemption, and staff/administrator protection.
-- DUAL PROCESSING ENGINES: Periodic 30-second background worker loop + real-time
-  instant event listener for 0-second duration enforcement.
+  roles/users (only messages from specified roles deleted).
+- SAFEGUARDS: Pinned message protection enabled by default, bot protection, 
+  and staff/administrator protection options.
 - AUDIT LOGGING: Route deletion logs and purges to a dedicated audit channel.
 
 ================================================================================
@@ -33,166 +36,173 @@ COMMAND REFERENCE & SYNTAX
 Both Slash Commands (`/autodelete <subcommand>`) and Prefix Commands 
 (`,autodelete <subcommand>`, `,autoclean`, `,ad`) are supported.
 
-1. QUICK SETUP
-   Slash:  /autodelete setup [channel] [duration] [filter_mode] [exempt_pinned]
-   Prefix: ,autodelete setup #general 1h links True
-   Description:
-     Activates auto-delete for a channel in a single command.
+--------------------------------------------------------------------------------
+1. PERSONAL MEMBER SELF-SERVICE AUTODELETE COMMANDS (For All Members)
+--------------------------------------------------------------------------------
 
-2. VIEW CONFIGURATION
-   Slash:  /autodelete config [channel]
-   Prefix: ,autodelete config #general
-   Description:
-     Displays the complete specification card for a channel (status, interval,
-     active filter, target text, role rules, and log channel).
+- TURN ON PERSONAL AUTODELETE:
+  Slash:  /autodelete me set [duration] [media_only] [channel]
+  Prefix: ,autodelete me 2h
+          ,autodelete me 6h True #media-gallery
+  Description:
+    Enables automatic deletion for your own posted messages or images after 
+    a set duration (e.g., 2 hours).
 
-3. SET DURATION / INTERVAL
-   Slash:  /autodelete duration [duration] [channel]
-   Prefix: ,autodelete duration 24h #media-gallery
-   Description:
-     Updates the message expiration timer. Valid inputs:
-     - '5m'   : 5 minutes
-     - '15m'  : 15 minutes
-     - '1h'   : 1 hour
-     - '6h'   : 6 hours
-     - '12h'  : 12 hours
-     - '24h' or '1d' : 24 hours / 1 day
-     - '3d'   : 3 days
-     - '7d' or '1w' : 7 days / 1 week
-     - '0' or 'instant' : Deletes matching messages instantly upon send
+- TURN OFF PERSONAL AUTODELETE:
+  Slash:  /autodelete me off
+  Prefix: ,autodelete me off
+  Description:
+    Disables your personal message auto-delete.
 
-4. SET CONTENT FILTER
-   Slash:  /autodelete filter [mode] [specific_text] [channel]
-   Prefix: ,autodelete filter links #announcements
-   Description:
-     Sets what message types get deleted. Available modes:
-     - all          : Deletes ALL messages matching criteria after duration.
-     - links        : Deletes ONLY messages containing HTTP/HTTPS URLs.
-     - media        : Deletes ONLY messages with file attachments or embeds.
-     - text         : Deletes ONLY plain text messages (no links or media).
-     - bots         : Deletes ONLY messages sent by bot accounts.
-     - humans       : Deletes ONLY messages sent by human members.
-     - mentions     : Deletes ONLY messages containing user, role, or @everyone mentions.
-     - contains     : Deletes ONLY messages containing specific keyword/phrase.
-     - not_contains : Deletes ONLY messages NOT containing specific keyword/phrase.
+- VIEW PERSONAL STATUS:
+  Slash:  /autodelete me status
+  Prefix: ,autodelete me status
+  Description:
+    Displays your current personal message auto-delete settings.
 
-5. MANAGE ROLE RULES
-   Slash:  /autodelete roles [action] [role] [channel]
-   Prefix: ,autodelete roles exempt @VIP #general
-   Description:
-     Manages role exemptions and target role filters. Actions:
-     - exempt        : Adds role to exemption list (messages are NEVER deleted).
-     - target        : Adds role to target list (ONLY messages from this role deleted).
-     - remove_exempt : Removes role from exemption list.
-     - remove_target : Removes role from target list.
-     - clear         : Clears all role rules for the channel.
+--------------------------------------------------------------------------------
+2. ADMIN CHANNEL AUTODELETE COMMANDS (Requires Manage Messages Permission)
+--------------------------------------------------------------------------------
 
-6. TOGGLE OPTIONS & SAFEGUARDS
-   Slash:  /autodelete options [exempt_pinned] [exempt_bots] [exempt_admins] [channel]
-   Prefix: ,autodelete options True False True #general
-   Description:
-     - exempt_pinned : Preserve pinned messages (default True).
-     - exempt_bots   : Protect bot messages from deletion (default False).
-     - exempt_admins : Protect administrators/staff from deletion (default True).
+- QUICK SETUP FOR CHANNEL:
+  Slash:  /autodelete setup [channel] [duration] [filter_mode] [exempt_pinned]
+  Prefix: ,autodelete setup #media-share 2h media True
+  Description:
+    Activates auto-delete for member posts in a channel in a single command.
 
-7. AUDIT LOGGING
-   Slash:  /autodelete logchannel [log_channel] [channel]
-   Prefix: ,autodelete logchannel #mod-logs #general
-   Description:
-     Designates a channel where auto-deletion activity logs and summaries are sent.
+- VIEW CHANNEL CONFIGURATION:
+  Slash:  /autodelete config [channel]
+  Prefix: ,autodelete config #general
+  Description:
+    Displays the channel specification card (status, interval, active filter, 
+    role rules, and log channel).
 
-8. ON-DEMAND PROCESS / PURGE
-   Slash:  /autodelete process [channel]
-   Prefix: ,autodelete process #general
-   Description:
-     Manually triggers an immediate scan and purge cycle for expired messages.
+- SET DURATION / INTERVAL:
+  Slash:  /autodelete duration [duration] [channel]
+  Prefix: ,autodelete duration 6h #media-gallery
+  Description:
+    Updates message expiration timer. Valid inputs:
+    - '15m' : 15 minutes
+    - '1h'  : 1 hour
+    - '2h'  : 2 hours
+    - '6h'  : 6 hours
+    - '12h' : 12 hours
+    - '24h' or '1d' : 24 hours / 1 day
+    - '3d'  : 3 days
+    - '7d' or '1w' : 7 days / 1 week
+    - '0' or 'instant' : Deletes matching messages instantly upon send
 
-9. DISABLE AUTODELETE
-   Slash:  /autodelete disable [channel]
-   Prefix: ,autodelete disable #general
-   Description:
-     Deactivates auto-deletion for the specified channel without wiping settings.
+- SET CONTENT FILTER:
+  Slash:  /autodelete filter [mode] [specific_text] [channel]
+  Prefix: ,autodelete filter media #pics
+  Description:
+    Sets what message types get deleted. Available modes:
+    - all          : Deletes ALL member messages matching criteria after duration.
+    - media        : Deletes ONLY messages with image/video attachments or embeds.
+    - links        : Deletes ONLY messages containing HTTP/HTTPS URLs.
+    - text         : Deletes ONLY plain text messages (no links or media).
+    - bots         : Deletes ONLY messages sent by bot accounts.
+    - humans       : Deletes ONLY messages sent by human members.
+    - mentions     : Deletes ONLY messages containing user, role, or @everyone mentions.
+    - contains     : Deletes ONLY messages containing specific keyword/phrase.
+    - not_contains : Deletes ONLY messages NOT containing specific keyword/phrase.
 
-10. LIST ACTIVE CHANNELS
-   Slash:  /autodelete list
-   Prefix: ,autodelete list
-   Description:
-     Lists all active auto-delete channels in the server with their durations and filters.
+- MANAGE ROLE RULES:
+  Slash:  /autodelete roles [action] [role] [channel]
+  Prefix: ,autodelete roles exempt @VIP #general
+  Description:
+    Manages role exemptions and target role filters (exempt, target, remove_exempt, 
+    remove_target, clear).
 
-11. SELF-DESTRUCT SINGLE MESSAGE COMMAND
-   Slash:  /selfdestruct [duration] [message]
-   Prefix: ,selfdestruct [duration] [message] (aliases: ,sd, ,timedmsg)
-   Description:
-     Sends a single message into the current channel that automatically self-destructs 
-     after a custom duration (e.g. 10s, 30s, 1m, 5m).
-   Example:
-     ,selfdestruct 10s hello
-     /selfdestruct duration:10s message:hello
+- TOGGLE OPTIONS & SAFEGUARDS:
+  Slash:  /autodelete options [exempt_pinned] [exempt_bots] [exempt_admins] [channel]
+  Prefix: ,autodelete options True True True #general
+  Description:
+    - exempt_pinned : Preserve pinned messages (default True).
+    - exempt_bots   : Protect bot messages from deletion (default True).
+    - exempt_admins : Protect administrators/staff from deletion (default True).
+
+- AUDIT LOGGING:
+  Slash:  /autodelete logchannel [log_channel] [channel]
+  Prefix: ,autodelete logchannel #mod-logs #general
+  Description:
+    Designates a channel where auto-deletion activity logs are routed.
+
+- ON-DEMAND PROCESS / PURGE:
+  Slash:  /autodelete process [channel]
+  Prefix: ,autodelete process #general
+  Description:
+    Manually triggers an immediate scan and purge cycle for expired messages.
+
+- DISABLE CHANNEL AUTODELETE:
+  Slash:  /autodelete disable [channel]
+  Prefix: ,autodelete disable #general
+  Description:
+    Deactivates auto-deletion for the specified channel without wiping settings.
+
+- LIST ACTIVE CHANNELS:
+  Slash:  /autodelete list
+  Prefix: ,autodelete list
+  Description:
+    Lists all active auto-delete channels in the server.
+
+- SELF-DESTRUCT SINGLE MESSAGE COMMAND:
+  Slash:  /selfdestruct [duration] [message]
+  Prefix: ,selfdestruct 10s hello (aliases: ,sd, ,timedmsg)
+  Description:
+    Sends a single message that automatically self-destructs after a custom duration.
 
 ================================================================================
 STEP-BY-STEP EXAMPLES & USE CASES
 ================================================================================
 
-USE CASE A: Temporary Media / Screenshot Channel (Keep for 1 hour)
+USE CASE A: Member Image / Media Channel (Deletes images after 2 hours)
 --------------------------------------------------------------------------------
-Goal: Auto-delete all images and attachments in #media-share after 1 hour, but 
-keep pinned guidelines intact.
+Goal: Members post photos/images in #selfies or #media, and after 2 hours the bot 
+automatically deletes the posts.
 
 Commands:
-  /autodelete setup channel:#media-share duration:1h filter_mode:media exempt_pinned:True
+  /autodelete setup channel:#selfies duration:2h filter_mode:media exempt_pinned:True
 
 Result:
-  Messages with attachments or embeds older than 1 hour are automatically purged. 
-  Pinned posts remain protected.
+  Member images and attachments older than 2 hours are purged automatically. 
+  Pinned posts and bot messages remain protected.
 
 
-USE CASE B: Self-Cleaning Chatroom (24-Hour Rolling Window)
+USE CASE B: Personal Member Self-AutoDelete (Opt-in Timer)
 --------------------------------------------------------------------------------
-Goal: Maintain a clean general chat where messages expire after 1 day (24 hours), 
+Goal: A member wants their own messages in the server to auto-delete after 6 hours.
+
+Commands:
+  ,autodelete me 6h
+
+Result:
+  The bot monitors that member's posted messages in the server and deletes them 
+  6 hours after send time.
+
+
+USE CASE C: Temporary General Chat Cleanup (24-Hour Rolling Window)
+--------------------------------------------------------------------------------
+Goal: Maintain a clean general chat where member chat posts expire after 24 hours, 
 sparing staff members with the @Moderator role.
 
 Commands:
-  1. /autodelete setup channel:#chat duration:24h filter_mode:all
-  2. /autodelete roles action:exempt role:@Moderator channel:#chat
+  1. /autodelete setup channel:#general duration:24h filter_mode:all
+  2. /autodelete roles action:exempt role:@Moderator channel:#general
 
 Result:
-  Messages older than 24 hours are purged automatically every 30 seconds. 
+  Member messages older than 24 hours are purged automatically every 30 seconds. 
   Messages sent by members with the @Moderator role are spared.
 
-
-USE CASE C: Strictly Links-Only Channel (Instant Delete Non-Links)
---------------------------------------------------------------------------------
-Goal: Ensure #resource-links contains ONLY URLs. Instantly delete any plain text 
-or conversational messages sent without a URL.
-
-Commands:
-  /autodelete setup channel:#resource-links duration:0 filter_mode:text
-
-Result:
-  Any message sent in #resource-links that does NOT contain a link (http/https) 
-  is deleted INSTANTLY on send.
-
-
-USE CASE D: Bot Command Cleanup Channel (5-Minute Expiration)
---------------------------------------------------------------------------------
-Goal: Auto-delete bot commands and bot replies in #bot-commands after 5 minutes.
-
-Commands:
-  /autodelete setup channel:#bot-commands duration:5m filter_mode:all
-
-Result:
-  All messages in #bot-commands expire and get purged after 5 minutes.
-
 ================================================================================
-TELEMETRY & TECHNICAL SPECS
+TECHNICAL SPECS
 ================================================================================
-- Storage: Upstash Redis persistent state (`autodelete:config:{guild_id}:{channel_id}`)
+- Storage: Upstash Redis persistent state (`autodelete:config:{guild_id}:{channel_id}` and `autodelete:user:{guild_id}:{user_id}`)
 - Worker Loop: Runs asynchronously every 30 seconds (`discord.ext.tasks`).
 - Bulk Delete Handling: Automatically uses Discord API bulk delete (`purge(bulk=True)`) 
-  for messages under 14 days old, and falls back to individual deletion for older messages.
-- Rate Limit Protection: Includes standard 0.5s backoff delay between deletions for 
-  older messages to comply with Discord API limits.
+  for messages under 14 days old, and individual deletion fallback for older messages.
+- Rate Limit Protection: 0.5s backoff delay between deletions for older messages.
 
 ================================================================================
-© Hyacine Platform | Advanced AutoDelete Architecture
+© Hyacine Platform | Member & User AutoDelete Architecture
 ================================================================================
