@@ -78,7 +78,7 @@ class InfrastructureEngine(commands.Cog):
             return False
         return True
 
-    @commands.hybrid_command(name="contain", description="Soft containment mode: Limit user capabilities (links, media, mentions, emojis, stickers) aggressively.")
+    @commands.hybrid_command(name="contain", description="Soft containment mode: Limit user capabilities (links, media, mentions, emojis).")
     @commands.has_permissions(manage_messages=True)
     async def contain(self, ctx: commands.Context, user: discord.Member):
         await ctx.defer()
