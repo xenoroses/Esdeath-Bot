@@ -38,34 +38,6 @@ class FunCmds(commands.Cog):
         except:
             pass
 
-    @commands.hybrid_command(name="match", description="Calculate resonance between two users.")
-    async def match(self, ctx: commands.Context, user1: discord.Member, user2: discord.Member = None):
-        await ctx.defer()
-        user2 = user2 or ctx.author
-        score = random.randint(0, 100)
-        embed = discord.Embed(title="✧ 𝒮𝓎𝓃𝒶𝓅Ⓟ𝓉𝒾𝒸 ℳ𝒶𝓉𝒸𝒽𝓂𝒶𝓀𝒾𝓃𝑔", color=0xB19CD9)
-        embed.description = f"Overall Harmony: **{score}%**\nResonance level: Stable."
-        await self._send_embed(ctx, embed, fallback_text=f"𝒮𝓎𝓃𝒶𝓅Ⓟ𝓉𝒾𝒸 ℳ𝒶т𝒸𝒽: {user1.display_name} + {user2.display_name} = **{score}%**.")
-
-    @commands.hybrid_command(name="urban", description="Search Urban Dictionary.")
-    async def urban(self, ctx: commands.Context, *, term: str):
-        await ctx.defer()
-        async with httpx.AsyncClient() as client:
-            try:
-                resp = await client.get(f"https://api.urbandictionary.com/v0/define?term={term}")
-                data = resp.json()
-                if not data['list']: return await ctx.send("⌬ ⟡ **𝒩ℴ 𝒹ℯ𝒻𝒾𝓃𝒾𝓉𝒾ℴ𝓃 𝒻ℴ𝓊𝓃𝒹.**")
-                top = data['list'][0]
-                embed = discord.Embed(title=f"✧ 𝒰𝓇𝒷𝒶𝓃 𝒜𝓊𝒹𝒾𝓉: {term}", description=top['definition'].replace("[", "").replace("]", ""), color=0x9B59B6)
-                await self._send_embed(ctx, embed, fallback_text=f"𝒰𝓇𝒷𝒶𝓃 𝒜𝓭𝓲𝓽: {top['definition'][:200]}...")
-            except:
-                await ctx.send("⌬ ⟡ **𝒩ℯ𝓉𝓌ℴ𝓇𝓀 𝒾𝓃𝓉ℯ𝓇𝒻ℯ𝓇ℯ𝓃𝒸ℯ.**")
-
-    @commands.hybrid_command(name="poll", description="Create s simple poll.")
-    async def poll(self, ctx: commands.Context, question: str, opt1: str, opt2: str):
-        embed = discord.Embed(title="❂ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 𝒮𝓎𝓃𝒸", description=f"**{question}**\n\n1. {opt1}\n2. {opt2}", color=0xB19CD9)
-        await self._send_embed(ctx, embed, fallback_text=f"❂ **𝒫ℴ𝓁𝓁:** {question}\n1. {opt1}\n2. {opt2}")
-
     @commands.hybrid_command(name="remind", description="Set a temporal resonance alert.")
     async def remind(self, ctx: commands.Context, minutes: int, *, task: str):
         await ctx.send(f"✧ Temporal anchor set for **{minutes}m**.", ephemeral=True)

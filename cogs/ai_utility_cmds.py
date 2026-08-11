@@ -40,19 +40,6 @@ class AIUtilityCommands(commands.Cog):
         except:
             pass
 
-    @commands.hybrid_command(name="summarize", description="AI Channel Digest.")
-    @commands.has_permissions(manage_messages=True)
-    async def summarize(self, ctx: commands.Context, limit: int = 50):
-        await ctx.defer()
-        if limit > 200: return await ctx.send("⌬ ⟡ **𝒮𝓊𝓂𝓂𝒶𝓇𝒾𝓏ℯ 𝒸𝒶𝓅𝓅ℯ𝒹 𝒶𝓉 𝟤𝟢ℴ.**")
-        embed = discord.Embed(title=f"⌬ 𝒞𝒽𝒶𝓃𝓃ℯ𝓁 𝒟𝒾𝑔ℯ𝓈𝓉: #{ctx.channel.name}", description=f"Analyzed recent traffic. Status: Routine.", color=0x9B59B6)
-        await self._send_embed(ctx, embed, fallback_text=f"𝒞𝒽𝒶𝓃𝓃ℯ𝓁 𝒟𝒾𝑔ℯ𝓈𝓉 of #{ctx.channel.name} Complete.")
-
-    @commands.hybrid_command(name="policy", description="Display context-aware rules.")
-    async def policy(self, ctx: commands.Context):
-        embed = discord.Embed(title="❂ 𝒞ℴ𝓃𝓉ℯ𝓍𝓉-𝒜𝓌𝒶𝓇ℯ 𝒫ℴ𝓁𝒾𝒸𝓎", description="• Be respectful\n• No NSFW\n• Listen to staff", color=0x34495E)
-        await self._send_embed(ctx, embed, fallback_text="❂ 𝒫ℴ𝓁𝒾𝒸𝓎 Retrieval Complete.")
-
     @commands.hybrid_command(name="memory", description="AI behavioral analysis.")
     @commands.has_permissions(manage_messages=True)
     async def memory(self, ctx: commands.Context, user: discord.Member):

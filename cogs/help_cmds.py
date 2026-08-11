@@ -10,17 +10,12 @@ CATEGORY_METADATA = {
     "Sticky": {"icon": "📌", "name": "Pinned Beacons"},
     "ForceNick": {"icon": "⌬", "name": "Identity Lock"},
     "AFK": {"icon": "🌙", "name": "Dormancy Protocol"},
-    "Trust": {"icon": "⟡", "name": "Harmony Network"},
-    "SmartPurge": {"icon": "🧹", "name": "Vaporization"},
     "AIUtility": {"icon": "🤖", "name": "Simulated Intelligence"},
-    "Workflow": {"icon": "⚙️", "name": "Automation Gates"},
+    "Impersonator": {"icon": "🎭", "name": "Identity Shift"},
+    "AutoDelete": {"icon": "🧹", "name": "Auto Deletion"},
     "Help": {"icon": "❓", "name": "Assistance"},
-    "Intelligence": {"icon": "⌬", "name": "Cognitive Research"},
     "Infrastructure": {"icon": "⚙️", "name": "System Foundation"},
     "Observability": {"icon": "⌬", "name": "Void Telemetry"},
-    "Prestige": {"icon": "✵", "name": "Ascension Lineage"},
-    "Social": {"icon": "✾", "name": "Social Tides"},
-    "Lore": {"icon": "❂", "name": "Memory Garden Records"},
     "Miscellaneous": {"icon": "✤", "name": "Echoes of Void"}
 }
 

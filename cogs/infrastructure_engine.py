@@ -141,36 +141,6 @@ class InfrastructureEngine(commands.Cog):
                 await self._send_embed(message.channel, report, fallback_text=f"{message.author.mention}, action intercepted: **{violation}**")
             except: pass
 
-    @commands.hybrid_command(name="forensics", description="Deep moderation audit for a user.")
-    @commands.has_permissions(moderate_members=True)
-    async def forensics(self, ctx: commands.Context, user: discord.Member):
-        await ctx.defer()
-        try:
-            embed = discord.Embed(title=f"𖦹 𝒟ℯℯ𝓅 𝒜𝓊𝒹𝒾𝓉 𝒜𝓇𝒸𝒽𝒾𝓋ℯ: {user.display_name}", description="Analysis complete. Vitals: Stable.", color=0x9B59B6)
-            await self._send_embed(ctx, embed, fallback_text=f"𝒯ℯ𝓁ℯ𝓂ℯ𝓉𝓇𝓎 Analysis Complete for {user.display_name}.")
-        except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** Forensics failure: {e}", ephemeral=True)
-
-    @commands.hybrid_command(name="channelhealth", description="Algorithmic channel metrics.")
-    @commands.has_permissions(manage_messages=True)
-    async def channelhealth(self, ctx: commands.Context, channel: discord.TextChannel = None):
-        await ctx.defer()
-        try:
-            embed = discord.Embed(title=f"𝒱𝒾𝓉𝒶𝓁𝒾𝓉𝓎 𝒮𝒸𝒶𝓃: #{ (channel or ctx.channel).name }", description="Flow Density: **High**\nToxicity: **Minimal**", color=0x9B59B6)
-            await self._send_embed(ctx, embed, fallback_text=f"𝒱𝒾𝓉𝒶𝓁𝒾𝓉𝓎 Scan Complete. Engagement: High")
-        except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** Telemetry Scan failed: {e}")
-
-    @commands.hybrid_command(name="digest", description="Summarizes mass activity.")
-    @commands.has_permissions(manage_messages=True)
-    async def digest(self, ctx: commands.Context):
-        await ctx.defer()
-        try:
-            embed = discord.Embed(title="✤ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 ℛℴ𝓁𝓁𝓊𝓅", description="• Daily brief synchronized.\n• Status: Operational.", color=0x3498DB)
-            await self._send_embed(ctx, embed, fallback_text="ℛℴ𝓁𝓁𝓊𝓅 Complete.")
-        except Exception as e:
-            await ctx.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** Digest formation failed: {e}")
-
 async def setup(bot):
     if "InfrastructureEngine" not in bot.cogs:
         await bot.add_cog(InfrastructureEngine(bot))

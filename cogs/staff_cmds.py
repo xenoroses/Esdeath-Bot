@@ -130,37 +130,6 @@ class StaffCommands(commands.Cog):
         await rset(self.bot, f"bio:{ctx.author.id}", bio)
         await self._send_success(ctx, "✧ 𝒮𝓉ℯ𝓁𝓁𝒶𝓇 ℬ𝒾ℴ 𝓅𝓊𝓇𝒾𝒻𝒾ℯ𝒹.", ephemeral=True)
 
-    @commands.hybrid_group(name="case", description="Manage case logs.", invoke_without_command=True)
-    async def case_group(self, ctx: commands.Context):
-        await ctx.send_help(ctx.command)
-
-    @case_group.command(name="view", description="View user modlogs.")
-    @commands.has_permissions(moderate_members=True)
-    async def modlogs_view(self, ctx: commands.Context, user: discord.User):
-        await ctx.defer()
-        user_key = f"userlogs:{ctx.guild.id}:{user.id}"
-        case_ids = await rget_json(self.bot, user_key) or []
-        if not case_ids: return await self._send_success(ctx, f"**{user.display_name}** is clean.")
-        embed = discord.Embed(title=f"ℳℴ𝒹𝓁ℴℊ𝓈 for {user.display_name}", color=0x2b2d31)
-        embed.description = f"{len(case_ids)} total logs recorded."
-        await self._send_embed(ctx, embed, fallback_text=f"ℳℴ𝒹𝓁ℴℊ𝓈 for {user.display_name}")
-
-    @case_group.command(name="edit", description="Change case reason.")
-    @commands.has_permissions(moderate_members=True)
-    async def modlogs_edit(self, ctx: commands.Context, case_id: int, *, new_reason: str):
-        case_key = f"case:{ctx.guild.id}:{case_id}"
-        case_data = await rget_json(self.bot, case_key)
-        if not case_data: return await self._send_error(ctx, f"Case #{case_id} not found.")
-        case_data["reason"] = new_reason
-        await rset_json(self.bot, case_key, case_data)
-        await self._send_success(ctx, f"Updated Case #{case_id}.")
-
-    @case_group.command(name="clear", description="Clear modlogs.")
-    @commands.has_permissions(administrator=True)
-    async def modlogs_clear(self, ctx: commands.Context, user: discord.User):
-        await rdelete(self.bot, f"userlogs:{ctx.guild.id}:{user.id}")
-        await self._send_success(ctx, f"Cleared logs for **{user.display_name}**.")
-
     @commands.hybrid_group(name="role", description="Manage roles.", invoke_without_command=True)
     async def role_group(self, ctx: commands.Context):
         await ctx.send_help(ctx.command)
@@ -182,46 +151,6 @@ class StaffCommands(commands.Cog):
             return await self._send_error(ctx, "Authority Insufficient for target role rank.")
         await member.remove_roles(role)
         await self._send_success(ctx, f"𝒮ℯ𝓇𝒾𝓅𝓅ℯ𝒹 **{role.name}** for {member.mention}.")
-
-    @commands.hybrid_command(name="kick", description="Sever subject's connection to this sector.")
-    @commands.has_permissions(kick_members=True)
-    async def kick_cmd(self, ctx: commands.Context, member: discord.Member, *, reason: str = "Unspecified violation."):
-        if not await self._check_hierarchy(ctx, member): return
-        await member.kick(reason=reason)
-        await self._send_success(ctx, f"𝒦𝒾𝒸𝓀ℯ𝒹 **{member.display_name}** from this sector. Reason: `{reason}`")
-
-    @commands.hybrid_command(name="ban", description="Permanently blacklist subject from this sector.")
-    @commands.has_permissions(ban_members=True)
-    async def ban_cmd(self, ctx: commands.Context, member: Union[discord.Member, discord.User], *, reason: str = "Unspecified violation."):
-        if isinstance(member, discord.Member):
-            if not await self._check_hierarchy(ctx, member): return
-        await ctx.guild.ban(member, reason=reason)
-        await self._send_success(ctx, f"ℬ𝒶𝓃𝓃ℯ𝒹 **{member.display_name}** from all logic gates. Reason: `{reason}`")
-
-    @commands.hybrid_command(name="unban", description="Restore subject's access to this sector.")
-    @commands.has_permissions(ban_members=True)
-    async def unban_cmd(self, ctx: commands.Context, user_id: str, *, reason: str = "Restoration of access."):
-        try:
-            user = await self.bot.fetch_user(int(user_id))
-            await ctx.guild.unban(user, reason=reason)
-            await self._send_success(ctx, f"𝒰𝓃𝒷𝒶𝓃𝓃ℯ𝒹 **{user.display_name}**. Reason: `{reason}`")
-        except:
-            await self._send_error(ctx, "Invalid User ID or subject is not blacklisted.")
-
-    @commands.hybrid_command(name="mute", description="Silence subject's outgoing packets.")
-    @commands.has_permissions(moderate_members=True)
-    async def mute_cmd(self, ctx: commands.Context, member: discord.Member, duration: int = 60, *, reason: str = "Communications breach."):
-        if not await self._check_hierarchy(ctx, member): return
-        delta = datetime.timedelta(minutes=duration)
-        await member.timeout(delta, reason=reason)
-        await self._send_success(ctx, f"𝒮𝒾𝓁ℯ𝓃𝒸ℯ𝒹 **{member.display_name}** for {duration} cycles. Reason: `{reason}`")
-
-    @commands.hybrid_command(name="unmute", description="Restore subject's communication channels.")
-    @commands.has_permissions(moderate_members=True)
-    async def unmute_cmd(self, ctx: commands.Context, member: discord.Member, *, reason: str = "Communication restored."):
-        if not await self._check_hierarchy(ctx, member): return
-        await member.timeout(None, reason=reason)
-        await self._send_success(ctx, f"𝒰𝓃𝓂𝓊𝓉ℯ𝒹 **{member.display_name}**. Reason: `{reason}`")
 
 async def setup(bot):
     if "StaffCommands" not in bot.cogs:
