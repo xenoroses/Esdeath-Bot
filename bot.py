@@ -156,10 +156,16 @@ class HyacineBot(commands.AutoShardedBot):
         try:
             url, token = os.getenv("UPSTASH_REDIS_REST_URL"), os.getenv("UPSTASH_REDIS_REST_TOKEN")
             if url and token:
+                url = url.strip().rstrip("/")
+                token = token.strip()
                 self.redis = Redis(url=url, token=token)
                 self.cache = HyacineCache(self.redis)
                 await self.redis.ping()
-        except: sys.exit(1)
+                logging.info("✧ Upstash Redis Connection Verified & Active.")
+        except Exception as e:
+            logging.error(f"Redis Connection Warning: {e}. Falling back to in-memory cache mode.")
+            self.redis = None
+            self.cache = HyacineCache(None)
 
         extensions = [
             "cogs.staff_cmds", "cogs.ai_chat", "cogs.impersonator", "cogs.fun_cmds",
