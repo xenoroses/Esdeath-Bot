@@ -1,40 +1,22 @@
 import json
 
-async def rget(bot, key, default=None):
-    """Get and decode from Cache Layer (with fallback to Redis / default)."""
-    if hasattr(bot, 'cache') and bot.cache:
-        return await bot.cache.get(key, default=default)
-    
-    # Direct Redis Fallback
-    if getattr(bot, 'redis', None):
-        try:
-            data = await bot.redis.get(key)
-            if data is None:
-                return default
-            return data.decode('utf-8') if isinstance(data, bytes) else data
-        except Exception:
-            return default
-    return default
+_MEMORY_STORE = {}
+
+async def rget(bot, key: str, default=None):
+    """Fetch value from in-memory store."""
+    val = _MEMORY_STORE.get(key, default)
+    if val is None:
+        return default
+    return str(val) if not isinstance(val, str) else val
 
 async def rset(bot, key, value):
-    """Set Cache and Redis simultaneously for instant sync."""
+    """Set value in in-memory store."""
     if isinstance(value, (dict, list)):
         value = json.dumps(value)
-    
-    # Always normalize to string for the cache layer
-    if not isinstance(value, str):
-        value = str(value)
-        
-    if hasattr(bot, 'cache') and bot.cache:
-        await bot.cache.set(key, value)
-    elif getattr(bot, 'redis', None):
-        try:
-            await bot.redis.set(key, value)
-        except Exception:
-            pass
+    _MEMORY_STORE[key] = str(value) if not isinstance(value, str) else value
 
-async def rget_json(bot, key):
-    """Get and parse JSON from sync-aware layer."""
+async def rget_json(bot, key: str):
+    """Fetch and parse JSON from in-memory store."""
     data = await rget(bot, key)
     if not data:
         return None
@@ -43,40 +25,39 @@ async def rget_json(bot, key):
     except:
         return None
 
-async def rset_json(bot, key, value):
-    """Set JSON value with instant cache synchronization."""
+async def rset_json(bot, key: str, value):
+    """Store JSON value in in-memory store."""
     await rset(bot, key, json.dumps(value))
 
-# --- Atomic List Operations (Production Scale) ---
-
 async def rappend(bot, key: str, value: str):
-    """Atomically append to a Redis list and clear the local cache entry to ensure sync."""
-    if bot.redis:
+    """Append a value to an in-memory list."""
+    current = _MEMORY_STORE.get(key)
+    if current is None:
+        lst = []
+    else:
         try:
-            await bot.redis.rpush(key, value)
-            # Evict from local cache to force a fresh fetch next time
-            if hasattr(bot, 'cache') and bot.cache:
-                await bot.cache.delete(key)
-        except Exception as e:
-            print(f"Redis Atomic Append Error: {e}")
+            lst = json.loads(current) if isinstance(current, str) else current
+            if not isinstance(lst, list): lst = [current]
+        except:
+            lst = [current]
+    lst.append(value)
+    _MEMORY_STORE[key] = json.dumps(lst)
 
 async def rrange(bot, key: str, start: int = 0, stop: int = -1):
-    """Fetch a range from an atomic Redis list."""
-    if bot.redis:
-        try:
-            data = await bot.redis.lrange(key, start, stop)
-            return [d.decode('utf-8') if isinstance(d, bytes) else d for d in data]
-        except Exception as e:
-            print(f"Redis Atomic Range Error: {e}")
-            return []
+    """Fetch range from an in-memory list."""
+    current = _MEMORY_STORE.get(key)
+    if not current:
+        return []
+    try:
+        lst = json.loads(current) if isinstance(current, str) else current
+        if isinstance(lst, list):
+            if stop == -1:
+                return [str(x) for x in lst[start:]]
+            return [str(x) for x in lst[start:stop+1]]
+    except:
+        pass
     return []
 
 async def rdelete(bot, key: str):
-    """Atomically delete from both cache and Redis."""
-    if hasattr(bot, 'cache') and bot.cache:
-        await bot.cache.delete(key)
-    if bot.redis:
-        try:
-            await bot.redis.delete(key)
-        except Exception as e:
-            print(f"Redis Delete Error: {e}")
+    """Delete key from in-memory store."""
+    _MEMORY_STORE.pop(key, None)

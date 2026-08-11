@@ -1,6 +1,5 @@
 discord.py
 python-dotenv
-upstash-redis
 flask
 fastmcp
 httpx
