@@ -1,17 +1,20 @@
 import json
 
 async def rget(bot, key, default=None):
-    """Get and decode from Cache Layer (with fallback to Redis)."""
+    """Get and decode from Cache Layer (with fallback to Redis / default)."""
     if hasattr(bot, 'cache') and bot.cache:
-        data = await bot.cache.get(key, default=default)
-        # Cache layer already handles decoding to string
-        return data
+        return await bot.cache.get(key, default=default)
     
     # Direct Redis Fallback
-    data = await bot.redis.get(key)
-    if data is None:
-        return default
-    return data.decode('utf-8') if isinstance(data, bytes) else data
+    if getattr(bot, 'redis', None):
+        try:
+            data = await bot.redis.get(key)
+            if data is None:
+                return default
+            return data.decode('utf-8') if isinstance(data, bytes) else data
+        except Exception:
+            return default
+    return default
 
 async def rset(bot, key, value):
     """Set Cache and Redis simultaneously for instant sync."""
@@ -24,8 +27,11 @@ async def rset(bot, key, value):
         
     if hasattr(bot, 'cache') and bot.cache:
         await bot.cache.set(key, value)
-    else:
-        await bot.redis.set(key, value)
+    elif getattr(bot, 'redis', None):
+        try:
+            await bot.redis.set(key, value)
+        except Exception:
+            pass
 
 async def rget_json(bot, key):
     """Get and parse JSON from sync-aware layer."""

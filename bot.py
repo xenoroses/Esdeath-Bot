@@ -163,7 +163,7 @@ class HyacineBot(commands.AutoShardedBot):
                 await self.redis.ping()
                 logging.info("✧ Upstash Redis Connection Verified & Active.")
         except Exception as e:
-            logging.error(f"Redis Connection Warning: {e}. Falling back to in-memory cache mode.")
+            logging.info(f"✧ Upstash Redis Quota Limit Notice: {e}. Bot active using in-memory cache mode.")
             self.redis = None
             self.cache = HyacineCache(None)
 
