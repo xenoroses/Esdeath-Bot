@@ -54,11 +54,6 @@ class StickyCommands(commands.Cog):
     @commands.hybrid_command(name="sticky", description="Set a sticky message for this channel.")
     @commands.has_permissions(manage_channels=True)
     async def sticky(self, ctx: commands.Context, *, message: str):
-        if not self.bot.redis: return await ctx.send("Memory offline.")
-        
-        exec_lock = f"exec_lock:sticky:{ctx.channel.id}:{message[:20]}"
-        if not await self.bot.redis.set(exec_lock, "1", nx=True, ex=5): return
-
         key = f"sticky:{ctx.channel.id}"
         await rset_json(self.bot, key, {"message": message, "last_id": None})
         await ctx.send("✧ 𝒮𝓉𝒾𝒸𝓀𝓎 𝓂ℯ𝓈𝓈𝒶𝑔ℯ 𝓈ℯ𝓉 𝓅𝓇ℴ𝓉ℴ𝒸ℴ𝓁 ℯ𝓃𝑔𝒶𝑔ℯ𝒹.")
@@ -66,11 +61,6 @@ class StickyCommands(commands.Cog):
     @commands.hybrid_command(name="unsticky", description="Remove sticky message from this channel.")
     @commands.has_permissions(manage_channels=True)
     async def unsticky(self, ctx: commands.Context):
-        if not self.bot.redis: return await ctx.send("Memory offline.")
-        
-        exec_lock = f"exec_lock:unsticky:{ctx.channel.id}"
-        if not await self.bot.redis.set(exec_lock, "1", nx=True, ex=5): return
-
         key = f"sticky:{ctx.channel.id}"
         await rdelete(self.bot, key)
         await ctx.send("⌬ 𝒮𝓉𝒾𝒸𝓀𝓎 𝓂ℯ𝓈𝓈𝒶𝑔ℯ 𝓇ℯ𝓂ℴ𝓋ℯ𝒹 𝒻𝓇ℴ𝓂 𝓉𝒽𝒾𝓈 𝒸𝒽𝒶𝓃𝓃ℯ𝓁.")
@@ -78,7 +68,6 @@ class StickyCommands(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild: return
-        if not self.bot.redis: return
 
         key = f"sticky:{message.channel.id}"
         data = await rget_json(self.bot, key)
@@ -90,9 +79,6 @@ class StickyCommands(commands.Cog):
         if message.channel.last_message_id == last_id: return
 
         async with self.channel_locks[message.channel.id]:
-            lock_key = f"lock:sticky:{message.channel.id}:{message.id}"
-            if not await self.bot.redis.set(lock_key, "1", nx=True, ex=3): return
-
             if last_id:
                 try:
                     old_msg = await message.channel.fetch_message(last_id)

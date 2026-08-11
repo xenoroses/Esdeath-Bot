@@ -64,7 +64,7 @@ class Impersonator(commands.Cog):
             await self._send_embed(interaction, embed, ephemeral=True, fallback_text=f"Impersonated message sent to #{interaction.channel.name}")
 
             # Audit Logging for /say command
-            if interaction.guild and (getattr(self.bot, 'redis', None) or hasattr(self.bot, 'cache')):
+            if interaction.guild:
                 try:
                     log_channel_id = await rget(self.bot, f"impersonator_log_channel:{interaction.guild.id}")
                     if log_channel_id:

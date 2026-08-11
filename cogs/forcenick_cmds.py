@@ -59,7 +59,6 @@ class ForceNick(commands.Cog):
     @commands.hybrid_command(name="forcenick", description="Force and lock a user's nickname.")
     @commands.has_permissions(administrator=True)
     async def forcenick(self, ctx: commands.Context, member: discord.Member, *, nickname: str):
-        if not self.bot.redis: return await ctx.send("Memory offline.")
         if not await self._check_hierarchy(ctx, member): return
 
         try:
@@ -74,14 +73,12 @@ class ForceNick(commands.Cog):
     @commands.hybrid_command(name="unforcenick", description="Unlock a user's nickname.")
     @commands.has_permissions(administrator=True)
     async def unforcenick(self, ctx: commands.Context, member: discord.Member):
-        if not self.bot.redis: return await ctx.send("Memory offline.")
         key = f"forcenick:{ctx.guild.id}:{member.id}"
         await rdelete(self.bot, key)
         await ctx.send(f"✧ **𝒩𝒾𝒸𝓀𝓃𝒶𝓂ℯ 𝒰𝓃𝓁ℴ𝒸𝓀ℯ𝒹:** {member.mention} regained identity control.")
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
-        if not self.bot.redis: return
         key = f"forcenick:{after.guild.id}:{after.id}"
         data = await rget_json(self.bot, key)
         if not data: return

@@ -55,7 +55,6 @@ class AFKCommands(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild: return
-        if not self.bot.redis: return
 
         # Return from AFK
         author_data = await self.get_afk_data(message.author.id, message.guild.id)
