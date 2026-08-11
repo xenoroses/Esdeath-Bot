@@ -95,7 +95,7 @@ class Impersonator(commands.Cog):
             await interaction.followup.send(f"⌬ ⟡ **𝒮𝓎𝓈𝓉ℯ𝓂 ℰ𝓇𝓇ℴ𝓇:** {e}", ephemeral=True)
 
     @commands.hybrid_command(name="saylog", description="Set or view the log channel for /say impersonation commands.")
-    @commands.describe(channel="The text channel to send /say logs to. Omit to view current configuration.")
+    @app_commands.describe(channel="The text channel to send /say logs to. Omit to view current configuration.")
     @commands.has_permissions(administrator=True)
     async def saylog(self, ctx: commands.Context, channel: Optional[discord.TextChannel] = None):
         await ctx.defer(ephemeral=True)

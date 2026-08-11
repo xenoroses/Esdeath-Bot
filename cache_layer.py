@@ -51,7 +51,8 @@ class HyacineCache:
                     self.local_cache[key] = (cached_data, time.time() + self.ttl)
                     return cached_data
             except Exception as e:
-                print(f"Cache Layer Redis Fetch Error: {e}")
+                print(f"Cache Layer Redis Fetch Warning: {e}. Switching to in-memory cache.")
+                self.redis = None
                 
         return default
 
@@ -63,7 +64,8 @@ class HyacineCache:
             try:
                 await self.redis.set(key, value)
             except Exception as e:
-                print(f"Cache Layer Redis Set Error: {e}")
+                print(f"Cache Layer Redis Set Warning: {e}. Switching to in-memory cache.")
+                self.redis = None
 
     async def delete(self, key: str):
         """Delete from both tiers."""
@@ -72,5 +74,6 @@ class HyacineCache:
             try:
                 await self.redis.delete(key)
             except Exception as e:
-                print(f"Cache Layer Redis Delete Error: {e}")
+                print(f"Cache Layer Redis Delete Warning: {e}. Switching to in-memory cache.")
+                self.redis = None
 
