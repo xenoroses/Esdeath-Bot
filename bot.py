@@ -105,11 +105,13 @@ app = Flask(__name__)
 def home(): return "Hyacine is alive and guarding Hugging Face."
 
 def keep_alive():
-    port = int(os.environ.get("PORT", 7860))
-    logging.info(f"⌬ ⟡ Initiating Keep-Alive Heartbeat on port {port}...")
-    Thread(target=lambda: app.run(host="0.0.0.0", port=port), daemon=True).start()
-    Thread(target=lambda: uvicorn.run(eval_app, host="127.0.0.1", port=9000, log_level="warning"), daemon=True).start()
-    logging.info("⌬ ⟡ Keep-Alive Threads spawned successfully.")
+    try:
+        port = int(os.environ.get("PORT", 7860))
+        logging.info(f"⌬ ⟡ Initiating Keep-Alive Heartbeat on port {port}...")
+        Thread(target=lambda: app.run(host="0.0.0.0", port=port), daemon=True).start()
+        Thread(target=lambda: uvicorn.run(eval_app, host="127.0.0.1", port=9000, log_level="warning"), daemon=True).start()
+    except Exception as e:
+        logging.info(f"Keep-alive webserver notice: {e}")
 
 # --- 4. BOT CONFIGURATION ---
 load_dotenv()
