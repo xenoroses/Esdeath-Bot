@@ -48,4 +48,4 @@ with gr.Blocks(title="Hyacine Protocol") as demo:
     gr.Markdown("💡 **Uptime Monitor Tip:** To guarantee 100% 24/7 uptime without sleeping, add your Space URL (`https://xenoroses-hyacine-bot.hf.space`) to [UptimeRobot](https://uptimerobot.com) (HTTP Monitor, 5-minute interval).")
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(server_name="0.0.0.0", server_port=7860, ssr_mode=False)
