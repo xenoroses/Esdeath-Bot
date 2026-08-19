@@ -1,6 +1,7 @@
 discord.py
 python-dotenv
-gradio
+gradio>=5.0.0
+huggingface_hub>=0.25.0
 flask
 fastmcp
 httpx
