@@ -118,7 +118,7 @@ def keep_alive():
 
 # --- 4. BOT CONFIGURATION ---
 load_dotenv()
-TOKEN = os.getenv("dc_token")
+TOKEN = os.getenv("dc_token") or os.getenv("DISCORD_TOKEN") or os.getenv("BOT_TOKEN")
 
 HYACINE_DEFAULT_PREFIXES = ["!", ","]
 
@@ -179,7 +179,9 @@ async def main():
     global DISCORD_COM_IPS, DISCORD_GG_IPS
 
     keep_alive()
-    if not TOKEN: sys.exit(1)
+    if not TOKEN:
+        logging.error("❌ CRITICAL: No Discord Bot Token found! Please set Secret 'dc_token' or 'DISCORD_TOKEN' in Hugging Face Space Settings.")
+        return
 
     DISCORD_COM_IPS, DISCORD_GG_IPS = await fetch_discord_ips()
     
