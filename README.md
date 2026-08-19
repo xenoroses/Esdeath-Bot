@@ -3,11 +3,10 @@ title: Hyacine
 emoji: ✨
 colorFrom: purple
 colorTo: indigo
-sdk: docker
+sdk: gradio
+sdk_version: 4.44.1
+app_file: app.py
 pinned: false
-app_file: bot.py
-app_port: 7860
-# Trigger: 2026-04-24-Hardening-Cycle-v2
 ---
 
 Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
