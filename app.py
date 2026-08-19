@@ -5,6 +5,15 @@ import time
 import httpx
 import gradio as gr
 
+# Hugging Face ZeroGPU Startup Validator
+try:
+    import spaces
+    @spaces.GPU
+    def zero_gpu_keepalive(x: int = 1):
+        return f"ZeroGPU Engaged: {x}"
+except Exception as e:
+    print(f"ZeroGPU notice: {e}")
+
 # Start Hyacine Bot in a background thread after Gradio initializes
 def run_discord_bot():
     time.sleep(3)  # Short delay to allow Gradio to bind port 7860 first
