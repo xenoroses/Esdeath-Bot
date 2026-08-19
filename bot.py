@@ -105,6 +105,9 @@ app = Flask(__name__)
 def home(): return "Hyacine is alive and guarding Hugging Face."
 
 def keep_alive():
+    if os.environ.get("SPACE_ID") or os.environ.get("SPACE_HOST") or os.environ.get("GRADIO_SERVER_PORT"):
+        logging.info("⌬ ⟡ Hugging Face Space detected. Gradio managing port 7860.")
+        return
     try:
         port = int(os.environ.get("PORT", 7860))
         logging.info(f"⌬ ⟡ Initiating Keep-Alive Heartbeat on port {port}...")
