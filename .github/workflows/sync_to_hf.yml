@@ -17,4 +17,4 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git push --force https://xenoroses:$HF_TOKEN@huggingface.co/spaces/xenoroses/Hyacine-Bot main
+          git push --force https://xenoroses:$HF_TOKEN@huggingface.co/spaces/xenoroses/Esdeath-Bot main
