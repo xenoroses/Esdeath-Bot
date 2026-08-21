@@ -56,15 +56,11 @@ class ConfessionEngine(commands.Cog):
     """
     Aesthetic Anonymous Confession Engine for Hyacine Bot.
     """
-    confess_group = app_commands.Group(name="confess", description="Anonymous confession engine and administrator controls.")
+    confess = app_commands.Group(name="confess", description="Anonymous confession engine and administrator controls.")
 
     def __init__(self, bot):
         self.bot = bot
         self.bot.add_view(ConfessionPanelView(self))
-        try:
-            self.bot.tree.add_command(self.confess_group)
-        except Exception:
-            pass
 
     async def refresh_confession_panel(self, channel: discord.TextChannel):
         """Delete the old confession panel and repost it underneath the newest confession."""
@@ -189,11 +185,11 @@ class ConfessionEngine(commands.Cog):
             except: pass
 
     # --- Slash Commands Group ---
-    @confess_group.command(name="send", description="Submit an anonymous confession to the server confession channel.")
+    @confess.command(name="send", description="Submit an anonymous confession to the server confession channel.")
     async def confess_send(self, interaction: discord.Interaction, message: str):
         await self.process_confession(interaction=interaction, user=interaction.user, guild=interaction.guild, content=message.strip())
 
-    @confess_group.command(name="setup", description="Set up designated channel for public anonymous confessions.")
+    @confess.command(name="setup", description="Set up designated channel for public anonymous confessions.")
     @app_commands.checks.has_permissions(manage_channels=True)
     async def confess_setup(self, interaction: discord.Interaction, channel: discord.TextChannel, log_channel: Optional[discord.TextChannel] = None):
         await self._set_guild_config(guild_id=interaction.guild.id, channel_id=channel.id, log_channel_id=log_channel.id if log_channel else None)
@@ -206,7 +202,7 @@ class ConfessionEngine(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @confess_group.command(name="panel", description="Send an interactive 'Submit Confession' button panel to the channel.")
+    @confess.command(name="panel", description="Send an interactive 'Submit Confession' button panel to the channel.")
     @app_commands.checks.has_permissions(manage_channels=True)
     async def confess_panel(self, interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
         target_ch = channel or interaction.channel
@@ -223,7 +219,7 @@ class ConfessionEngine(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Failed posting panel to {target_ch.mention}: {e}", ephemeral=True)
 
-    @confess_group.command(name="trace", description="[Admin Only] Trace the real author of a specific confession ID.")
+    @confess.command(name="trace", description="[Admin Only] Trace the real author of a specific confession ID.")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def confess_trace(self, interaction: discord.Interaction, confession_id: int):
         data = await rget_json(self.bot, f"confession:log:{interaction.guild.id}:{confession_id}")
@@ -241,7 +237,7 @@ class ConfessionEngine(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @confess_group.command(name="reset", description="[Admin Only] Reset or set the anonymous confession counter.")
+    @confess.command(name="reset", description="[Admin Only] Reset or set the anonymous confession counter.")
     @app_commands.checks.has_permissions(manage_channels=True)
     async def confess_reset(self, interaction: discord.Interaction, count: int = 0):
         if count < 0:
