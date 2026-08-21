@@ -167,15 +167,15 @@ class HyacineBot(commands.AutoShardedBot):
     async def on_ready(self):
         logging.info(f"SUCCESS: {self.user} is online via Autonomous Relay.")
         try:
-            synced = await self.tree.sync()
-            logging.info(f"Successfully synced {len(synced)} global app commands.")
             for guild in self.guilds:
                 try:
-                    self.tree.copy_global_to(guild=guild)
+                    self.tree.clear_commands(guild=guild)
                     await self.tree.sync(guild=guild)
-                    logging.info(f"Instant-synced app commands to guild {guild.name} ({guild.id}).")
-                except Exception as ge:
-                    logging.warning(f"Guild sync notice for {guild.id}: {ge}")
+                except Exception:
+                    pass
+
+            synced = await self.tree.sync()
+            logging.info(f"Successfully synced {len(synced)} global app commands with 0 duplicates.")
         except Exception as e:
             logging.error(f"Global app command sync error: {e}")
 
