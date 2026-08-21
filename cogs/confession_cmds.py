@@ -56,13 +56,18 @@ class ConfessionEngine(commands.Cog):
     """
     Aesthetic Anonymous Confession Engine for Hyacine Bot.
     """
+    confess_group = app_commands.Group(name="confess", description="Anonymous confession engine and administrator controls.")
+
     def __init__(self, bot):
         self.bot = bot
         self.bot.add_view(ConfessionPanelView(self))
+        try:
+            self.bot.tree.add_command(self.confess_group)
+        except Exception:
+            pass
 
-        async def refresh_confession_panel(self, channel: discord.TextChannel):
+    async def refresh_confession_panel(self, channel: discord.TextChannel):
         """Delete the old confession panel and repost it underneath the newest confession."""
-
         try:
             async for message in channel.history(limit=100):
                 if message.author.id != self.bot.user.id:
@@ -73,7 +78,7 @@ class ConfessionEngine(commands.Cog):
 
                 embed = message.embeds[0]
 
-                if embed.title == "💖 Anonymous Confession Portal":
+                if embed.title in ("💖 Anonymous Confession Portal", "🌸 Anonymous Confession Portal"):
                     await message.delete()
                     break
 
@@ -82,8 +87,8 @@ class ConfessionEngine(commands.Cog):
 
         panel_embed = discord.Embed(
             title="💖 Anonymous Confession Portal",
-            description="Click the button below to submit an anonymous confession.\n"
-                        "Your identity will remain completely hidden from server members.",
+            description="Click the button below to submit an **anonymous confession**.\n"
+                        "Your identity will remain completely hidden from regular server members.",
             color=0xFF69B4
         )
 
@@ -93,7 +98,7 @@ class ConfessionEngine(commands.Cog):
             await channel.send(embed=panel_embed, view=view)
         except Exception as e:
             print(f"Failed reposting confession panel: {e}")
-    
+
     async def _get_guild_config(self, guild_id: int) -> Optional[dict]:
         return await rget_json(self.bot, f"confession:config:{guild_id}")
 
@@ -110,13 +115,21 @@ class ConfessionEngine(commands.Cog):
         config = await self._get_guild_config(guild.id)
         if not config or not config.get("channel_id"):
             msg = "⚠️ Confession channel is not configured in this server. An admin must run `/confess setup`."
-            if interaction: return await interaction.response.send_message(msg, ephemeral=True)
+            if interaction:
+                return await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                try: await user.send(msg)
+                except: pass
             return
 
         confession_ch = guild.get_channel(config["channel_id"])
         if not confession_ch:
             msg = "❌ Configured confession channel was not found."
-            if interaction: return await interaction.response.send_message(msg, ephemeral=True)
+            if interaction:
+                return await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                try: await user.send(msg)
+                except: pass
             return
 
         new_count = config.get("count", 0) + 1
@@ -139,12 +152,12 @@ class ConfessionEngine(commands.Cog):
             description=content,
             color=0xFF69B4
         )
-        public_embed.set_footer(text="Type /confess or click button to submit")
 
         try:
             await confession_ch.send(embed=public_embed)
             await self.refresh_confession_panel(confession_ch)
         except Exception as e:
+            print(f"Error posting confession: {e}")
             if interaction:
                 return await interaction.response.send_message(f"❌ Failed to post confession to channel: {e}", ephemeral=True)
 
@@ -171,10 +184,11 @@ class ConfessionEngine(commands.Cog):
                 await interaction.followup.send(success_msg, ephemeral=True)
             else:
                 await interaction.response.send_message(success_msg, ephemeral=True)
+        else:
+            try: await user.send(success_msg)
+            except: pass
 
     # --- Slash Commands Group ---
-    confess_group = app_commands.Group(name="confess", description="Anonymous confession engine and administrator controls.")
-
     @confess_group.command(name="send", description="Submit an anonymous confession to the server confession channel.")
     async def confess_send(self, interaction: discord.Interaction, message: str):
         await self.process_confession(interaction=interaction, user=interaction.user, guild=interaction.guild, content=message.strip())
@@ -198,8 +212,8 @@ class ConfessionEngine(commands.Cog):
         target_ch = channel or interaction.channel
         embed = discord.Embed(
             title="💖 Anonymous Confession Portal",
-            description="Click the button below to submit an anonymous confession.\n"
-                        "Your identity will remain completely hidden from server members.",
+            description="Click the button below to submit an **anonymous confession**.\n"
+                        "Your identity will remain completely hidden from regular server members.",
             color=0xFF69B4
         )
         view = ConfessionPanelView(self)
@@ -227,38 +241,81 @@ class ConfessionEngine(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @confess_group.command(
-        name="reset",
-        description="[Admin Only] Reset or set the anonymous confession counter."
-    )
+    @confess_group.command(name="reset", description="[Admin Only] Reset or set the anonymous confession counter.")
     @app_commands.checks.has_permissions(manage_channels=True)
-    async def confess_reset(
-        self,
-        interaction: discord.Interaction,
-        count: int = 0
-    ):
+    async def confess_reset(self, interaction: discord.Interaction, count: int = 0):
         if count < 0:
-            return await interaction.response.send_message(
-                "❌ Confession count cannot be negative.",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("❌ Confession count cannot be negative.", ephemeral=True)
 
-        await self._set_guild_config(
-            guild_id=interaction.guild.id,
-            count=count
-        )
-
+        await self._set_guild_config(guild_id=interaction.guild.id, count=count)
         embed = discord.Embed(
             title="Confession Counter Reset",
             description=f"✨ Anonymous confession counter has been reset to **#{count}**.",
             color=0xFF69B4
         )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
-        await interaction.response.send_message(
-            embed=embed,
-            ephemeral=True
+    # --- Prefix Commands Fallback (!confess / ,confess) ---
+    @commands.command(name="confess")
+    async def confess_prefix(self, ctx: commands.Context, *, message: Optional[str] = None):
+        """Prefix command fallback (!confess <message> / !confess setup #channel / !confess panel / !confess trace <id> / !confess reset [count])."""
+        if not message:
+            return await ctx.send("⚠️ Usage: `!confess <your confession>` or `/confess send`.")
+
+        clean_text = message.strip()
+        args = clean_text.split()
+        sub = args[0].lower()
+
+        if sub == "reset" and (ctx.author.guild_permissions.manage_channels or ctx.author.guild_permissions.administrator):
+            new_val = 0
+            if len(args) > 1 and args[1].isdigit(): new_val = int(args[1])
+            await self._set_guild_config(ctx.guild.id, count=new_val)
+            return await ctx.send(f"✨ Confession counter reset to **#{new_val}**.")
+
+        if sub == "setup" and (ctx.author.guild_permissions.manage_channels or ctx.author.guild_permissions.administrator):
+            if len(ctx.message.channel_mentions) > 0:
+                ch = ctx.message.channel_mentions[0]
+                log_ch = ctx.message.channel_mentions[1] if len(ctx.message.channel_mentions) > 1 else None
+                log_id = log_ch.id if log_ch else None
+                await self._set_guild_config(ctx.guild.id, channel_id=ch.id, log_channel_id=log_id)
+                return await ctx.send(f"✧ Confession channel set to {ch.mention}.")
+            return await ctx.send("⚠️ Please mention a channel: `!confess setup #confessions [#admin-log]`.")
+
+        if sub == "panel" and (ctx.author.guild_permissions.manage_channels or ctx.author.guild_permissions.administrator):
+            embed = discord.Embed(
+                title="💖 Anonymous Confession Portal",
+                description="Click the button below to submit an **anonymous confession**.\n"
+                            "Your identity will remain completely hidden from regular server members.",
+                color=0xFF69B4
+            )
+            view = ConfessionPanelView(self)
+            await ctx.channel.send(embed=embed, view=view)
+            try: await ctx.message.delete()
+            except: pass
+            return
+
+        if sub == "trace" and (ctx.author.guild_permissions.manage_messages or ctx.author.guild_permissions.administrator):
+            if len(args) > 1 and args[1].isdigit():
+                cid = int(args[1])
+                data = await rget_json(self.bot, f"confession:log:{ctx.guild.id}:{cid}")
+                if data:
+                    uid = data.get("user_id")
+                    member = ctx.guild.get_member(uid)
+                    ustr = f"{member.mention} ({member.name})" if member else f"`User ID: {uid}`"
+                    return await ctx.send(f"🕵️ **Audit Trace #{cid}**: Author {ustr} | Content: \"{data.get('content')}\"")
+                return await ctx.send(f"⚠️ Confession #{cid} not found.")
+
+        # Delete prefix message to preserve anonymity
+        try: await ctx.message.delete()
+        except: pass
+
+        await self.process_confession(
+            interaction=None,
+            user=ctx.author,
+            guild=ctx.guild,
+            content=clean_text
         )
-        
+
 async def setup(bot):
     if "ConfessionEngine" not in bot.cogs:
         await bot.add_cog(ConfessionEngine(bot))
